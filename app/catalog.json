@@ -1,0 +1,101 @@
+[
+  {
+    "id": "sku_rose_low",
+    "flower": "Rose",
+    "title": "Rose Bouquet",
+    "desc": "Handpicked rose arranged in a vase.",
+    "image": "/assets/card-1.jpg",
+    "price_inr": 1299,
+    "tags": [
+      "General"
+    ]
+  },
+  {
+    "id": "sku_rose_mid",
+    "flower": "Rose",
+    "title": "Rose Bouquet",
+    "desc": "Handpicked rose arranged in a vase.",
+    "image": "/assets/card-2.jpg",
+    "price_inr": 1699,
+    "tags": [
+      "General"
+    ]
+  },
+  {
+    "id": "sku_rose_high",
+    "flower": "Rose",
+    "title": "Rose Bouquet",
+    "desc": "Handpicked rose arranged in a vase.",
+    "image": "/assets/card-3.jpg",
+    "price_inr": 2499,
+    "tags": [
+      "General"
+    ]
+  },
+  {
+    "id": "sku_lily_low",
+    "flower": "Lily",
+    "title": "Lily Bouquet",
+    "desc": "Handpicked lily arranged in a vase.",
+    "image": "/assets/card-1.jpg",
+    "price_inr": 1299,
+    "tags": [
+      "General"
+    ]
+  },
+  {
+    "id": "sku_lily_mid",
+    "flower": "Lily",
+    "title": "Lily Bouquet",
+    "desc": "Handpicked lily arranged in a vase.",
+    "image": "/assets/card-2.jpg",
+    "price_inr": 1699,
+    "tags": [
+      "General"
+    ]
+  },
+  {
+    "id": "sku_lily_high",
+    "flower": "Lily",
+    "title": "Lily Bouquet",
+    "desc": "Handpicked lily arranged in a vase.",
+    "image": "/assets/card-3.jpg",
+    "price_inr": 2499,
+    "tags": [
+      "General"
+    ]
+  },
+  {
+    "id": "sku_gerbera_low",
+    "flower": "Gerbera",
+    "title": "Gerbera Bouquet",
+    "desc": "Handpicked gerbera arranged in a vase.",
+    "image": "/assets/card-1.jpg",
+    "price_inr": 1299,
+    "tags": [
+      "General"
+    ]
+  },
+  {
+    "id": "sku_gerbera_mid",
+    "flower": "Gerbera",
+    "title": "Gerbera Bouquet",
+    "desc": "Handpicked gerbera arranged in a vase.",
+    "image": "/assets/card-2.jpg",
+    "price_inr": 1699,
+    "tags": [
+      "General"
+    ]
+  },
+  {
+    "id": "sku_gerbera_high",
+    "flower": "Gerbera",
+    "title": "Gerbera Bouquet",
+    "desc": "Handpicked gerbera arranged in a vase.",
+    "image": "/assets/card-3.jpg",
+    "price_inr": 2499,
+    "tags": [
+      "General"
+    ]
+  }
+]
