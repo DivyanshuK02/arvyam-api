@@ -1,4 +1,4 @@
-import os, json
+import os, json, logging
 from typing import Any, Dict, List
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -7,10 +7,26 @@ from fastapi.responses import JSONResponse
 from fastapi.exception_handlers import http_exception_handler
 from fastapi.exceptions import RequestValidationError
 
+# Rate limiting
+from slowapi import Limiter
+from slowapi.util import get_remote_address
+from slowapi.middleware import SlowAPIMiddleware
+from slowapi.errors import RateLimitExceeded
+
+# ---------- Env ----------
 ALLOWED = os.getenv("ALLOWED_ORIGINS", "https://arvyam.com")
 ASSET_BASE = os.getenv("PUBLIC_ASSET_BASE", "https://arvyam.com").rstrip("/")
+RATE_LIMIT_PER_MIN = int(os.getenv("RATE_LIMIT_PER_MIN", "10"))
 
-app = FastAPI(title="Arvyam API (Step 3: Excel-driven curation)")
+# ---------- Logging ----------
+logger = logging.getLogger("arvyam")
+logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
+
+# ---------- App ----------
+limiter = Limiter(key_func=get_remote_address, default_limits=[f"{RATE_LIMIT_PER_MIN}/minute"])
+app = FastAPI(title="Arvyam API (Step 3 + Rate Limit / Logs)")
+app.state.limiter = limiter
+app.add_middleware(SlowAPIMiddleware)
 
 app.add_middleware(
     CORSMiddleware,
@@ -20,15 +36,18 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# ---------- Data ----------
 HERE = os.path.dirname(__file__)
 
 def load_json(relpath: str):
     with open(os.path.join(HERE, relpath), "r", encoding="utf-8") as f:
         return json.load(f)
 
+# from your Step 3 bundle:
 RULES: List[Dict[str, Any]] = load_json("rules.json")
 CATALOG: List[Dict[str, Any]] = load_json("catalog.json")
 
+# ---------- Helpers ----------
 def to_public_image(url_or_path: str) -> str:
     if url_or_path.startswith("http://") or url_or_path.startswith("https://"):
         return url_or_path
@@ -118,6 +137,7 @@ def pick_three(category: str) -> List[Dict[str, Any]]:
 
     return [shape_item(x) for x in chosen[:3]]
 
+# ---------- API ----------
 class CurateIn(BaseModel):
     prompt: str = Field(..., min_length=1, max_length=350)
 
@@ -126,14 +146,28 @@ def health():
     return {"ok": True}
 
 @app.post("/api/curate")
-def curate(body: CurateIn, request):
-    prompt = sanitize_text(body.prompt)
-    if not prompt:
-        raise HTTPException(status_code=422, detail={"error":{"code":"EMPTY_PROMPT","message":"Please write a short line."}})
-    category = classify_category(prompt)
-    items = pick_three(category)
-    return items
+@limiter.limit(f"{RATE_LIMIT_PER_MIN}/minute")
+def curate(body: CurateIn, request: Request):
+    try:
+        prompt = sanitize_text(body.prompt)
+        if not prompt:
+            raise HTTPException(status_code=422, detail={"error":{"code":"EMPTY_PROMPT","message":"Please write a short line."}})
 
+        category = classify_category(prompt)
+        items = pick_three(category)
+
+        # minimal request log
+        ip = get_remote_address(request)
+        logger.info("CURATE ip=%s category=%s prompt=%s", ip, category, prompt[:120])
+        return items
+
+    except HTTPException:
+        raise
+    except Exception:
+        logger.exception("CURATE_ERROR")
+        raise HTTPException(status_code=500, detail={"error":{"code":"SERVER_ERROR","message":"Something went wrong while curating. Please try again later."}})
+
+# ---------- Error shaping ----------
 @app.exception_handler(HTTPException)
 async def http_exc_handler(request, exc: HTTPException):
     if isinstance(exc.detail, dict) and "error" in exc.detail:
@@ -143,3 +177,10 @@ async def http_exc_handler(request, exc: HTTPException):
 @app.exception_handler(RequestValidationError)
 async def validation_exception_handler(request, exc):
     return JSONResponse(status_code=422, content={"error":{"code":"VALIDATION_ERROR","message":"Invalid input."}})
+
+@app.exception_handler(RateLimitExceeded)
+async def ratelimit_handler(request: Request, exc: RateLimitExceeded):
+    return JSONResponse(
+        status_code=429,
+        content={"error":{"code":"RATE_LIMITED","message":"Too many requests. Please try again in a minute."}}
+    )
