@@ -24,7 +24,7 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(mess
 
 # ---------- App ----------
 limiter = Limiter(key_func=get_remote_address, default_limits=[f"{RATE_LIMIT_PER_MIN}/minute"])
-app = FastAPI(title="Arvyam API (Step 3 + Rate Limit / Logs)")
+app = FastAPI(title="Arvyam API (MVP)")
 app.state.limiter = limiter
 app.add_middleware(SlowAPIMiddleware)
 
@@ -43,7 +43,7 @@ def load_json(relpath: str):
     with open(os.path.join(HERE, relpath), "r", encoding="utf-8") as f:
         return json.load(f)
 
-# from your Step 3 bundle:
+# From Step 3 bundle (keep these files in app/)
 RULES: List[Dict[str, Any]] = load_json("rules.json")
 CATALOG: List[Dict[str, Any]] = load_json("catalog.json")
 
@@ -57,6 +57,10 @@ def sanitize_text(s: str) -> str:
     return " ".join((s or "").strip().split())
 
 def classify_category(prompt: str) -> str:
+    """
+    Match the user prompt to the best category from rules.json by keyword hits.
+    Fallback to Love/Encouragement/Gratitude if no hits, else first rule.
+    """
     p = prompt.lower()
     best_cat = None
     best_hits = 0
@@ -74,6 +78,9 @@ def classify_category(prompt: str) -> str:
     return RULES[0]["category"]
 
 def flower_priority_for_category(category: str) -> List[str]:
+    """
+    Return prioritized flowers for a category, boosting roses/lilies if present.
+    """
     for r in RULES:
         if r["category"].lower() == category.lower():
             pr = [x.title() for x in (r.get("priority") or [])]
@@ -98,49 +105,88 @@ def shape_item(r: Dict[str, Any]) -> Dict[str, Any]:
     }
 
 def pick_three(category: str) -> List[Dict[str, Any]]:
+    """
+    Select exactly 3 items for the category:
+    - Filter by category tag
+    - Sort by flower priority (roses/lilies boosted) then price
+    - Aim for low/mid/high prices
+    - Enforce distinct images per response (best-effort)
+    """
+    # 1) filter candidates
     candidates = [c for c in CATALOG if category in (c.get("tags") or [])]
 
+    # 2) sort by flower priority then by price
     prio = flower_priority_for_category(category)
     def prio_index(flower: str) -> int:
         fl = (flower or "").title()
         return prio.index(fl) if fl in prio else 9999
     candidates.sort(key=lambda x: (prio_index(x.get("flower")), x.get("price_inr", 999999)))
 
+    # 3) fallback if none
     if not candidates:
         base = sorted(CATALOG, key=lambda x: x.get("price_inr", 999999))
-        return [shape_item(x) for x in base[:3]]
+        seen_imgs, chosen = set(), []
+        for c in base:
+            img = (c.get("image_url") or c.get("image",""))
+            if img not in seen_imgs:
+                seen_imgs.add(img)
+                chosen.append(c)
+            if len(chosen) == 3:
+                break
+        return [shape_item(x) for x in chosen]
 
+    # 4) compute intended price buckets (low/mid/high)
     prices = sorted(sorted({c["price_inr"] for c in candidates}))
     if len(prices) >= 3:
-        low_price, mid_price, high_price = prices[0], prices[len(prices)//2], prices[-1]
+        targets = [prices[0], prices[len(prices)//2], prices[-1]]
     elif len(prices) == 2:
-        low_price, mid_price, high_price = prices[0], prices[0], prices[1]
+        targets = [prices[0], prices[0], prices[1]]
     else:
-        low_price = mid_price = high_price = prices[0]
+        targets = [prices[0], prices[0], prices[0]]
 
-    def first_at(price):
+    # 5) pick one per bucket, ensuring distinct images
+    chosen, seen_imgs = [], set()
+
+    def try_pick(price):
         for c in candidates:
             if c["price_inr"] == price:
-                return c
+                img = (c.get("image_url") or c.get("image",""))
+                if img not in seen_imgs:
+                    seen_imgs.add(img)
+                    return c
         return None
 
-    chosen = []
-    for p in [low_price, mid_price, high_price]:
-        item = first_at(p)
+    for p in targets:
+        item = try_pick(p)
         if item and item not in chosen:
             chosen.append(item)
 
+    # 6) pad with next best that has a new image
     for c in candidates:
-        if len(chosen) >= 3: break
-        if c not in chosen:
+        if len(chosen) >= 3:
+            break
+        img = (c.get("image_url") or c.get("image",""))
+        if img not in seen_imgs and c not in chosen:
+            seen_imgs.add(img)
             chosen.append(c)
+
+    # 7) final safety pad (if catalog is very small)
+    i = 0
+    while len(chosen) < 3 and i < len(candidates):
+        if candidates[i] not in chosen:
+            chosen.append(candidates[i])
+        i += 1
 
     return [shape_item(x) for x in chosen[:3]]
 
-# ---------- API ----------
+# ---------- Schemas ----------
 class CurateIn(BaseModel):
     prompt: str = Field(..., min_length=1, max_length=350)
 
+class CheckoutIn(BaseModel):
+    product_id: str
+
+# ---------- Routes ----------
 @app.get("/health")
 def health():
     return {"ok": True}
@@ -156,7 +202,6 @@ def curate(body: CurateIn, request: Request):
         category = classify_category(prompt)
         items = pick_three(category)
 
-        # minimal request log
         ip = get_remote_address(request)
         logger.info("CURATE ip=%s category=%s prompt=%s", ip, category, prompt[:120])
         return items
@@ -167,6 +212,18 @@ def curate(body: CurateIn, request: Request):
         logger.exception("CURATE_ERROR")
         raise HTTPException(status_code=500, detail={"error":{"code":"SERVER_ERROR","message":"Something went wrong while curating. Please try again later."}})
 
+# Optional: Step 5 (Checkout stub; safe to keep now)
+@app.post("/api/checkout")
+@limiter.limit(f"{RATE_LIMIT_PER_MIN}/minute")
+def checkout(body: CheckoutIn, request: Request):
+    pid = sanitize_text(body.product_id)
+    if not pid:
+        raise HTTPException(status_code=422, detail={"error":{"code":"BAD_PRODUCT","message":"product_id is required."}})
+    url = f"https://checkout.example/intent?pid={pid}"
+    ip = get_remote_address(request)
+    logger.info("CHECKOUT ip=%s product=%s", ip, pid)
+    return {"checkout_url": url}
+
 # ---------- Error shaping ----------
 @app.exception_handler(HTTPException)
 async def http_exc_handler(request, exc: HTTPException):
@@ -176,7 +233,10 @@ async def http_exc_handler(request, exc: HTTPException):
 
 @app.exception_handler(RequestValidationError)
 async def validation_exception_handler(request, exc):
-    return JSONResponse(status_code=422, content={"error":{"code":"VALIDATION_ERROR","message":"Invalid input."}})
+    return JSONResponse(
+        status_code=422,
+        content={"error":{"code":"VALIDATION_ERROR","message":"Invalid input."}}
+    )
 
 @app.exception_handler(RateLimitExceeded)
 async def ratelimit_handler(request: Request, exc: RateLimitExceeded):
