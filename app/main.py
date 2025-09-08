@@ -14,19 +14,26 @@ from slowapi.util import get_remote_address
 from slowapi.middleware import SlowAPIMiddleware
 from slowapi.errors import RateLimitExceeded
 
-# ---------- Env ----------
+# =========================
+# Environment & Constants
+# =========================
 ALLOWED = os.getenv("ALLOWED_ORIGINS", "https://arvyam.com")
 ASSET_BASE = os.getenv("PUBLIC_ASSET_BASE", "https://arvyam.com").rstrip("/")
 RATE_LIMIT_PER_MIN = int(os.getenv("RATE_LIMIT_PER_MIN", "10"))
-PERSONA = os.getenv("PERSONA_NAME", "ARVY")  # persona SoT
+PERSONA = os.getenv("PERSONA_NAME", "ARVY")  # for logs/UI
+ERROR_PERSONA = "ARVY"                       # hard-coded in API errors
 
-# ---------- Logging ----------
+# =========================
+# Logging
+# =========================
 logger = logging.getLogger("arvyam")
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 
-# ---------- App ----------
+# =========================
+# App Setup
+# =========================
 limiter = Limiter(key_func=get_remote_address, default_limits=[f"{RATE_LIMIT_PER_MIN}/minute"])
-app = FastAPI(title="Arvyam API (MVP Neutral Titles)")
+app = FastAPI(title="Arvyam API")
 app.state.limiter = limiter
 app.add_middleware(SlowAPIMiddleware)
 
@@ -38,7 +45,9 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# ---------- Data ----------
+# =========================
+# Data Loaders
+# =========================
 HERE = os.path.dirname(__file__)
 
 def load_json(relpath: str):
@@ -48,7 +57,9 @@ def load_json(relpath: str):
 RULES: List[Dict[str, Any]] = load_json("rules.json")
 CATALOG: List[Dict[str, Any]] = load_json("catalog.json")
 
-# ---------- Helpers ----------
+# =========================
+# Helpers
+# =========================
 def to_public_image(url_or_path: str) -> str:
     if url_or_path.startswith(("http://", "https://")):
         return url_or_path
@@ -67,6 +78,7 @@ def classify_category(prompt: str) -> str:
             best_cat, best_hits = r["category"], hits
     if best_cat:
         return best_cat
+    # fallback order
     for fallback in ["Love", "Encouragement", "Gratitude"]:
         if any(r["category"].lower() == fallback.lower() for r in RULES):
             return fallback
@@ -75,7 +87,7 @@ def classify_category(prompt: str) -> str:
 def shape_item(r: Dict[str, Any]) -> Dict[str, Any]:
     return {
         "id": r["id"],
-        "title": "Curated Bouquet",  # neutral base title
+        "title": "Curated Bouquet",
         "desc": r.get("desc") or "Thoughtfully arranged.",
         "image": to_public_image(r.get("image_url") or r.get("image", "")),
         "price": int(r["price_inr"]),
@@ -159,30 +171,35 @@ def refine_copy(items: List[Dict[str, Any]], category: str) -> List[Dict[str, An
             it["desc"] = high_t
     return items
 
-# ---------- Canonical error shaping ----------
+# =========================
+# Canonical Error Builder
+# =========================
 def error_json(code: str, message: str, status: int = 400) -> JSONResponse:
     """Single place to shape all error responses with persona + request_id."""
     return JSONResponse(
         status_code=status,
         content={
             "error": {"code": code, "message": message},
-            "persona": PERSONA,
+            "persona": ERROR_PERSONA,           # always "ARVY"
             "request_id": str(uuid.uuid4())
         }
     )
 
-# ---------- Schemas ----------
+# =========================
+# Schemas (UI-aligned caps)
+# =========================
 class CurateIn(BaseModel):
-    # Backend cap aligned to UI (240)
-    prompt: str = Field(..., min_length=1, max_length=240)
+    prompt: str = Field(..., min_length=1, max_length=240)  # 240 cap
 
 class CheckoutIn(BaseModel):
     product_id: str
 
-# ---------- Routes ----------
+# =========================
+# Routes
+# =========================
 @app.get("/health")
 def health():
-    return {"ok": True}
+    return {"status": "ok", "persona": ERROR_PERSONA, "version": "v1"}
 
 @app.post("/api/curate")
 @limiter.limit(f"{RATE_LIMIT_PER_MIN}/minute")
@@ -196,10 +213,11 @@ def curate(body: CurateIn, request: Request):
         items = refine_copy(pick_three(category), category)
 
         ip = get_remote_address(request)
-        logger.info(f"[{PERSONA}] CURATE ip=%s category=%s prompt=%s", ip, category, prompt[:120])
+        # Safe, short preview; never log full prompt
+        logger.info(f"[{PERSONA}] CURATE ip=%s category=%s preview=%s", ip, category, prompt[:60])
         return items
 
-    except Exception:
+    except Exception as e:
         logger.exception(f"[{PERSONA}] CURATE_ERROR")
         return error_json("SERVER_ERROR", "Something went wrong while curating. Please try again later.", 500)
 
@@ -214,24 +232,25 @@ def checkout(body: CheckoutIn, request: Request):
     logger.info(f"[{PERSONA}] CHECKOUT ip=%s product=%s", ip, pid)
     return {"checkout_url": url}
 
-# ---------- Error normalization ----------
+# =========================
+# Error Normalization
+# =========================
 @app.exception_handler(HTTPException)
-async def http_exc_handler(request, exc: HTTPException):
-    # If legacy handlers raised HTTPException with detail dict, normalize it.
+async def http_exc_handler(request: Request, exc: HTTPException):
+    # Normalize any legacy raises into our canonical shape
     if isinstance(exc.detail, dict):
         shaped = {
             "error": exc.detail.get("error", {"code": "HTTP_ERROR", "message": "Request error."}),
-            "persona": PERSONA,
+            "persona": ERROR_PERSONA,
             "request_id": str(uuid.uuid4())
         }
         return JSONResponse(status_code=exc.status_code, content=shaped)
     return await http_exception_handler(request, exc)
 
 @app.exception_handler(RequestValidationError)
-async def validation_exception_handler(request, exc):
+async def validation_exception_handler(request: Request, exc):
     return error_json("VALIDATION_ERROR", "Invalid input.", 422)
 
 @app.exception_handler(RateLimitExceeded)
 async def ratelimit_handler(request: Request, exc: RateLimitExceeded):
     return error_json("RATE_LIMITED", "Too many requests. Please try again in a minute.", 429)
-
