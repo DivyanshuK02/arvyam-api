@@ -1,12 +1,12 @@
-
-import os, json, logging
+import os, json, logging, uuid
 from typing import Any, Dict, List
+
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel, Field
 from fastapi.responses import JSONResponse
 from fastapi.exception_handlers import http_exception_handler
 from fastapi.exceptions import RequestValidationError
+from pydantic import BaseModel, Field
 
 # Rate limiting
 from slowapi import Limiter
@@ -18,6 +18,7 @@ from slowapi.errors import RateLimitExceeded
 ALLOWED = os.getenv("ALLOWED_ORIGINS", "https://arvyam.com")
 ASSET_BASE = os.getenv("PUBLIC_ASSET_BASE", "https://arvyam.com").rstrip("/")
 RATE_LIMIT_PER_MIN = int(os.getenv("RATE_LIMIT_PER_MIN", "10"))
+PERSONA = os.getenv("PERSONA_NAME", "ARVY")  # persona SoT
 
 # ---------- Logging ----------
 logger = logging.getLogger("arvyam")
@@ -49,7 +50,7 @@ CATALOG: List[Dict[str, Any]] = load_json("catalog.json")
 
 # ---------- Helpers ----------
 def to_public_image(url_or_path: str) -> str:
-    if url_or_path.startswith("http://") or url_or_path.startswith("https://"):
+    if url_or_path.startswith(("http://", "https://")):
         return url_or_path
     return f"{ASSET_BASE}{url_or_path}" if ASSET_BASE else url_or_path
 
@@ -58,14 +59,12 @@ def sanitize_text(s: str) -> str:
 
 def classify_category(prompt: str) -> str:
     p = prompt.lower()
-    best_cat = None
-    best_hits = 0
+    best_cat, best_hits = None, 0
     for r in RULES:
         kws = [k.lower() for k in (r.get("keywords") or [])]
         hits = sum(1 for k in kws if k and k in p)
         if hits > best_hits:
-            best_cat = r["category"]
-            best_hits = hits
+            best_cat, best_hits = r["category"], hits
     if best_cat:
         return best_cat
     for fallback in ["Love", "Encouragement", "Gratitude"]:
@@ -74,21 +73,17 @@ def classify_category(prompt: str) -> str:
     return RULES[0]["category"]
 
 def shape_item(r: Dict[str, Any]) -> Dict[str, Any]:
-    # Force a neutral base title so we don't repeat 'Rose Bouquet' etc.
     return {
         "id": r["id"],
-        "title": "Curated Bouquet",        # <— neutral base title
+        "title": "Curated Bouquet",  # neutral base title
         "desc": r.get("desc") or "Thoughtfully arranged.",
-        "image": to_public_image(r.get("image_url") or r.get("image","")),
+        "image": to_public_image(r.get("image_url") or r.get("image", "")),
         "price": int(r["price_inr"]),
         "currency": "INR",
     }
 
 def pick_three(category: str) -> List[Dict[str, Any]]:
-    candidates = [c for c in CATALOG if category in (c.get("tags") or [])]
-    if not candidates:
-        candidates = CATALOG[:]
-
+    candidates = [c for c in CATALOG if category in (c.get("tags") or [])] or CATALOG[:]
     candidates.sort(key=lambda x: x.get("price_inr", 999999))
 
     prices = sorted({c.get("price_inr", 0) for c in candidates})
@@ -100,12 +95,14 @@ def pick_three(category: str) -> List[Dict[str, Any]]:
         targets = [prices[0], prices[0], prices[0]]
 
     chosen, seen_imgs = [], set()
+
     def first_at(price):
         for c in candidates:
             if c.get("price_inr") == price:
-                img = (c.get("image_url") or c.get("image",""))
+                img = (c.get("image_url") or c.get("image", ""))
                 if img not in seen_imgs:
-                    seen_imgs.add(img); return c
+                    seen_imgs.add(img)
+                    return c
         return None
 
     for p in targets:
@@ -114,10 +111,12 @@ def pick_three(category: str) -> List[Dict[str, Any]]:
             chosen.append(item)
 
     for c in candidates:
-        if len(chosen) >= 3: break
-        img = (c.get("image_url") or c.get("image",""))
+        if len(chosen) >= 3:
+            break
+        img = (c.get("image_url") or c.get("image", ""))
         if img not in seen_imgs and c not in chosen:
-            seen_imgs.add(img); chosen.append(c)
+            seen_imgs.add(img)
+            chosen.append(c)
 
     i = 0
     while len(chosen) < 3 and i < len(candidates):
@@ -148,7 +147,7 @@ def refine_copy(items: List[Dict[str, Any]], category: str) -> List[Dict[str, An
 
     for it in items:
         p = it["price"]
-        base_title = "Curated Bouquet"   # <— fixed neutral base
+        base_title = "Curated Bouquet"
         if p == low:
             it["title"] = f"{base_title} • Classic"
             it["desc"] = low_t
@@ -160,9 +159,22 @@ def refine_copy(items: List[Dict[str, Any]], category: str) -> List[Dict[str, An
             it["desc"] = high_t
     return items
 
+# ---------- Canonical error shaping ----------
+def error_json(code: str, message: str, status: int = 400) -> JSONResponse:
+    """Single place to shape all error responses with persona + request_id."""
+    return JSONResponse(
+        status_code=status,
+        content={
+            "error": {"code": code, "message": message},
+            "persona": PERSONA,
+            "request_id": str(uuid.uuid4())
+        }
+    )
+
 # ---------- Schemas ----------
 class CurateIn(BaseModel):
-    prompt: str = Field(..., min_length=1, max_length=350)
+    # Backend cap aligned to UI (240)
+    prompt: str = Field(..., min_length=1, max_length=240)
 
 class CheckoutIn(BaseModel):
     product_id: str
@@ -178,50 +190,48 @@ def curate(body: CurateIn, request: Request):
     try:
         prompt = sanitize_text(body.prompt)
         if not prompt:
-            raise HTTPException(status_code=422, detail={"error":{"code":"EMPTY_PROMPT","message":"Please write a short line."}})
+            return error_json("EMPTY_PROMPT", "Please write a short line.", 422)
 
         category = classify_category(prompt)
-        items = pick_three(category)
-        items = refine_copy(items, category)
+        items = refine_copy(pick_three(category), category)
 
         ip = get_remote_address(request)
-        logger.info("CURATE ip=%s category=%s prompt=%s", ip, category, prompt[:120])
+        logger.info(f"[{PERSONA}] CURATE ip=%s category=%s prompt=%s", ip, category, prompt[:120])
         return items
 
-    except HTTPException:
-        raise
     except Exception:
-        logger.exception("CURATE_ERROR")
-        raise HTTPException(status_code=500, detail={"error":{"code":"SERVER_ERROR","message":"Something went wrong while curating. Please try again later."}})
+        logger.exception(f"[{PERSONA}] CURATE_ERROR")
+        return error_json("SERVER_ERROR", "Something went wrong while curating. Please try again later.", 500)
 
 @app.post("/api/checkout")
 @limiter.limit(f"{RATE_LIMIT_PER_MIN}/minute")
 def checkout(body: CheckoutIn, request: Request):
     pid = sanitize_text(body.product_id)
     if not pid:
-        raise HTTPException(status_code=422, detail={"error":{"code":"BAD_PRODUCT","message":"product_id is required."}})
+        return error_json("BAD_PRODUCT", "product_id is required.", 422)
     url = f"https://checkout.example/intent?pid={pid}"
     ip = get_remote_address(request)
-    logger.info("CHECKOUT ip=%s product=%s", ip, pid)
+    logger.info(f"[{PERSONA}] CHECKOUT ip=%s product=%s", ip, pid)
     return {"checkout_url": url}
 
-# ---------- Error shaping ----------
+# ---------- Error normalization ----------
 @app.exception_handler(HTTPException)
 async def http_exc_handler(request, exc: HTTPException):
-    if isinstance(exc.detail, dict) and "error" in exc.detail:
-        return JSONResponse(status_code=exc.status_code, content=exc.detail)
+    # If legacy handlers raised HTTPException with detail dict, normalize it.
+    if isinstance(exc.detail, dict):
+        shaped = {
+            "error": exc.detail.get("error", {"code": "HTTP_ERROR", "message": "Request error."}),
+            "persona": PERSONA,
+            "request_id": str(uuid.uuid4())
+        }
+        return JSONResponse(status_code=exc.status_code, content=shaped)
     return await http_exception_handler(request, exc)
 
 @app.exception_handler(RequestValidationError)
 async def validation_exception_handler(request, exc):
-    return JSONResponse(
-        status_code=422,
-        content={"error":{"code":"VALIDATION_ERROR","message":"Invalid input."}}
-    )
+    return error_json("VALIDATION_ERROR", "Invalid input.", 422)
 
 @app.exception_handler(RateLimitExceeded)
 async def ratelimit_handler(request: Request, exc: RateLimitExceeded):
-    return JSONResponse(
-        status_code=429,
-        content={"error":{"code":"RATE_LIMITED","message":"Too many requests. Please try again in a minute."}}
-    )
+    return error_json("RATE_LIMITED", "Too many requests. Please try again in a minute.", 429)
+
