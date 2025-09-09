@@ -1,0 +1,8 @@
+{
+  "min_price_inr_by_tier": {
+    "Classic": 1499,
+    "Signature": 2499,
+    "Luxury": 3999,
+    "LuxuryGrand": 4999
+  }
+}
