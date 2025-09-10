@@ -1,7 +1,7 @@
 {
   "luxury_grand": {
     "allowed_emotions": ["Romance", "Celebration", "Gratitude", "Birthday"],
-    "blocked_emotions": ["Sympathy", "GetWell", "Encouragement", "Friendship"],
+    "blocked_emotions": ["Sympathy", "GetWell", "Encouragement"],
     "max_per_triad": 1,
     "allow_in_mix": true,
     "allow_in_mono": true,
