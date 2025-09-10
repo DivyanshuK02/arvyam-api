@@ -1,101 +1,66 @@
 [
   {
-    "id": "sku_rose_low",
-    "flower": "Rose",
-    "title": "Rose Bouquet",
-    "desc": "Handpicked rose arranged in a vase.",
-    "image": "/assets/card-1.jpg",
-    "price_inr": 1299,
-    "tags": [
-      "General"
-    ]
+    "id": "dev_rom_mix_01",
+    "title": "Blush Harmony Mix • Classic",
+    "desc": "Soft roses with cream accents.",
+    "image_url": "https://raw.githubusercontent.com/DivyanshuK02/arvyam-landing/refs/heads/main/assets/card-1.jpg",
+    "price_inr": 1999,
+    "emotion": "Romance",
+    "tier": "Classic",
+    "packaging": "Box",
+    "mono": false,
+    "flowers": ["rose", "carnation", "alstroemeria"],
+    "palette": ["blush", "soft-pink", "cream"],
+    "seasonal": false,
+    "luxury_grand": false,
+    "weight": 60
   },
   {
-    "id": "sku_rose_mid",
-    "flower": "Rose",
-    "title": "Rose Bouquet",
-    "desc": "Handpicked rose arranged in a vase.",
-    "image": "/assets/card-2.jpg",
-    "price_inr": 1699,
-    "tags": [
-      "General"
-    ]
-  },
-  {
-    "id": "sku_rose_high",
-    "flower": "Rose",
-    "title": "Rose Bouquet",
-    "desc": "Handpicked rose arranged in a vase.",
-    "image": "/assets/card-3.jpg",
+    "id": "dev_rom_mix_02",
+    "title": "Crimson Whisper Mix • Signature",
+    "desc": "Roses and lilies in romantic hues.",
+    "image_url": "https://raw.githubusercontent.com/DivyanshuK02/arvyam-landing/refs/heads/main/assets/card-2.jpg",
     "price_inr": 2499,
-    "tags": [
-      "General"
-    ]
+    "emotion": "Romance",
+    "tier": "Signature",
+    "packaging": "Box",
+    "mono": false,
+    "flowers": ["rose", "lily", "spray-rose"],
+    "palette": ["red", "blush", "cream"],
+    "seasonal": false,
+    "luxury_grand": false,
+    "weight": 70
   },
   {
-    "id": "sku_lily_low",
-    "flower": "Lily",
-    "title": "Lily Bouquet",
-    "desc": "Handpicked lily arranged in a vase.",
-    "image": "/assets/card-1.jpg",
-    "price_inr": 1299,
-    "tags": [
-      "General"
-    ]
-  },
-  {
-    "id": "sku_lily_mid",
-    "flower": "Lily",
-    "title": "Lily Bouquet",
-    "desc": "Handpicked lily arranged in a vase.",
-    "image": "/assets/card-2.jpg",
-    "price_inr": 1699,
-    "tags": [
-      "General"
-    ]
-  },
-  {
-    "id": "sku_lily_high",
-    "flower": "Lily",
-    "title": "Lily Bouquet",
-    "desc": "Handpicked lily arranged in a vase.",
-    "image": "/assets/card-3.jpg",
+    "id": "dev_rom_mono_rose",
+    "title": "Red Roses • Signature",
+    "desc": "Timeless red roses, neatly arranged.",
+    "image_url": "https://raw.githubusercontent.com/DivyanshuK02/arvyam-landing/refs/heads/main/assets/card-3.jpg",
     "price_inr": 2499,
-    "tags": [
-      "General"
-    ]
+    "emotion": "Romance",
+    "tier": "Signature",
+    "packaging": "Vase",
+    "mono": true,
+    "flowers": ["rose"],
+    "palette": ["red", "deep-red", "leafy-green"],
+    "seasonal": false,
+    "luxury_grand": false,
+    "weight": 85
   },
   {
-    "id": "sku_gerbera_low",
-    "flower": "Gerbera",
-    "title": "Gerbera Bouquet",
-    "desc": "Handpicked gerbera arranged in a vase.",
-    "image": "/assets/card-1.jpg",
-    "price_inr": 1299,
-    "tags": [
-      "General"
-    ]
-  },
-  {
-    "id": "sku_gerbera_mid",
-    "flower": "Gerbera",
-    "title": "Gerbera Bouquet",
-    "desc": "Handpicked gerbera arranged in a vase.",
-    "image": "/assets/card-2.jpg",
-    "price_inr": 1699,
-    "tags": [
-      "General"
-    ]
-  },
-  {
-    "id": "sku_gerbera_high",
-    "flower": "Gerbera",
-    "title": "Gerbera Bouquet",
-    "desc": "Handpicked gerbera arranged in a vase.",
-    "image": "/assets/card-3.jpg",
+    "id": "dev_rom_mono_lily",
+    "title": "White Lilies • Signature",
+    "desc": "Elegant white lilies, serene and pure.",
+    "image_url": "https://raw.githubusercontent.com/DivyanshuK02/arvyam-landing/refs/heads/main/assets/card-3.jpg",
     "price_inr": 2499,
-    "tags": [
-      "General"
-    ]
+    "emotion": "Romance",
+    "tier": "Signature",
+    "packaging": "Vase",
+    "mono": true,
+    "flowers": ["lily"],
+    "palette": ["white", "ivory", "soft-green"],
+    "seasonal": false,
+    "luxury_grand": false,
+    "weight": 80
   }
 ]
