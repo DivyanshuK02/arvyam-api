@@ -1,0 +1,22 @@
+{
+  "flower_weights": {
+    "rose": 100,
+    "lily": 95,
+    "orchid": 90,
+    "gerbera": 60,
+    "carnation": 55,
+    "chrysanthemum": 50,
+    "alstroemeria": 45,
+    "baby's breath": 40
+  },
+  "emotion_bias": {
+    "Romance":        { "rose": 100, "lily": 80, "orchid": 70 },
+    "Sympathy":       { "lily": 95,  "rose": 80, "orchid": 80 },
+    "Celebration":    { "orchid": 90,"gerbera": 70,"chrysanthemum": 65 },
+    "Encouragement":  { "gerbera": 70,"chrysanthemum": 60,"rose": 60 },
+    "Gratitude":      { "rose": 80,  "lily": 70, "alstroemeria": 60 },
+    "Friendship":     { "gerbera": 70,"rose": 60, "chrysanthemum": 60 },
+    "GetWell":        { "lily": 80,  "chrysanthemum": 65, "rose": 60 },
+    "Birthday":       { "rose": 80,  "gerbera": 70, "orchid": 70 }
+  }
+}
