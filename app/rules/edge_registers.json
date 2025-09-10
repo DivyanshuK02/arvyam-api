@@ -1,0 +1,47 @@
+{
+  "copy_max_words": 20,
+
+  "sympathy": {
+    "edge_case": true,
+    "tone": "muted",
+    "palette_targets": ["white","cream","soft-green","eucalyptus","ivory"],
+    "species_prefer": ["lily","orchid","chrysanthemum"],
+    "species_avoid": ["sunflower","gerbera","neon-mixed"],
+    "lg_policy": "block",
+    "lg_weight_multiplier": 0.0,
+    "min_budget_for_lg": 999999
+  },
+
+  "apology": {
+    "edge_case": true,
+    "tone": "gentle",
+    "palette_targets": ["white","soft-purple","lavender","blush","soft-green"],
+    "species_prefer": ["orchid","lily","rose"],
+    "species_avoid": [],
+    "lg_policy": "allow_soft",
+    "lg_weight_multiplier": 0.8,
+    "min_budget_for_lg": 4999
+  },
+
+  "farewell": {
+    "edge_case": true,
+    "tone": "respectful",
+    "palette_targets": ["white","cream","peach","soft-green"],
+    "species_prefer": ["rose","lily","orchid"],
+    "species_avoid": ["neon-mixed"],
+    "lg_policy": "allow_soft",
+    "lg_weight_multiplier": 0.8,
+    "min_budget_for_lg": 4999
+  },
+
+  "valentine": {
+    "edge_case": true,
+    "tone": "bold-elegant",
+    "palette_targets": ["red","crimson","blush","soft-pink","champagne"],
+    "species_prefer": ["rose"],
+    "species_avoid": [],
+    "lg_policy": "allow_strong",
+    "lg_weight_multiplier": 1.5,
+    "min_budget_for_lg": 3999
+  }
+}
