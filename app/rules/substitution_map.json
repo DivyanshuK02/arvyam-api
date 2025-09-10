@@ -1,8 +1,17 @@
 {
-  "hydrangea": ["lily", "chrysanthemum"],
-  "peony": ["rose", "carnation"],
-  "tulip": ["rose", "lily"],
-  "ranunculus": ["rose", "gerbera"],
-  "anthurium": ["orchid", "lily"],
-  "dahlia": ["chrysanthemum", "gerbera"]
+  "hydrangea":       ["lily", "chrysanthemum"],
+  "peony":           ["rose", "carnation"],
+  "tulip":           ["rose", "lily"],
+  "ranunculus":      ["rose", "gerbera"],
+  "anemone":         ["gerbera", "chrysanthemum"],
+  "dahlia":          ["chrysanthemum", "gerbera"],
+  "lisianthus":      ["rose", "alstroemeria"],
+  "freesia":         ["alstroemeria", "tuberose"],
+  "calla":           ["lily", "orchid"],
+  "iris":            ["orchid", "lily"],
+  "protea":          ["orchid", "rose"],
+  "snapdragon":      ["chrysanthemum", "alstroemeria"],
+  "lavender":        ["tuberose", "alstroemeria"],
+  "jasmine":         ["tuberose", "lily"],
+  "mogra":           ["tuberose", "lily"]
 }
