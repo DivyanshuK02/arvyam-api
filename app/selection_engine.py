@@ -1,11 +1,16 @@
 # app/selection_engine.py
-# Ultra-beginner-safe Selection Engine
-# - Rules-first (no AI classification): keywords, substitutions, weights
-# - Deterministic weighted picks
+# Ultra-beginner-safe Selection Engine (Refreshed)
+# - Rules-first (keywords, substitutions, explicit tier policy)
+# - Deterministic weighted picks (no RNG at runtime)
 # - Always returns exactly 3 items: 2 MIX + 1 MONO (MONO = iconic only by default)
-# - Palette-aware; includes adjacent-emotion MIX fallback with palette matching
-# - Respects pricing floors and Luxury-Grand (LG) policy (LG is a flag inside Luxury)
-# - Gentle context boosts (budget, packaging); never hard-filters valid choices
+# - Palette-aware with adjacent-emotion MIX fallback
+# - Enforces pricing floors and Luxury-Grand (LG) policy from rules/tier_policy.json
+# - Gentle context boosts (budget, packaging); never hides all valid choices
+#
+# LG policy (Phase-1 default recommendation):
+#   Allow:   Romance, Celebration, Birthday
+#   Block:   Sympathy, GetWell
+#   (Set exactly in rules/tier_policy.json; the engine reads whatever you put there.)
 
 from __future__ import annotations
 import json, os, re, hashlib
@@ -26,7 +31,7 @@ def _load_json(path: str, default: Any) -> Any:
         return default
 
 # -----------------------------------------------------------------------------
-# Load rule tables (these are the ONLY sources of truth for behavior)
+# Load rule tables (single sources of truth)
 # -----------------------------------------------------------------------------
 
 EMO = _load_json(_p("rules","emotion_keywords.json"), {"anchors": [], "exact": {}, "keywords": {}})
@@ -39,7 +44,7 @@ TIER = _load_json(_p("rules","tier_policy.json"), {"luxury_grand":{"allowed_emot
 CATALOG: List[Dict[str,Any]] = _load_json(_p("catalog.json"), [])
 
 # -----------------------------------------------------------------------------
-# Constants & simple guides
+# Constants & guides
 # -----------------------------------------------------------------------------
 
 ICONIC = {"rose","lily","orchid"}  # Only these are allowed for MONO by default
@@ -69,6 +74,9 @@ EMOTION_PALETTE_GUIDE: Dict[str, List[str]] = {
     "Birthday":     ["bright","pink","purple","yellow","fun"]
 }
 
+# Consistent ordering of tiers for final card layout
+TIER_RANK = {"Classic": 0, "Signature": 1, "Luxury": 2}
+
 # -----------------------------------------------------------------------------
 # Text & weight helpers
 # -----------------------------------------------------------------------------
@@ -76,9 +84,9 @@ EMOTION_PALETTE_GUIDE: Dict[str, List[str]] = {
 def normalize(text: str) -> str:
     if not text: return ""
     t = text.strip().lower()
-    t = re.sub(r"https?://\\S+","", t)                         # strip URLs
-    t = re.sub(r"[\\w.+-]+@[\\w-]+\\.[\\w.-]+","", t)          # strip emails
-    t = re.sub(r"\\s+"," ", t)                                 # collapse spaces
+    t = re.sub(r"https?://\S+","", t)                         # strip URLs
+    t = re.sub(r"[\w.+-]+@[\w-]+\.[\w.-]+","", t)             # strip emails
+    t = re.sub(r"\s+"," ", t)                                 # collapse spaces
     return t
 
 def _hash01(seed: str) -> float:
@@ -169,13 +177,15 @@ def apply_context_preferences(pool: List[Dict[str,Any]], context: Optional[Dict[
 
 def strong_intent_override(norm: str) -> Dict[str,Any]:
     out = {"forceIconic": None, "forbidMono": None, "note": None}
-    m = re.search(r"only\\s+(roses?|lilies|orchids?)", norm)
+    # Accept singular + plural (roses, lilies, orchids)
+    m = re.search(r"\bonly\s+(roses?|lilies|orchids?)\b", norm)
     if m:
         w = m.group(1)
         if w.startswith("rose"): out["forceIconic"] = "rose"
         elif w.startswith("lil"): out["forceIconic"] = "lily"
         elif w.startswith("orchid"): out["forceIconic"] = "orchid"
-    m2 = re.search(r"mono\\s+([a-z]+)", norm)
+    # Disallow non-iconic mono requests → redirect note for MIX
+    m2 = re.search(r"\bmono\s+([a-z]+)\b", norm)
     if m2:
         flower = m2.group(1)
         if flower not in ICONIC:
@@ -210,7 +220,7 @@ def _adjacent_mix_candidates(emotion: str) -> List[Dict[str,Any]]:
     cands: List[Dict[str,Any]] = []
     for adj in ADJACENT_EMOTIONS.get(emotion, []):
         for x in CATALOG:
-            if x.get("mono"): 
+            if x.get("mono"):
                 continue
             if not _base_filter(x, adj):
                 continue
@@ -271,7 +281,7 @@ def candidate_pools(emotion: str, context: Optional[Dict[str,Any]]) -> Tuple[Lis
     return mix, mono
 
 # -----------------------------------------------------------------------------
-# Output mapping, variety & caps
+# Output mapping, variety, ordering & caps
 # -----------------------------------------------------------------------------
 
 def _map_out(it: Dict[str,Any], note: Optional[str]=None) -> Dict[str,Any]:
@@ -293,15 +303,28 @@ def _map_out(it: Dict[str,Any], note: Optional[str]=None) -> Dict[str,Any]:
         out["note"] = note
     return out
 
-def try_tier_variety(triad: List[Dict[str,Any]], mix_pool: List[Dict[str,Any]]) -> List[Dict[str,Any]]:
-    tiers = {t["tier"] for t in triad}
-    if len(tiers) >= 2: return triad
-    current = triad[0]["tier"]
-    used = {t["id"] for t in triad}
-    alt = next((x for x in mix_pool if x["tier"] != current and x["id"] not in used), None)
-    if alt:
-        triad[1] = _map_out(alt, note=triad[1].get("note"))
-    return triad
+def try_tier_variety(mix_items: List[Dict[str,Any]], mix_pool: List[Dict[str,Any]]) -> List[Dict[str,Any]]:
+    """If both MIX picks are same tier, try to swap one for a different tier (prefer Classic if missing)."""
+    if len(mix_items) != 2: return mix_items
+    t0, t1 = mix_items[0].get("tier"), mix_items[1].get("tier")
+    if t0 == t1:
+        used = {mix_items[0]["id"], mix_items[1]["id"]}
+        # prefer Classic if neither is Classic
+        if t0 != "Classic":
+            alt = next((x for x in mix_pool if x.get("tier")=="Classic" and x["id"] not in used), None)
+            if alt:
+                mix_items[1] = alt
+                return mix_items
+        # else take any different tier
+        alt = next((x for x in mix_pool if x.get("tier")!=t0 and x["id"] not in used), None)
+        if alt:
+            mix_items[1] = alt
+    return mix_items
+
+def arrange_cards(mix_items: List[Dict[str,Any]], mono_item: Dict[str,Any]) -> List[Dict[str,Any]]:
+    """Order as: MIX (Classic) → MIX (Signature/Luxury) → MONO. Non-LG before LG when tiers tie."""
+    mix_sorted = sorted(mix_items, key=lambda it: (TIER_RANK.get(it.get("tier"), 99), 1 if it.get("luxury_grand") else 0))
+    return [ _map_out(mix_sorted[0]), _map_out(mix_sorted[1]), _map_out(mono_item) ]
 
 def enforce_lg_cap(triad: List[Dict[str,Any]], mix_pool: List[Dict[str,Any]], mono_pool: List[Dict[str,Any]]) -> List[Dict[str,Any]]:
     lgp = TIER.get("luxury_grand", {})
@@ -311,6 +334,7 @@ def enforce_lg_cap(triad: List[Dict[str,Any]], mix_pool: List[Dict[str,Any]], mo
 
     used = {t["id"] for t in triad}
     need = len(idxs) - cap
+    # Replace MIX LG first, then MONO LG if any
     order = [i for i in idxs if not triad[i]["mono"]] + [i for i in idxs if triad[i]["mono"]]
     for i in order:
         if need <= 0: break
@@ -348,13 +372,7 @@ def validate_output(items: List[Dict[str,Any]]) -> None:
 # -----------------------------------------------------------------------------
 
 def selection_engine(prompt: str, context: Optional[Dict[str,Any]]=None) -> List[Dict[str,Any]]:
-    """
-    Input:
-      - prompt: string (1–500 chars)
-      - context (optional): { emotion_hint?, budget_inr?, packaging_pref?, locale? }
-    Output:
-      - list of 3 curated items: exactly 2 MIX + 1 MONO, palette[] present on each
-    """
+    """Rules-first selection that returns exactly 3 items (2 MIX + 1 MONO)."""
     context = context or {}
     norm = normalize(prompt)
     emotion = detect_emotion(norm, context)
@@ -365,12 +383,25 @@ def selection_engine(prompt: str, context: Optional[Dict[str,Any]]=None) -> List
     redir  = editorial_redirection(norm)
     note = redir["note"] if redir else intent.get("note")
 
-    # Picks
+    # -- Picks --
     mix_picks = pick_deterministic(mix_pool, 2, seed=f"{emotion}/{norm}/mix", emotion=emotion)
+    mix_picks = try_tier_variety(mix_picks, mix_pool)
 
+    # MONO: forced iconic species takes precedence
     mono_pick = None
     if intent.get("forceIconic"):
-        mono_pick = next((x for x in mono_pool if intent["forceIconic"] in (x.get("flowers") or [])), None)
+        species = intent["forceIconic"]
+        def has_species(x): return any((species == (f or '').lower()) for f in (x.get("flowers") or []))
+        mono_pick = next((x for x in mono_pool if has_species(x)), None)
+        if not mono_pick:
+            # borrow from full catalog (policy-safe)
+            alt = [x for x in CATALOG
+                   if x.get("mono") and has_species(x)
+                   and passes_pricing_floor(x)
+                   and lg_allowed_for_emotion(x, emotion)
+                   and _has_palette(x)]
+            if alt:
+                mono_pick = pick_deterministic(alt, 1, seed=f"{emotion}/{norm}/mono_forced", emotion=emotion)[0]
 
     if not mono_pick and mono_pool:
         mono_pick = pick_deterministic(mono_pool, 1, seed=f"{emotion}/{norm}/mono", emotion=emotion)[0]
@@ -385,16 +416,15 @@ def selection_engine(prompt: str, context: Optional[Dict[str,Any]]=None) -> List
         if alt_mono:
             mono_pick = pick_deterministic(alt_mono, 1, seed=f"{emotion}/{norm}/mono2", emotion=emotion)[0]
 
-    raw: List[Dict[str,Any]] = []
-    for it in mix_picks:
-        raw.append(_map_out(it, note=note))
-    if mono_pick:
-        raw.append(_map_out(mono_pick))  # mono never gets note
+    if not mono_pick:
+        raise ValueError("No MONO candidate found; check catalog and rules.")
 
-    if len(raw) != 3:
-        raise ValueError("Could not assemble 3 items; check catalog coverage and rules.")
+    # build raw map (MIX items carry the note, MONO never carries note)
+    raw_mix = [_map_out(it, note=note) for it in mix_picks]
+    # ordering: Classic → Signature/Luxury → MONO
+    triad = arrange_cards(raw_mix, mono_pick)
 
-    raw = try_tier_variety(raw, mix_pool)
-    raw = enforce_lg_cap(raw, mix_pool, mono_pool)
-    validate_output(raw)
-    return raw
+    # cap LG per triad and validate
+    triad = enforce_lg_cap(triad, mix_pool, mono_pool)
+    validate_output(triad)
+    return triad
