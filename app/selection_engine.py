@@ -422,7 +422,7 @@ def selection_engine(prompt: str, context: Optional[Dict[str,Any]]=None) -> List
     # build raw map (MIX items carry the note, MONO never carries note)
     raw_mix = [_map_out(it, note=note) for it in mix_picks]
     # ordering: Classic → Signature/Luxury → MONO
-    triad = arrange_cards(raw_mix, mono_pick)
+    triad = [_map_out(mix_picks[0]), _map_out(mix_picks[1]), _map_out(mono_pick)]
 
     # cap LG per triad and validate
     triad = enforce_lg_cap(triad, mix_pool, mono_pool)
