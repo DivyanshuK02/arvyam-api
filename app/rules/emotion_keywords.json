@@ -1,0 +1,65 @@
+{
+  "anchors": [
+    "Romance",
+    "Sympathy",
+    "Celebration",
+    "Encouragement",
+    "Gratitude",
+    "Friendship",
+    "GetWell",
+    "Birthday"
+  ],
+  "exact": {
+    "so sorry for your loss": "Sympathy",
+    "sorry for your loss": "Sympathy",
+    "my condolences": "Sympathy",
+    "happy birthday": "Birthday",
+    "get well soon": "GetWell",
+    "only roses": "Romance",
+    "only lilies": "Romance",
+    "only orchids": "Romance"
+  },
+  "keywords": {
+    "love": "Romance",
+    "romantic": "Romance",
+    "anniversary": "Romance",
+    "valentine": "Romance",
+
+    "condolence": "Sympathy",
+    "condolences": "Sympathy",
+    "loss": "Sympathy",
+    "funeral": "Sympathy",
+
+    "congrats": "Celebration",
+    "congratulations": "Celebration",
+    "promotion": "Celebration",
+    "achievement": "Celebration",
+    "milestone": "Celebration",
+
+    "sorry": "Encouragement",
+    "apologize": "Encouragement",
+    "apology": "Encouragement",
+    "exam": "Encouragement",
+    "exams": "Encouragement",
+    "you got this": "Encouragement",
+    "encouragement": "Encouragement",
+
+    "thank you": "Gratitude",
+    "thanks": "Gratitude",
+    "gratitude": "Gratitude",
+    "appreciate": "Gratitude",
+
+    "friend": "Friendship",
+    "friendship": "Friendship",
+    "bestie": "Friendship",
+    "buddy": "Friendship",
+
+    "get well": "GetWell",
+    "recovery": "GetWell",
+    "hospital": "GetWell",
+
+    "birthday": "Birthday",
+    "bday": "Birthday",
+    "cake": "Birthday"
+  }
+}
