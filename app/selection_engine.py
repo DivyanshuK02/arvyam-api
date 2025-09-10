@@ -151,8 +151,8 @@ def candidate_pools(emotion: str, context: Optional[Dict[str,Any]]) -> Tuple[Lis
             and lg_allowed_for_emotion(x, emotion)
             and _has_palette(x)]
 
-    mix  = [x for x in base if not x.get("mono")]
-    mono = [x for x in base if     x.get("mono")]
+mono = [x for x in base if x.get("mono") and any(f in ICONIC for f in (x.get("flowers") or []))]
+
 
     if not allow_mix:
         mix  = [x for x in mix if not x.get("luxury_grand")]
@@ -268,13 +268,22 @@ def selection_engine(prompt: str, context: Optional[Dict[str,Any]]=None) -> List
     # Picks
     mix_picks = pick_deterministic(mix_pool, 2, seed=f"{emotion}/{norm}/mix", emotion=emotion)
 
-    mono_pick = None
+        mono_pick = None
     if intent.get("forceIconic"):
         mono_pick = next((x for x in mono_pool if intent["forceIconic"] in (x.get("flowers") or [])), None)
-    if not mono_pick:
-        base = mix_pool if intent.get("forbidMono") else mono_pool
-        if base:
-            mono_pick = pick_deterministic(base, 1, seed=f"{emotion}/{norm}/mono", emotion=emotion)[0]
+
+    if not mono_pick and mono_pool:
+        mono_pick = pick_deterministic(mono_pool, 1, seed=f"{emotion}/{norm}/mono", emotion=emotion)[0]
+    elif not mono_pick:
+        # Last-resort: borrow any iconic MONO from wider catalog (policy-safe)
+        alt_mono = [x for x in CATALOG if x.get("mono")
+                    and any(f in ICONIC for f in (x.get("flowers") or []))
+                    and passes_pricing_floor(x)
+                    and lg_allowed_for_emotion(x, emotion)
+                    and _has_palette(x)]
+        if alt_mono:
+            mono_pick = pick_deterministic(alt_mono, 1, seed=f"{emotion}/{norm}/mono2", emotion=emotion)[0]
+
 
     raw: List[Dict[str,Any]] = []
     for it in mix_picks:
