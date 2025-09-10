@@ -1,0 +1,26 @@
+{
+  "sympathy": [
+    "sorry for your loss", "condolence", "condolences",
+    "grief", "passing", "passed away", "bereavement"
+  ],
+  "apology": [
+    "sorry", "apologize", "apology", "forgive", "forgiveness",
+    "my mistake", "i was wrong"
+  ],
+  "farewell": [
+    "farewell", "goodbye", "last day", "send off", "parting",
+    "moving on", "retiring", "retirement"
+  ],
+  "valentine": [
+    "valentine", "valentines", "love", "romantic", "anniversary",
+    "be my valentine", "proposal"
+  ],
+  "grand_intent_keywords": [
+    "grand","bigger","large","lavish","extravagant","50+","hundred",
+    "massive","most beautiful","impressive","showstopper","statement"
+  ],
+  "relationship_grandeur_cues": [
+    "boss","manager","director","ceo","founder","mentor","teacher",
+    "professor","parents","grandparents","board"
+  ]
+}
