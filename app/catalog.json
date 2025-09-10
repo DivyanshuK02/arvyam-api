@@ -63,4 +63,37 @@
     "luxury_grand": false,
     "weight": 80
   }
+  {
+  "id": "dev_rom_mix_lux",
+  "title": "Velvet Romance Mix • Luxury",
+  "desc": "Lush blooms for a grand gesture.",
+  "image_url": "https://raw.githubusercontent.com/DivyanshuK02/arvyam-landing/refs/heads/main/assets/card-2.jpg",
+  "price_inr": 3999,
+  "emotion": "Romance",
+  "tier": "Luxury",
+  "packaging": "Box",
+  "mono": false,
+  "flowers": ["rose","orchid","lisianthus"],
+  "palette": ["soft-pink","ivory","rose"],
+  "seasonal": false,
+  "luxury_grand": false,
+  "weight": 80
+  },
+  {
+  "id": "dev_rom_mix_lg",
+  "title": "Grand Orchid Cascade • Luxury",
+  "desc": "Statement orchids with plush accents.",
+  "image_url": "https://raw.githubusercontent.com/DivyanshuK02/arvyam-landing/refs/heads/main/assets/card-3.jpg",
+  "price_inr": 4999,
+  "emotion": "Romance",
+  "tier": "Luxury",
+  "packaging": "Keepsake",
+  "mono": false,
+  "flowers": ["orchid","rose","lily"],
+  "palette": ["ivory","soft-pink","rose"],
+  "seasonal": false,
+  "luxury_grand": true,
+  "weight": 85
+  }
+
 ]
