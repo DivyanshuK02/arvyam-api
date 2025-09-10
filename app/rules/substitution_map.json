@@ -1,0 +1,8 @@
+{
+  "hydrangea": ["lily", "chrysanthemum"],
+  "peony": ["rose", "carnation"],
+  "tulip": ["rose", "lily"],
+  "ranunculus": ["rose", "gerbera"],
+  "anthurium": ["orchid", "lily"],
+  "dahlia": ["chrysanthemum", "gerbera"]
+}
