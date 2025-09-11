@@ -1,0 +1,1124 @@
+[
+  {
+    "id": "rom_mix_c1",
+    "title": "Blush Harmony • Classic",
+    "desc": "A soft romantic mix with blush notes.",
+    "image_url": "https://raw.githubusercontent.com/DivyanshuK02/arvyam-landing/refs/heads/main/assets/card-1.jpg",
+    "price_inr": 1599,
+    "emotion": "Romance",
+    "tier": "Classic",
+    "packaging": "Box",
+    "mono": false,
+    "palette": [
+      "blush",
+      "soft-pink",
+      "cream"
+    ],
+    "luxury_grand": false,
+    "seasonal": false,
+    "flowers": [
+      "rose",
+      "alstroemeria"
+    ],
+    "weight": 70
+  },
+  {
+    "id": "rom_mix_s1",
+    "title": "Rosy Whisper • Signature",
+    "desc": "Elegant romantic mix with rich reds and blush.",
+    "image_url": "https://raw.githubusercontent.com/DivyanshuK02/arvyam-landing/refs/heads/main/assets/card-2.jpg",
+    "price_inr": 2699,
+    "emotion": "Romance",
+    "tier": "Signature",
+    "packaging": "Vase",
+    "mono": false,
+    "palette": [
+      "red",
+      "blush",
+      "cream"
+    ],
+    "luxury_grand": false,
+    "seasonal": false,
+    "flowers": [
+      "rose",
+      "carnations"
+    ],
+    "weight": 70
+  },
+  {
+    "id": "rom_mix_l1",
+    "title": "Grand Romance • Luxury",
+    "desc": "Luxurious bouquet with deep red accents.",
+    "image_url": "https://raw.githubusercontent.com/DivyanshuK02/arvyam-landing/refs/heads/main/assets/card-2.jpg",
+    "price_inr": 4299,
+    "emotion": "Romance",
+    "tier": "Luxury",
+    "packaging": "Vase",
+    "mono": false,
+    "palette": [
+      "deep-red",
+      "red",
+      "gold"
+    ],
+    "luxury_grand": false,
+    "seasonal": false,
+    "flowers": [
+      "rose",
+      "orchid"
+    ],
+    "weight": 65
+  },
+  {
+    "id": "rom_mono_rose_s",
+    "title": "Mono Roses • Signature",
+    "desc": "A poised bouquet of premium roses.",
+    "image_url": "https://raw.githubusercontent.com/DivyanshuK02/arvyam-landing/refs/heads/main/assets/card-1.jpg",
+    "price_inr": 2599,
+    "emotion": "Romance",
+    "tier": "Signature",
+    "packaging": "Box",
+    "mono": true,
+    "palette": [
+      "red",
+      "blush",
+      "cream"
+    ],
+    "luxury_grand": false,
+    "seasonal": false,
+    "flowers": [
+      "rose"
+    ],
+    "weight": 80
+  },
+  {
+    "id": "rom_mono_rose_lg",
+    "title": "Mono Roses Grand • Luxury",
+    "desc": "An abundant grand gesture of roses.",
+    "image_url": "https://raw.githubusercontent.com/DivyanshuK02/arvyam-landing/refs/heads/main/assets/card-1.jpg",
+    "price_inr": 5099,
+    "emotion": "Romance",
+    "tier": "Luxury",
+    "packaging": "Vase",
+    "mono": true,
+    "palette": [
+      "deep-red",
+      "red",
+      "gold"
+    ],
+    "luxury_grand": true,
+    "seasonal": false,
+    "flowers": [
+      "rose"
+    ],
+    "weight": 85
+  },
+  {
+    "id": "rom_mix_lg1",
+    "title": "Crimson Luxe • Luxury",
+    "desc": "Statement arrangement with lush romantic tones.",
+    "image_url": "https://raw.githubusercontent.com/DivyanshuK02/arvyam-landing/refs/heads/main/assets/card-2.jpg",
+    "price_inr": 4999,
+    "emotion": "Romance",
+    "tier": "Luxury",
+    "packaging": "Vase",
+    "mono": false,
+    "palette": [
+      "deep-red",
+      "crimson",
+      "gold"
+    ],
+    "luxury_grand": true,
+    "seasonal": false,
+    "flowers": [
+      "rose",
+      "orchid"
+    ],
+    "weight": 75
+  },
+  {
+    "id": "sym_mix_c1",
+    "title": "Quiet Grace • Classic",
+    "desc": "A calm, dignified mix in soft whites.",
+    "image_url": "https://raw.githubusercontent.com/DivyanshuK02/arvyam-landing/refs/heads/main/assets/card-1.jpg",
+    "price_inr": 1599,
+    "emotion": "Sympathy",
+    "tier": "Classic",
+    "packaging": "Box",
+    "mono": false,
+    "palette": [
+      "white",
+      "cream",
+      "soft-green"
+    ],
+    "luxury_grand": false,
+    "seasonal": false,
+    "flowers": [
+      "chrysanthemum",
+      "lily"
+    ],
+    "weight": 65
+  },
+  {
+    "id": "sym_mix_s1",
+    "title": "Gentle Tribute • Signature",
+    "desc": "Elegant whites with natural greens.",
+    "image_url": "https://raw.githubusercontent.com/DivyanshuK02/arvyam-landing/refs/heads/main/assets/card-1.jpg",
+    "price_inr": 2699,
+    "emotion": "Sympathy",
+    "tier": "Signature",
+    "packaging": "Vase",
+    "mono": false,
+    "palette": [
+      "white",
+      "ivory",
+      "soft-green"
+    ],
+    "luxury_grand": false,
+    "seasonal": false,
+    "flowers": [
+      "lily",
+      "orchid"
+    ],
+    "weight": 60
+  },
+  {
+    "id": "sym_mix_l1",
+    "title": "Peaceful Honor • Luxury",
+    "desc": "Refined white florals with foliage.",
+    "image_url": "https://raw.githubusercontent.com/DivyanshuK02/arvyam-landing/refs/heads/main/assets/card-3.jpg",
+    "price_inr": 4099,
+    "emotion": "Sympathy",
+    "tier": "Luxury",
+    "packaging": "Vase",
+    "mono": false,
+    "palette": [
+      "white",
+      "cream",
+      "eucalyptus"
+    ],
+    "luxury_grand": false,
+    "seasonal": false,
+    "flowers": [
+      "lily",
+      "rose"
+    ],
+    "weight": 55
+  },
+  {
+    "id": "sym_mono_lily_s",
+    "title": "Mono Lilies • Signature",
+    "desc": "Pure lilies for a serene tribute.",
+    "image_url": "https://raw.githubusercontent.com/DivyanshuK02/arvyam-landing/refs/heads/main/assets/card-2.jpg",
+    "price_inr": 2599,
+    "emotion": "Sympathy",
+    "tier": "Signature",
+    "packaging": "Box",
+    "mono": true,
+    "palette": [
+      "white",
+      "ivory",
+      "soft-green"
+    ],
+    "luxury_grand": false,
+    "seasonal": false,
+    "flowers": [
+      "lily"
+    ],
+    "weight": 85
+  },
+  {
+    "id": "apo_mix_c1",
+    "title": "Sincere Note • Classic",
+    "desc": "A gentle mix to say you’re sorry.",
+    "image_url": "https://raw.githubusercontent.com/DivyanshuK02/arvyam-landing/refs/heads/main/assets/card-3.jpg",
+    "price_inr": 1599,
+    "emotion": "Apology",
+    "tier": "Classic",
+    "packaging": "Box",
+    "mono": false,
+    "palette": [
+      "white",
+      "soft-purple",
+      "lavender"
+    ],
+    "luxury_grand": false,
+    "seasonal": false,
+    "flowers": [
+      "orchid",
+      "lily"
+    ],
+    "weight": 65
+  },
+  {
+    "id": "apo_mix_s1",
+    "title": "Graceful Apology • Signature",
+    "desc": "Composed tones with orchids and lilies.",
+    "image_url": "https://raw.githubusercontent.com/DivyanshuK02/arvyam-landing/refs/heads/main/assets/card-2.jpg",
+    "price_inr": 2699,
+    "emotion": "Apology",
+    "tier": "Signature",
+    "packaging": "Vase",
+    "mono": false,
+    "palette": [
+      "white",
+      "lavender",
+      "soft-green"
+    ],
+    "luxury_grand": false,
+    "seasonal": false,
+    "flowers": [
+      "orchid",
+      "lily"
+    ],
+    "weight": 65
+  },
+  {
+    "id": "apo_mix_l1",
+    "title": "Deeply Sorry • Luxury",
+    "desc": "Refined bouquet with elegant accents.",
+    "image_url": "https://raw.githubusercontent.com/DivyanshuK02/arvyam-landing/refs/heads/main/assets/card-1.jpg",
+    "price_inr": 4099,
+    "emotion": "Apology",
+    "tier": "Luxury",
+    "packaging": "Vase",
+    "mono": false,
+    "palette": [
+      "white",
+      "soft-purple",
+      "pearl"
+    ],
+    "luxury_grand": false,
+    "seasonal": false,
+    "flowers": [
+      "orchid",
+      "rose"
+    ],
+    "weight": 60
+  },
+  {
+    "id": "apo_mono_orchid_s",
+    "title": "Mono Orchids • Signature",
+    "desc": "Orchids to express a thoughtful apology.",
+    "image_url": "https://raw.githubusercontent.com/DivyanshuK02/arvyam-landing/refs/heads/main/assets/card-1.jpg",
+    "price_inr": 2599,
+    "emotion": "Apology",
+    "tier": "Signature",
+    "packaging": "Box",
+    "mono": true,
+    "palette": [
+      "white",
+      "soft-purple"
+    ],
+    "luxury_grand": false,
+    "seasonal": false,
+    "flowers": [
+      "orchid"
+    ],
+    "weight": 80
+  },
+  {
+    "id": "apo_mono_orchid_lg",
+    "title": "Mono Orchids Grand • Luxury",
+    "desc": "A lavish apology in orchids.",
+    "image_url": "https://raw.githubusercontent.com/DivyanshuK02/arvyam-landing/refs/heads/main/assets/card-3.jpg",
+    "price_inr": 5099,
+    "emotion": "Apology",
+    "tier": "Luxury",
+    "packaging": "Vase",
+    "mono": true,
+    "palette": [
+      "white",
+      "lavender",
+      "pearl"
+    ],
+    "luxury_grand": true,
+    "seasonal": false,
+    "flowers": [
+      "orchid"
+    ],
+    "weight": 70
+  },
+  {
+    "id": "far_mix_c1",
+    "title": "Warm Sendoff • Classic",
+    "desc": "Warm neutrals for a heartfelt goodbye.",
+    "image_url": "https://raw.githubusercontent.com/DivyanshuK02/arvyam-landing/refs/heads/main/assets/card-1.jpg",
+    "price_inr": 1599,
+    "emotion": "Farewell",
+    "tier": "Classic",
+    "packaging": "Box",
+    "mono": false,
+    "palette": [
+      "cream",
+      "peach",
+      "soft-green"
+    ],
+    "luxury_grand": false,
+    "seasonal": false,
+    "flowers": [
+      "rose",
+      "lily"
+    ],
+    "weight": 60
+  },
+  {
+    "id": "far_mix_s1",
+    "title": "Fond Farewell • Signature",
+    "desc": "Elegant blooms for a respectful parting.",
+    "image_url": "https://raw.githubusercontent.com/DivyanshuK02/arvyam-landing/refs/heads/main/assets/card-1.jpg",
+    "price_inr": 2699,
+    "emotion": "Farewell",
+    "tier": "Signature",
+    "packaging": "Vase",
+    "mono": false,
+    "palette": [
+      "white",
+      "peach",
+      "soft-green"
+    ],
+    "luxury_grand": false,
+    "seasonal": false,
+    "flowers": [
+      "rose",
+      "orchid"
+    ],
+    "weight": 60
+  },
+  {
+    "id": "far_mix_l1",
+    "title": "New Horizons • Luxury",
+    "desc": "Graceful bouquet to mark new journeys.",
+    "image_url": "https://raw.githubusercontent.com/DivyanshuK02/arvyam-landing/refs/heads/main/assets/card-2.jpg",
+    "price_inr": 4099,
+    "emotion": "Farewell",
+    "tier": "Luxury",
+    "packaging": "Vase",
+    "mono": false,
+    "palette": [
+      "cream",
+      "gold",
+      "soft-green"
+    ],
+    "luxury_grand": false,
+    "seasonal": false,
+    "flowers": [
+      "rose",
+      "lily"
+    ],
+    "weight": 55
+  },
+  {
+    "id": "far_mono_rose_s",
+    "title": "Mono Roses • Signature",
+    "desc": "Classic roses to wish them well.",
+    "image_url": "https://raw.githubusercontent.com/DivyanshuK02/arvyam-landing/refs/heads/main/assets/card-1.jpg",
+    "price_inr": 2599,
+    "emotion": "Farewell",
+    "tier": "Signature",
+    "packaging": "Box",
+    "mono": true,
+    "palette": [
+      "peach",
+      "cream"
+    ],
+    "luxury_grand": false,
+    "seasonal": false,
+    "flowers": [
+      "rose"
+    ],
+    "weight": 70
+  },
+  {
+    "id": "far_mono_rose_lg",
+    "title": "Mono Roses Grand • Luxury",
+    "desc": "Grand gesture of roses for farewell.",
+    "image_url": "https://raw.githubusercontent.com/DivyanshuK02/arvyam-landing/refs/heads/main/assets/card-2.jpg",
+    "price_inr": 5099,
+    "emotion": "Farewell",
+    "tier": "Luxury",
+    "packaging": "Vase",
+    "mono": true,
+    "palette": [
+      "cream",
+      "gold"
+    ],
+    "luxury_grand": true,
+    "seasonal": false,
+    "flowers": [
+      "rose"
+    ],
+    "weight": 65
+  },
+  {
+    "id": "val_mix_c1",
+    "title": "Sweetheart Mix • Classic",
+    "desc": "Playful reds and blush for Valentine.",
+    "image_url": "https://raw.githubusercontent.com/DivyanshuK02/arvyam-landing/refs/heads/main/assets/card-3.jpg",
+    "price_inr": 1599,
+    "emotion": "Romance",
+    "tier": "Classic",
+    "packaging": "Box",
+    "mono": false,
+    "palette": [
+      "red",
+      "blush",
+      "cream"
+    ],
+    "luxury_grand": false,
+    "seasonal": false,
+    "flowers": [
+      "rose"
+    ],
+    "weight": 70
+  },
+  {
+    "id": "val_mix_s1",
+    "title": "Charmed Heart • Signature",
+    "desc": "Romantic mix with bold accents.",
+    "image_url": "https://raw.githubusercontent.com/DivyanshuK02/arvyam-landing/refs/heads/main/assets/card-1.jpg",
+    "price_inr": 2699,
+    "emotion": "Romance",
+    "tier": "Signature",
+    "packaging": "Vase",
+    "mono": false,
+    "palette": [
+      "deep-red",
+      "blush",
+      "gold"
+    ],
+    "luxury_grand": false,
+    "seasonal": false,
+    "flowers": [
+      "rose",
+      "orchid"
+    ],
+    "weight": 70
+  },
+  {
+    "id": "val_mix_l1",
+    "title": "Valentine Luxe • Luxury",
+    "desc": "Expressive bouquet with depth and glow.",
+    "image_url": "https://raw.githubusercontent.com/DivyanshuK02/arvyam-landing/refs/heads/main/assets/card-1.jpg",
+    "price_inr": 4099,
+    "emotion": "Romance",
+    "tier": "Luxury",
+    "packaging": "Vase",
+    "mono": false,
+    "palette": [
+      "deep-red",
+      "crimson",
+      "gold"
+    ],
+    "luxury_grand": false,
+    "seasonal": false,
+    "flowers": [
+      "rose",
+      "orchid"
+    ],
+    "weight": 65
+  },
+  {
+    "id": "val_mono_rose_s",
+    "title": "Valentine Mono Roses • Signature",
+    "desc": "Iconic roses for the perfect Valentine.",
+    "image_url": "https://raw.githubusercontent.com/DivyanshuK02/arvyam-landing/refs/heads/main/assets/card-2.jpg",
+    "price_inr": 2599,
+    "emotion": "Romance",
+    "tier": "Signature",
+    "packaging": "Box",
+    "mono": true,
+    "palette": [
+      "red",
+      "blush"
+    ],
+    "luxury_grand": false,
+    "seasonal": false,
+    "flowers": [
+      "rose"
+    ],
+    "weight": 85
+  },
+  {
+    "id": "val_mono_rose_lg",
+    "title": "Valentine Roses Grand • Luxury",
+    "desc": "A grand romantic statement.",
+    "image_url": "https://raw.githubusercontent.com/DivyanshuK02/arvyam-landing/refs/heads/main/assets/card-2.jpg",
+    "price_inr": 5099,
+    "emotion": "Romance",
+    "tier": "Luxury",
+    "packaging": "Vase",
+    "mono": true,
+    "palette": [
+      "deep-red",
+      "gold"
+    ],
+    "luxury_grand": true,
+    "seasonal": false,
+    "flowers": [
+      "rose"
+    ],
+    "weight": 80
+  },
+  {
+    "id": "cel_mix_c1",
+    "title": "Sunlit Cheers • Classic",
+    "desc": "Bright mix to celebrate big moments.",
+    "image_url": "https://raw.githubusercontent.com/DivyanshuK02/arvyam-landing/refs/heads/main/assets/card-2.jpg",
+    "price_inr": 1599,
+    "emotion": "Celebration",
+    "tier": "Classic",
+    "packaging": "Box",
+    "mono": false,
+    "palette": [
+      "yellow",
+      "cream",
+      "green"
+    ],
+    "luxury_grand": false,
+    "seasonal": false,
+    "flowers": [
+      "rose",
+      "lily"
+    ],
+    "weight": 60
+  },
+  {
+    "id": "cel_mix_s1",
+    "title": "Golden Toast • Signature",
+    "desc": "Festive signature bouquet.",
+    "image_url": "https://raw.githubusercontent.com/DivyanshuK02/arvyam-landing/refs/heads/main/assets/card-2.jpg",
+    "price_inr": 2699,
+    "emotion": "Celebration",
+    "tier": "Signature",
+    "packaging": "Vase",
+    "mono": false,
+    "palette": [
+      "gold",
+      "peach",
+      "white"
+    ],
+    "luxury_grand": false,
+    "seasonal": false,
+    "flowers": [
+      "rose",
+      "orchid"
+    ],
+    "weight": 60
+  },
+  {
+    "id": "cel_mix_l1",
+    "title": "Jubilee Luxe • Luxury",
+    "desc": "Opulent arrangement for milestones.",
+    "image_url": "https://raw.githubusercontent.com/DivyanshuK02/arvyam-landing/refs/heads/main/assets/card-1.jpg",
+    "price_inr": 4099,
+    "emotion": "Celebration",
+    "tier": "Luxury",
+    "packaging": "Vase",
+    "mono": false,
+    "palette": [
+      "gold",
+      "pearl",
+      "white"
+    ],
+    "luxury_grand": false,
+    "seasonal": false,
+    "flowers": [
+      "rose",
+      "orchid"
+    ],
+    "weight": 55
+  },
+  {
+    "id": "cel_mono_lily_s",
+    "title": "Mono Lilies • Signature",
+    "desc": "Elegant lilies worthy of a toast.",
+    "image_url": "https://raw.githubusercontent.com/DivyanshuK02/arvyam-landing/refs/heads/main/assets/card-2.jpg",
+    "price_inr": 2599,
+    "emotion": "Celebration",
+    "tier": "Signature",
+    "packaging": "Box",
+    "mono": true,
+    "palette": [
+      "white",
+      "pearl"
+    ],
+    "luxury_grand": false,
+    "seasonal": false,
+    "flowers": [
+      "lily"
+    ],
+    "weight": 70
+  },
+  {
+    "id": "cel_mix_lg1",
+    "title": "Festival Grand • Luxury",
+    "desc": "Grand-scale celebratory bouquet.",
+    "image_url": "https://raw.githubusercontent.com/DivyanshuK02/arvyam-landing/refs/heads/main/assets/card-1.jpg",
+    "price_inr": 5099,
+    "emotion": "Celebration",
+    "tier": "Luxury",
+    "packaging": "Vase",
+    "mono": false,
+    "palette": [
+      "gold",
+      "white"
+    ],
+    "luxury_grand": true,
+    "seasonal": false,
+    "flowers": [
+      "rose",
+      "orchid"
+    ],
+    "weight": 65
+  },
+  {
+    "id": "gra_mix_c1",
+    "title": "Thankful Bloom • Classic",
+    "desc": "Warm, appreciative mix.",
+    "image_url": "https://raw.githubusercontent.com/DivyanshuK02/arvyam-landing/refs/heads/main/assets/card-1.jpg",
+    "price_inr": 1599,
+    "emotion": "Gratitude",
+    "tier": "Classic",
+    "packaging": "Box",
+    "mono": false,
+    "palette": [
+      "peach",
+      "cream",
+      "soft-green"
+    ],
+    "luxury_grand": false,
+    "seasonal": false,
+    "flowers": [
+      "rose",
+      "lily"
+    ],
+    "weight": 60
+  },
+  {
+    "id": "gra_mix_s1",
+    "title": "Grateful Heart • Signature",
+    "desc": "Elegant thank-you bouquet.",
+    "image_url": "https://raw.githubusercontent.com/DivyanshuK02/arvyam-landing/refs/heads/main/assets/card-3.jpg",
+    "price_inr": 2699,
+    "emotion": "Gratitude",
+    "tier": "Signature",
+    "packaging": "Vase",
+    "mono": false,
+    "palette": [
+      "white",
+      "peach",
+      "soft-green"
+    ],
+    "luxury_grand": false,
+    "seasonal": false,
+    "flowers": [
+      "rose",
+      "orchid"
+    ],
+    "weight": 60
+  },
+  {
+    "id": "gra_mix_l1",
+    "title": "Deep Appreciation • Luxury",
+    "desc": "Luxurious bouquet to say thanks.",
+    "image_url": "https://raw.githubusercontent.com/DivyanshuK02/arvyam-landing/refs/heads/main/assets/card-1.jpg",
+    "price_inr": 4099,
+    "emotion": "Gratitude",
+    "tier": "Luxury",
+    "packaging": "Vase",
+    "mono": false,
+    "palette": [
+      "pearl",
+      "cream",
+      "soft-green"
+    ],
+    "luxury_grand": false,
+    "seasonal": false,
+    "flowers": [
+      "rose",
+      "orchid"
+    ],
+    "weight": 55
+  },
+  {
+    "id": "gra_mono_orchid_s",
+    "title": "Mono Orchids • Signature",
+    "desc": "A refined thank-you in orchids.",
+    "image_url": "https://raw.githubusercontent.com/DivyanshuK02/arvyam-landing/refs/heads/main/assets/card-2.jpg",
+    "price_inr": 2599,
+    "emotion": "Gratitude",
+    "tier": "Signature",
+    "packaging": "Box",
+    "mono": true,
+    "palette": [
+      "white",
+      "soft-green"
+    ],
+    "luxury_grand": false,
+    "seasonal": false,
+    "flowers": [
+      "orchid"
+    ],
+    "weight": 70
+  },
+  {
+    "id": "fri_mix_c1",
+    "title": "Bright Company • Classic",
+    "desc": "Cheery mix for dear friends.",
+    "image_url": "https://raw.githubusercontent.com/DivyanshuK02/arvyam-landing/refs/heads/main/assets/card-2.jpg",
+    "price_inr": 1599,
+    "emotion": "Friendship",
+    "tier": "Classic",
+    "packaging": "Box",
+    "mono": false,
+    "palette": [
+      "yellow",
+      "peach",
+      "cream"
+    ],
+    "luxury_grand": false,
+    "seasonal": false,
+    "flowers": [
+      "rose",
+      "lily"
+    ],
+    "weight": 60
+  },
+  {
+    "id": "fri_mix_s1",
+    "title": "Kindred Spirits • Signature",
+    "desc": "Warm signature bouquet.",
+    "image_url": "https://raw.githubusercontent.com/DivyanshuK02/arvyam-landing/refs/heads/main/assets/card-1.jpg",
+    "price_inr": 2699,
+    "emotion": "Friendship",
+    "tier": "Signature",
+    "packaging": "Vase",
+    "mono": false,
+    "palette": [
+      "peach",
+      "white",
+      "soft-green"
+    ],
+    "luxury_grand": false,
+    "seasonal": false,
+    "flowers": [
+      "rose",
+      "orchid"
+    ],
+    "weight": 60
+  },
+  {
+    "id": "fri_mix_l1",
+    "title": "Evergreen Bond • Luxury",
+    "desc": "Elegant bouquet to celebrate friendship.",
+    "image_url": "https://raw.githubusercontent.com/DivyanshuK02/arvyam-landing/refs/heads/main/assets/card-1.jpg",
+    "price_inr": 4099,
+    "emotion": "Friendship",
+    "tier": "Luxury",
+    "packaging": "Vase",
+    "mono": false,
+    "palette": [
+      "pearl",
+      "cream",
+      "soft-green"
+    ],
+    "luxury_grand": false,
+    "seasonal": false,
+    "flowers": [
+      "rose",
+      "lily"
+    ],
+    "weight": 55
+  },
+  {
+    "id": "fri_mono_rose_s",
+    "title": "Mono Roses • Signature",
+    "desc": "A rosy nod to friendship.",
+    "image_url": "https://raw.githubusercontent.com/DivyanshuK02/arvyam-landing/refs/heads/main/assets/card-3.jpg",
+    "price_inr": 2599,
+    "emotion": "Friendship",
+    "tier": "Signature",
+    "packaging": "Box",
+    "mono": true,
+    "palette": [
+      "peach",
+      "cream"
+    ],
+    "luxury_grand": false,
+    "seasonal": false,
+    "flowers": [
+      "rose"
+    ],
+    "weight": 70
+  },
+  {
+    "id": "gwl_mix_c1",
+    "title": "Gentle Lift • Classic",
+    "desc": "Soft mix to brighten recovery.",
+    "image_url": "https://raw.githubusercontent.com/DivyanshuK02/arvyam-landing/refs/heads/main/assets/card-1.jpg",
+    "price_inr": 1599,
+    "emotion": "GetWell",
+    "tier": "Classic",
+    "packaging": "Box",
+    "mono": false,
+    "palette": [
+      "white",
+      "soft-green",
+      "peach"
+    ],
+    "luxury_grand": false,
+    "seasonal": false,
+    "flowers": [
+      "lily",
+      "rose"
+    ],
+    "weight": 60
+  },
+  {
+    "id": "gwl_mix_s1",
+    "title": "Healing Hues • Signature",
+    "desc": "Comforting tones for get-well wishes.",
+    "image_url": "https://raw.githubusercontent.com/DivyanshuK02/arvyam-landing/refs/heads/main/assets/card-2.jpg",
+    "price_inr": 2699,
+    "emotion": "GetWell",
+    "tier": "Signature",
+    "packaging": "Vase",
+    "mono": false,
+    "palette": [
+      "white",
+      "pearl",
+      "soft-green"
+    ],
+    "luxury_grand": false,
+    "seasonal": false,
+    "flowers": [
+      "orchid",
+      "lily"
+    ],
+    "weight": 60
+  },
+  {
+    "id": "gwl_mix_l1",
+    "title": "Rest & Bloom • Luxury",
+    "desc": "Calming bouquet with elegant accents.",
+    "image_url": "https://raw.githubusercontent.com/DivyanshuK02/arvyam-landing/refs/heads/main/assets/card-1.jpg",
+    "price_inr": 4099,
+    "emotion": "GetWell",
+    "tier": "Luxury",
+    "packaging": "Vase",
+    "mono": false,
+    "palette": [
+      "white",
+      "cream",
+      "soft-green"
+    ],
+    "luxury_grand": false,
+    "seasonal": false,
+    "flowers": [
+      "lily",
+      "rose"
+    ],
+    "weight": 55
+  },
+  {
+    "id": "gwl_mono_lily_s",
+    "title": "Mono Lilies • Signature",
+    "desc": "Serene lilies for recovery.",
+    "image_url": "https://raw.githubusercontent.com/DivyanshuK02/arvyam-landing/refs/heads/main/assets/card-1.jpg",
+    "price_inr": 2599,
+    "emotion": "GetWell",
+    "tier": "Signature",
+    "packaging": "Box",
+    "mono": true,
+    "palette": [
+      "white",
+      "soft-green"
+    ],
+    "luxury_grand": false,
+    "seasonal": false,
+    "flowers": [
+      "lily"
+    ],
+    "weight": 70
+  },
+  {
+    "id": "enc_mix_c1",
+    "title": "You’ve Got This • Classic",
+    "desc": "Uplifting mix with warm notes.",
+    "image_url": "https://raw.githubusercontent.com/DivyanshuK02/arvyam-landing/refs/heads/main/assets/card-2.jpg",
+    "price_inr": 1599,
+    "emotion": "Encouragement",
+    "tier": "Classic",
+    "packaging": "Box",
+    "mono": false,
+    "palette": [
+      "peach",
+      "cream",
+      "soft-green"
+    ],
+    "luxury_grand": false,
+    "seasonal": false,
+    "flowers": [
+      "rose",
+      "lily"
+    ],
+    "weight": 60
+  },
+  {
+    "id": "enc_mix_s1",
+    "title": "Keep Going • Signature",
+    "desc": "Supportive tones with gentle contrast.",
+    "image_url": "https://raw.githubusercontent.com/DivyanshuK02/arvyam-landing/refs/heads/main/assets/card-2.jpg",
+    "price_inr": 2699,
+    "emotion": "Encouragement",
+    "tier": "Signature",
+    "packaging": "Vase",
+    "mono": false,
+    "palette": [
+      "white",
+      "peach",
+      "soft-green"
+    ],
+    "luxury_grand": false,
+    "seasonal": false,
+    "flowers": [
+      "rose",
+      "orchid"
+    ],
+    "weight": 60
+  },
+  {
+    "id": "enc_mix_l1",
+    "title": "Brighter Days • Luxury",
+    "desc": "Elegant encouragement bouquet.",
+    "image_url": "https://raw.githubusercontent.com/DivyanshuK02/arvyam-landing/refs/heads/main/assets/card-1.jpg",
+    "price_inr": 4099,
+    "emotion": "Encouragement",
+    "tier": "Luxury",
+    "packaging": "Vase",
+    "mono": false,
+    "palette": [
+      "pearl",
+      "cream",
+      "soft-green"
+    ],
+    "luxury_grand": false,
+    "seasonal": false,
+    "flowers": [
+      "lily",
+      "rose"
+    ],
+    "weight": 55
+  },
+  {
+    "id": "enc_mono_orchid_s",
+    "title": "Mono Orchids • Signature",
+    "desc": "Encouraging, composed orchids.",
+    "image_url": "https://raw.githubusercontent.com/DivyanshuK02/arvyam-landing/refs/heads/main/assets/card-3.jpg",
+    "price_inr": 2599,
+    "emotion": "Encouragement",
+    "tier": "Signature",
+    "packaging": "Box",
+    "mono": true,
+    "palette": [
+      "white",
+      "soft-green"
+    ],
+    "luxury_grand": false,
+    "seasonal": false,
+    "flowers": [
+      "orchid"
+    ],
+    "weight": 70
+  },
+  {
+    "id": "bday_mix_c1",
+    "title": "Birthday Joy • Classic",
+    "desc": "Bright blooms to celebrate their day.",
+    "image_url": "https://raw.githubusercontent.com/DivyanshuK02/arvyam-landing/refs/heads/main/assets/card-3.jpg",
+    "price_inr": 1599,
+    "emotion": "Birthday",
+    "tier": "Classic",
+    "packaging": "Box",
+    "mono": false,
+    "palette": [
+      "peach",
+      "yellow",
+      "cream"
+    ],
+    "luxury_grand": false,
+    "seasonal": false,
+    "flowers": [
+      "rose",
+      "lily"
+    ],
+    "weight": 65
+  },
+  {
+    "id": "bday_mix_s1",
+    "title": "Sparkle Day • Signature",
+    "desc": "Festive signature bouquet.",
+    "image_url": "https://raw.githubusercontent.com/DivyanshuK02/arvyam-landing/refs/heads/main/assets/card-1.jpg",
+    "price_inr": 2699,
+    "emotion": "Birthday",
+    "tier": "Signature",
+    "packaging": "Vase",
+    "mono": false,
+    "palette": [
+      "gold",
+      "peach",
+      "white"
+    ],
+    "luxury_grand": false,
+    "seasonal": false,
+    "flowers": [
+      "rose",
+      "orchid"
+    ],
+    "weight": 60
+  },
+  {
+    "id": "bday_mix_l1",
+    "title": "Birthday Luxe • Luxury",
+    "desc": "A lavish birthday surprise.",
+    "image_url": "https://raw.githubusercontent.com/DivyanshuK02/arvyam-landing/refs/heads/main/assets/card-2.jpg",
+    "price_inr": 4099,
+    "emotion": "Birthday",
+    "tier": "Luxury",
+    "packaging": "Vase",
+    "mono": false,
+    "palette": [
+      "gold",
+      "pearl",
+      "white"
+    ],
+    "luxury_grand": false,
+    "seasonal": false,
+    "flowers": [
+      "rose",
+      "orchid"
+    ],
+    "weight": 55
+  },
+  {
+    "id": "bday_mono_rose_s",
+    "title": "Birthday Roses • Signature",
+    "desc": "Classic roses for their special day.",
+    "image_url": "https://raw.githubusercontent.com/DivyanshuK02/arvyam-landing/refs/heads/main/assets/card-1.jpg",
+    "price_inr": 2599,
+    "emotion": "Birthday",
+    "tier": "Signature",
+    "packaging": "Box",
+    "mono": true,
+    "palette": [
+      "peach",
+      "cream"
+    ],
+    "luxury_grand": false,
+    "seasonal": false,
+    "flowers": [
+      "rose"
+    ],
+    "weight": 70
+  }
+]
