@@ -22,7 +22,8 @@ def _load_json(path: str, default: Any) -> Any:
     try:
         with open(path, 'r', encoding='utf-8') as f:
             return json.load(f)
-    except FileNotFoundError:
+    except (FileNotFoundError, json.JSONDecodeError):
+        # Graceful fallback if the file is missing or temporarily malformed
         return default
 
 # -----------------------------
@@ -327,10 +328,24 @@ def selection_engine(prompt: str, context: Optional[Dict[str,Any]]=None) -> List
             prefer_mono = (tier == mono_tier)
             it = pick_for_tier(tier, prefer_mono=prefer_mono)
             if not it:
-                # Adjacent-emotion/palette fallback: take first available of this tier from catalog regardless of emotion
-                any_tier_item = next((x for x in CATALOG if x.get('tier')==tier and not x.get('id') in used_ids and _meets_floor(x)), None)
-                if any_tier_item:
-                    it = any_tier_item
+    # Palette-aware tier fallback: prefer items whose palette intersects the register palette targets
+    targets = set(register.get('palette_targets', [])) if register else set()
+    def good(x):
+        return (
+            x.get('tier') == tier
+            and x.get('id') not in used_ids
+            and _meets_floor(x)
+        )
+    # 1) prefer palette-aligned
+    any_tier_item = next(
+        (x for x in CATALOG if good(x) and targets and targets.intersection(set(x.get('palette') or []))),
+        None
+    )
+    # 2) else take anything valid in the tier
+    if not any_tier_item:
+        any_tier_item = next((x for x in CATALOG if good(x)), None)
+    if any_tier_item:
+        it = any_tier_item
             if it:
                 used_ids.add(it.get('id'))
                 out.append(it)
