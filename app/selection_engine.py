@@ -2,18 +2,15 @@
 # Ultra-beginner-safe Selection Engine — Phase 1.2 + 1.3 (Edge-Case Playbooks)
 # Deterministic, rules-first; strict tier scaffold (Classic → Signature → Luxury).
 # Always returns exactly 3 items (2 MIX + 1 MONO) with palette[].
-# Edge registers (sympathy/apology/farewell/valentine) apply tone/palette/species rules and copy ≤ N words.
-# LG policy: emotion block-list from rules/tier_policy.json and soft multipliers in registers;
-#            no numeric budgets in code (LG boost only with intent signal or explicit budget presence).
-#
-# External contract:
-# - Public entrypoint: curate(prompt: str, context: dict) -> list[dict] of 3 items
-# - Context may include: {"budget_inr": int|None, "emotion_hint": str|None, "packaging_pref": str|None, "locale": str|None}
-# - No network calls. Only reads JSON files from /app and /app/rules.
+# Edge registers (sympathy/apology/farewell/valentine): tone/palette/species rules and copy ≤ N words.
+# LG policy: emotion block-list from rules/tier_policy.json and soft multipliers in registers via intent;
+#            NO numeric budgets in code.
 
 from __future__ import annotations
 import os, re, json, hashlib
-from typing import Any, Dict, List, Tuple, Optional
+from typing import Any, Dict, List, Optional
+
+__all__ = ["curate", "selection_engine", "normalize", "detect_emotion"]
 
 # ------------------------------
 # File helpers
@@ -125,6 +122,10 @@ def _norm(s: str) -> str:
     s = re.sub(r"\s+", " ", s)
     return s
 
+def normalize(s: str) -> str:
+    """Public alias (kept for main.py compatibility)."""
+    return _norm(s)
+
 def _contains_any(text: str, kws: List[str]) -> bool:
     t = _norm(text)
     return any(kw in t for kw in kws)
@@ -144,8 +145,8 @@ def _detect_edge_case(prompt: str) -> Optional[str]:
             return k
     return None
 
-def _detect_emotion(prompt: str, context: Dict[str, Any]) -> str:
-    # context hint wins
+def detect_emotion(prompt: str, context: Dict[str, Any]) -> str:
+    """Public: detect canonical emotion label from prompt/context."""
     hint = (context or {}).get("emotion_hint")
     if isinstance(hint, str) and hint:
         return hint
@@ -153,10 +154,9 @@ def _detect_emotion(prompt: str, context: Dict[str, Any]) -> str:
     for emo, kws in EMO_KEYWORDS.items():
         if _contains_any(t, kws):
             return emo
-    # fallbacks: align with edge-case to a canonical emotion
     edge = _detect_edge_case(prompt)
     if edge == "sympathy": return "Sympathy"
-    if edge == "apology": return "Gratitude"  # apology adjacent; gentle
+    if edge == "apology": return "Gratitude"
     if edge == "farewell": return "Friendship"
     if edge == "valentine": return "Romance"
     return "Romance"
@@ -173,36 +173,27 @@ def _score_item(it: Dict[str, Any], edge: Optional[str], prompt: str, context: D
     palette = [p.lower() for p in it.get("palette", [])]
     is_lg = bool(it.get("luxury_grand"))
 
-    # Edge-register adjustments
     if edge and edge in EDGE_REGS:
         reg = EDGE_REGS[edge]
-        # palette boosts / penalties
         pt = set([p.lower() for p in reg.get("palette_targets", [])])
         pa = set([p.lower() for p in reg.get("palette_avoid", [])])
         if pt and any(p in pt for p in palette):
             score *= float(reg.get("palette_target_boost", 1.0))
         if pa and any(p in pa for p in palette):
             score *= float(reg.get("palette_avoid_penalty", 1.0))
-        # species prefer / avoid
         spref = set([s.lower() for s in reg.get("species_prefer", [])])
         sav = set([s.lower() for s in reg.get("species_avoid", [])])
         if spref and any(f in spref for f in flowers):
             score *= 1.10
         if sav and any(f in sav for f in flowers):
             score *= 0.90
-        # LG policy (soft multiplier only with signal; block handled separately)
         if is_lg:
-            # signal detection
             t = _norm(prompt)
             grand_signal = any(kw in t for kw in EDGE_KWS.get("grand_intent_keywords", [])) \
                            or any(kw in t for kw in EDGE_KWS.get("relationship_grandeur_cues", [])) \
                            or (isinstance(context.get("budget_inr", None), (int, float)))
             if grand_signal:
                 score *= float(reg.get("lg_weight_multiplier", 1.0))
-            # else: neutral (no extra boost)
-
-    # slight freshness variance to break ties deterministically
-    # hash by id for deterministic ordering
     h = int(hashlib.md5((it.get("id","") + it.get("title","")).encode("utf-8")).hexdigest(), 16)
     score += (h % 7) * 0.01
     return score
@@ -215,7 +206,6 @@ def _allow_lg_for_emotion(emotion: str) -> bool:
 # Pooling & picking
 # ------------------------------
 def _filter_pool(emotion: str, edge: Optional[str]) -> List[Dict[str, Any]]:
-    # prefer same emotion; if too few for a tier, we will fallback at pick-time.
     pool = [x for x in CATALOG if x.get("image_url") and x.get("palette")]
     return pool
 
@@ -256,7 +246,6 @@ def _gather_candidates_by_tier(tier_pool: Dict[str, List[Dict[str, Any]]],
 
 def _choose_triad(per: Dict[str, Dict[str, Optional[Dict[str, Any]]]],
                   edge: Optional[str], prompt: str, ctx: Dict[str, Any]) -> List[Dict[str, Any]]:
-    # Build three combinations (mono on Classic / Signature / Luxury), score each, pick the best available.
     combos = []
     for mono_tier in ["Classic","Signature","Luxury"]:
         triad = []
@@ -273,23 +262,20 @@ def _choose_triad(per: Dict[str, Dict[str, Optional[Dict[str, Any]]]],
         combos.sort(key=lambda z: z[0], reverse=True)
         return combos[0][2]
 
-    # Fallbacks: if some tiers are missing candidates of requested mix/mono, relax mono constraint
-    # 1) pick best available (mix first) per tier
+    # Fallbacks for sparse catalogs
     triad = []
     for tier in ["Classic","Signature","Luxury"]:
         pick = per[tier]["mix"] or per[tier]["mono"]
         if pick is None:
-            # last-resort: grab anything in catalog of this tier
             triad.append({"__missing__": True, "tier": tier})
         else:
             triad.append(pick)
-    # replace any missing with highest-score any-item from that tier across catalog
+
     fixed = []
     for it in triad:
         if "__missing__" in it:
             t = it["tier"]
             all_tier = [x for x in CATALOG if x.get("tier")==t]
-            best = None
             bests = sorted([( _score_item(x, edge, prompt, ctx), x) for x in all_tier], key=lambda z:z[0], reverse=True)
             best = bests[0][1] if bests else None
             if best: fixed.append(best)
@@ -297,10 +283,8 @@ def _choose_triad(per: Dict[str, Dict[str, Optional[Dict[str, Any]]]],
             fixed.append(it)
     triad = fixed
 
-    # Ensure exactly one MONO: if not, try to swap one tier item to the nearest mono same tier
     mono_count = sum(1 for it in triad if it.get("mono"))
     if mono_count == 0:
-        # try switch Luxury, then Signature, then Classic to mono
         for t in ["Luxury","Signature","Classic"]:
             cands = [x for x in CATALOG if x.get("tier")==t and x.get("mono")]
             if cands:
@@ -310,16 +294,14 @@ def _choose_triad(per: Dict[str, Dict[str, Optional[Dict[str, Any]]]],
                         triad[i]=best; mono_count=1; break
             if mono_count==1: break
     elif mono_count > 1:
-        # reduce to one mono by converting the lowest-score mono to mix candidate of the same tier if possible
         monos = [( _score_item(it, edge, prompt, ctx), i) for i,it in enumerate(triad) if it.get("mono")]
-        monos.sort()  # lowest first
+        monos.sort()
         for _, idx in monos[1:]:
             tier = triad[idx].get("tier")
             cands = [x for x in CATALOG if x.get("tier")==tier and not x.get("mono")]
             if cands:
                 best = sorted([( _score_item(x, edge, prompt, ctx), x) for x in cands], key=lambda z:z[0], reverse=True)[0][1]
                 triad[idx] = best
-        # re-check
         mono_count = sum(1 for it in triad if it.get("mono"))
 
     return triad
@@ -330,9 +312,7 @@ def _ensure_sympathy_lily(triad: List[Dict[str, Any]], edge: Optional[str], prom
     has_lily = any("lily" in [f.lower() for f in it.get("flowers",[])] for it in triad)
     if has_lily:
         return triad
-    # try to swap MONO item to a lily mono within the same tier first, else any tier (while preserving one-per-tier)
     mono_idx = next((i for i,it in enumerate(triad) if it.get("mono")), None)
-    tiers = ["Classic","Signature","Luxury"]
     search_order = [mono_idx] + [i for i in range(3) if i!=mono_idx] if mono_idx is not None else list(range(3))
     for idx in search_order:
         tier = triad[idx].get("tier")
@@ -341,7 +321,6 @@ def _ensure_sympathy_lily(triad: List[Dict[str, Any]], edge: Optional[str], prom
             best = sorted([( _score_item(x, edge, prompt, ctx), x) for x in cands], key=lambda z:z[0], reverse=True)[0][1]
             triad[idx] = best
             return triad
-    # if nothing, just return triad as-is
     return triad
 
 def _map_out(it: Dict[str, Any], emotion: str, edge: Optional[str], max_words: int) -> Dict[str, Any]:
@@ -369,29 +348,24 @@ def _map_out(it: Dict[str, Any], emotion: str, edge: Optional[str], max_words: i
 def curate(prompt: str, context: Optional[Dict[str, Any]] = None) -> List[Dict[str, Any]]:
     context = context or {}
     norm_prompt = _norm(prompt)
-    emotion = _detect_emotion(prompt, context)
+    emotion = detect_emotion(prompt, context)
     edge = _detect_edge_case(prompt)
 
-    # base pool (we filter tiers later). Keep all catalog to allow safe fallbacks with limited data.
     pool = _filter_pool(emotion, edge)
     allow_lg = _allow_lg_for_emotion(emotion)
 
-    # substitute editorial (note) if explicit unavailable item is asked
     note_text = None
     for unavailable, sub in SUBS_MAP.items():
         if unavailable in norm_prompt:
             note_text = f"{unavailable.capitalize()} is seasonal; showing nearest alternative."
             break
 
-    # build candidates per tier
     tiers = _split_by_tier(pool)
     per = _gather_candidates_by_tier(tiers, edge, prompt, context, allow_lg=allow_lg)
     triad = _choose_triad(per, edge, prompt, context)
 
-    # Strong-intent iconic override (only roses/lilies/orchids) → force the MONO at its tier (choose the tier where mono candidate exists with best score)
     iconic = _only_iconic_intent(prompt)
     if iconic:
-        # find mono candidates with that flower by tier
         best_slot = None
         best_score = -1e9
         best_cand = None
@@ -406,52 +380,46 @@ def curate(prompt: str, context: Optional[Dict[str, Any]] = None) -> List[Dict[s
         if best_cand and best_slot:
             for i,it in enumerate(triad):
                 if it.get("tier")==best_slot:
-                    triad[i] = dict(best_cand)  # copy
+                    triad[i] = dict(best_cand)
                     triad[i]["__iconic__"] = True
                     break
 
-    # Edge-case lily guarantee for Sympathy
     triad = _ensure_sympathy_lily(triad, edge, prompt, context)
 
-    # Attach editorial note to first MIX item when redirection happened
     if note_text:
         for it in triad:
             if not it.get("mono"):
                 it["__note__"] = note_text
                 break
 
-    # Final ordering by tier
     triad.sort(key=lambda it: (TIER_RANK.get(it.get("tier"), 99), 1 if it.get("luxury_grand") else 0))
 
-    # Map out with copy trimming
     max_words = int(EDGE_REGS.get("copy_max_words", 20))
     out = [_map_out(it, emotion, edge, max_words) for it in triad]
 
-    # Ensure exactly 2 MIX + 1 MONO (hard check at the end)
+    # Last-mile guard: ensure exactly 2 MIX + 1 MONO
     mono_count = sum(1 for x in out if x["mono"])
-    if mono_count != 1:
-        # try to repair: keep best mix in two tiers and mono in one tier; if impossible, flip the lowest scoring to mix
-        # (given limited catalog, we avoid over-engineering: enforce by toggling the Classic item if needed)
-        # In worst case (no mono exists in catalog), we simply mark the Signature as mix.
-        if mono_count == 0:
-            # attempt to convert Luxury to mono if a mono exists
-            luxury_mono = [x for x in CATALOG if x.get("tier")=="Luxury" and x.get("mono")]
-            if luxury_mono:
-                best = sorted([( _score_item(x, edge, prompt, context), x) for x in luxury_mono], key=lambda z:z[0], reverse=True)[0][1]
-                for i,oi in enumerate(out):
-                    if oi["tier"]=="Luxury":
-                        out[i] = _map_out(best, emotion, edge, max_words)
-                        out[i]["mono"]=True
-                        break
-        elif mono_count > 1:
-            # set Classic to mix if possible
+    if mono_count == 0:
+        lux_mono = [x for x in CATALOG if x.get("tier")=="Luxury" and x.get("mono")]
+        if lux_mono:
+            best = sorted([( _score_item(x, edge, prompt, context), x) for x in lux_mono], key=lambda z:z[0], reverse=True)[0][1]
             for i,oi in enumerate(out):
-                if oi["tier"]=="Classic" and oi["mono"]:
-                    mix_cands = [x for x in CATALOG if x.get("tier")=="Classic" and not x.get("mono")]
-                    if mix_cands:
-                        best = sorted([( _score_item(x, edge, prompt, context), x) for x in mix_cands], key=lambda z:z[0], reverse=True)[0][1]
-                        out[i] = _map_out(best, emotion, edge, max_words)
-                        out[i]["mono"]=False
+                if oi["tier"]=="Luxury":
+                    out[i] = _map_out(best, emotion, edge, max_words)
+                    out[i]["mono"]=True
                     break
+    elif mono_count > 1:
+        for i,oi in enumerate(out):
+            if oi["tier"]=="Classic" and oi["mono"]:
+                mix_cands = [x for x in CATALOG if x.get("tier")=="Classic" and not x.get("mono")]
+                if mix_cands:
+                    best = sorted([( _score_item(x, edge, prompt, context), x) for x in mix_cands], key=lambda z:z[0], reverse=True)[0][1]
+                    out[i] = _map_out(best, emotion, edge, max_words)
+                    out[i]["mono"]=False
+                break
 
     return out
+
+# Backward-compatible public alias (so main.py can import the legacy name)
+def selection_engine(prompt: str, context: Optional[Dict[str, Any]] = None) -> List[Dict[str, Any]]:
+    return curate(prompt, context)
