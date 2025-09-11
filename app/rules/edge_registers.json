@@ -13,7 +13,6 @@
     "mono_must_include": ["lily"],
     "lg_policy": "block",
     "lg_weight_multiplier": 0.0,
-    "min_budget_for_lg": 999999,
     "allow_lg_in_mix": false,
     "allow_lg_in_mono": false
   },
@@ -29,7 +28,6 @@
     "species_avoid": [],
     "lg_policy": "allow_soft",
     "lg_weight_multiplier": 0.8,
-    "min_budget_for_lg": 4999,
     "allow_lg_in_mix": true,
     "allow_lg_in_mono": true
   },
@@ -45,7 +43,6 @@
     "species_avoid": ["sunflower", "gerbera"],
     "lg_policy": "allow_soft",
     "lg_weight_multiplier": 0.8,
-    "min_budget_for_lg": 4999,
     "allow_lg_in_mix": true,
     "allow_lg_in_mono": true
   },
@@ -61,7 +58,6 @@
     "species_avoid": [],
     "lg_policy": "allow_soft",
     "lg_weight_multiplier": 1.5,
-    "min_budget_for_lg": 4999,
     "allow_lg_in_mix": true,
     "allow_lg_in_mono": true
   }
