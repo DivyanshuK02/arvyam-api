@@ -15,7 +15,7 @@ from slowapi.middleware import SlowAPIMiddleware
 from slowapi.errors import RateLimitExceeded
 
 # Selection Engine and helpers (package-relative import)
-from .selection_engine import selection_engine, normalize, detect_emotion
+from .selection_engine import selection_engine, normalize, detect_emotion, curate
 
 # =========================
 # Environment & Constants
