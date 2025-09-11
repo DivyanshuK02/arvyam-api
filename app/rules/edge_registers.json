@@ -36,7 +36,7 @@
     "palette_targets": ["white", "cream", "peach", "soft-green"],
     "palette_avoid": ["neon", "neon-mixed", "electric", "bright-yellow"],
     "species_prefer": ["rose", "lily", "orchid"],
-    "species_avoid": ["neon-mixed", "sunflower", "gerbera"],
+    "species_avoid": ["sunflower", "gerbera"],
     "lg_policy": "allow_soft",
     "lg_weight_multiplier": 0.8,
     "min_budget_for_lg": 4999,
