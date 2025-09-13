@@ -1,4 +1,3 @@
-
 # app/selection_engine.py
 # Ultra-beginner-safe Selection Engine — Phase 1.2 + 1.3 (Edge-Case Playbooks)
 # - Deterministic, rules-first; strict tier scaffold (Classic → Signature → Luxury).
@@ -45,6 +44,8 @@ EMOTION_KEYWORDS = _load_json(os.path.join(RULES_DIR, "emotion_keywords.json"), 
 EDGE_KEYWORDS = _load_json(os.path.join(RULES_DIR, "edge_keywords.json"), {})
 EDGE_REGISTERS = _load_json(os.path.join(RULES_DIR, "edge_registers.json"), {})
 TIER_POLICY = _load_json(os.path.join(RULES_DIR, "tier_policy.json"), {"luxury_grand": {"blocked_emotions": []}})
+# Edge register keys (strict): only these four are considered "edge cases".
+EDGE_REGISTERS = {"sympathy","apology","farewell","valentine"}
 
 # ------------------------------------------------------------
 # Utilities
@@ -75,17 +76,44 @@ def _any_match(text: str, phrases: List[str]) -> bool:
     return False
 
 def detect_emotion(prompt: str, context: Optional[Dict[str, Any]] = None) -> str:
-    """Rules-first emotion detection (no ML). Defaults to Romance."""
+    """
+    Rules-first emotion detection against Phase-1 schema in rules/emotion_keywords.json.
+    Evaluation order (from file notes): edge registers handled elsewhere; then exact phrase,
+    combos/context, then keyword buckets in anchor order. Falls back to first anchor.
+    """
     p = normalize(prompt)
-    # explicit hint wins
-    if context and isinstance(context.get("emotion_hint"), str):
-        return context["emotion_hint"].strip().title()
 
-    for emotion, kws in EMOTION_KEYWORDS.items():
-        if _any_match(p, kws):
-            return emotion.title()
-    # default (broad & safe)
-    return "Romance"
+    # Explicit hint wins if it matches a known anchor
+    if context and isinstance(context.get("emotion_hint"), str):
+        hint = context["emotion_hint"].strip()
+        anchors = EMOTION_KEYWORDS.get("anchors", [])
+        return hint if hint in anchors else hint.title()
+
+    anchors: List[str] = EMOTION_KEYWORDS.get("anchors", [])
+    exact: Dict[str, str] = EMOTION_KEYWORDS.get("exact", {})
+    combos: List[Dict[str, Any]] = EMOTION_KEYWORDS.get("combos", [])
+    keywords: Dict[str, List[str]] = EMOTION_KEYWORDS.get("keywords", {})
+
+    # 1) Exact phrases
+    for phrase, anchor in exact.items():
+        if phrase and normalize(phrase) in p:
+            return anchor
+
+    # 2) Combo/context rules
+    for rule in combos:
+        all_terms = rule.get("all", [])
+        anchor = rule.get("anchor")
+        if all_terms and anchor and all(normalize(t) in p for t in all_terms):
+            return anchor
+
+    # 3) Keyword buckets (in anchor order)
+    for anchor in anchors:
+        bucket = keywords.get(anchor, [])
+        if bucket and any(normalize(k) in p for k in bucket):
+            return anchor
+
+    # 4) Default to first configured anchor or Affection/Support
+    return anchors[0] if anchors else "Affection/Support"
 
 def detect_edge_case(prompt: str) -> Optional[str]:
     p = normalize(prompt)
@@ -316,10 +344,17 @@ def selection_engine(prompt: str, context: Optional[Dict[str, Any]] = None) -> L
         if w <= 0:
             continue
 
+        # Add a tiny deterministic tie-break so identical inputs stay stable:
+        if item.get("id"):
+            w += (int(hashlib.sha256(item["id"].encode()).hexdigest(), 16) % 997) / 1e9
+
         candidate = dict(item)
-        candidate["_score"] = float(w)
-        candidate["edge_case"] = bool(edge_case)
-        candidate["emotion"] = emotion  # normalize capitalization
+        candidate["_score"] = w
+        # Strict edge gating + proper emotion (anchor) assignment
+        edge_type = edge_case if edge_case in EDGE_REGISTERS else None
+        candidate["emotion"] = emotion               # resolved anchor from detect_emotion(...)
+        candidate["edge_case"] = bool(edge_type)
+        candidate["_edge_type"] = edge_type          # optional, useful for logs/UI
         scored.append(candidate)
 
     if not scored:
@@ -390,6 +425,7 @@ def selection_engine(prompt: str, context: Optional[Dict[str, Any]] = None) -> L
             "luxury_grand": bool(it.get("luxury_grand")),
             "note": it.get("note"),
             "edge_case": bool(it.get("edge_case")),
+            "edge_type": it.get("_edge_type"), # optional exposure
         })
     return out
 
