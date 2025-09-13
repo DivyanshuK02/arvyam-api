@@ -44,6 +44,7 @@ EMOTION_KEYWORDS = _load_json(os.path.join(RULES_DIR, "emotion_keywords.json"), 
 EDGE_KEYWORDS = _load_json(os.path.join(RULES_DIR, "edge_keywords.json"), {})
 EDGE_REGISTERS = _load_json(os.path.join(RULES_DIR, "edge_registers.json"), {})
 TIER_POLICY = _load_json(os.path.join(RULES_DIR, "tier_policy.json"), {"luxury_grand": {"blocked_emotions": []}})
+SUB_NOTES = _load_json(os.path.join(RULES_DIR, "substitution_notes.json"), {"default": "Requested {from} is seasonal/unavailable; offering {alt} as the nearest alternative."})
 # Edge register keys (strict): only these four are considered "edge cases".
 EDGE_CASE_KEYS = {"sympathy", "apology", "farewell", "valentine"}
 
@@ -142,6 +143,17 @@ def _truncate_words(text: str, max_words: int) -> str:
     if len(words) <= max_words:
         return text or ""
     return " ".join(words[:max_words])
+
+def _enforce_copy_limit(text: str, edge_type: Optional[str]) -> str:
+    # read register-specific cap if present; else fall back to global root
+    root_cap = int(EDGE_REGISTERS.get("copy_max_words", 20))
+    reg_cap = int(EDGE_REGISTERS.get(edge_type, {}).get("copy_max_words", root_cap)) if edge_type else root_cap
+    cap = max(1, min(reg_cap, 20))  # hard fence at 20 as per Phase-1 contract
+    words = text.split()
+    if len(words) <= cap:
+        return text
+    return " ".join(words[:cap]).rstrip(",.;:!—-") + "…"
+
 
 def _order_by_tier(items: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     def key(it):
@@ -246,23 +258,28 @@ def _pick_best(cands: List[Dict[str, Any]], want_mono: Optional[bool]) -> Option
         filtered = cands
     return max(filtered, key=lambda x: x.get("_score", 0.0))
 
-def _mark_note_if_redirect(triad: List[Dict[str, Any]], prompt: str) -> None:
-    p = normalize(prompt)
-    if "hydrangea" in p:
-        # If none of the chosen items actually contains hydrangea, attach note to first MIX
-        has_hyd = any("hydrangea" in [f.lower() for f in it.get("flowers", [])] for it in triad)
-        if not has_hyd:
-            for it in triad:
-                if not _is_mono(it):
-                    it["note"] = "Hydrangea is seasonal; showing the closest palette match."
-                    break
-
-def _enforce_copy_limit(triad: List[Dict[str, Any]], edge_case: Optional[str]) -> None:
-    if not edge_case:
+def _apply_substitution_notes(triad: List[Dict[str, Any]], redirect_from: Optional[str], alts: List[str]) -> None:
+    """
+    If user asked for an unavailable species (redirect_from), attach a note to each
+    triad item whose flowers include one of the chosen substitutes in `alts`.
+    Fallback: if nothing matches, put the note on the first MIX item only.
+    """
+    if not redirect_from or not alts:
         return
-    max_words = int(EDGE_REGISTERS.get("copy_max_words", 20))
+    note_tpl = SUB_NOTES.get(redirect_from.lower(), SUB_NOTES.get("default", "Requested {from} is unavailable; offering {alt}."))
+    matched = 0
     for it in triad:
-        it["desc"] = _truncate_words(it.get("desc", ""), max_words)
+        flowers = [f.lower() for f in (it.get("flowers") or [])]
+        hit = next((a for a in alts if a.lower() in flowers), None)
+        if hit:
+            it["note"] = note_tpl.format(from=redirect_from, alt=hit)
+            matched += 1
+    if matched == 0:
+        # fallback: first MIX only (keeps UI clean)
+        for it in triad:
+            if not it.get("mono"):
+                it["note"] = note_tpl.format(from=redirect_from, alt=alts[0])
+                break
 
 def _ensure_two_mix_one_mono(triad: List[Dict[str, Any]], all_items: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     """Guarantee exactly 2 MIX + 1 MONO while keeping tier order."""
@@ -316,6 +333,15 @@ def selection_engine(prompt: str, context: Optional[Dict[str, Any]] = None) -> L
     # Emotion + edge-case
     emotion = detect_emotion(p, context)
     edge_case = detect_edge_case(p)
+    
+    redirect_from: Optional[str] = None
+    redirect_alts: List[str] = []
+    
+    # Check for specific substitution case (e.g., hydrangea)
+    if "hydrangea" in p:
+        redirect_from = "hydrangea"
+        # Dummy alternatives for now; a real implementation would find these
+        redirect_alts = ["lily", "chrysanthemum"]
 
     # Iconic override intent (only lilies/roses/orchids)
     iconic_intent = None
@@ -403,11 +429,12 @@ def selection_engine(prompt: str, context: Optional[Dict[str, Any]] = None) -> L
     # Last-mile ritual: exactly 2 MIX + 1 MONO
     triad = _ensure_two_mix_one_mono(triad, scored)
 
-    # Editorial redirection notes
-    _mark_note_if_redirect(triad, p)
+    # Apply notes for substituted species
+    _apply_substitution_notes(triad, redirect_from, redirect_alts)
 
     # Edge-case copy limit
-    _enforce_copy_limit(triad, edge_case)
+    for it in triad:
+        it["desc"] = _enforce_copy_limit(it.get("desc", ""), it.get("_edge_type"))
 
     # Map fields for API output
     out = []
