@@ -143,7 +143,8 @@ def detect_emotion(prompt: str, context: Optional[Dict[str, Any]] = None) -> str
 
 def detect_edge_case(prompt: str) -> Optional[str]:
     p = normalize(prompt)
-    for label, phrases in EDGE_KEYWORDS.items():
+    for label in EDGE_CASE_KEYS:  # only the 4 registers
+        phrases = EDGE_KEYWORDS.get(label, [])
         if _any_match(p, phrases):
             return label  # sympathy | apology | farewell | valentine
     return None
