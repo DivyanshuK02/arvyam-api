@@ -154,7 +154,7 @@ def append_selection_log(items: List[Dict[str, Any]], request_id: str, latency_m
     mix_ids = ";".join([it["id"] for it in items if not it.get("mono")])
     mono_id = next((it["id"] for it in items if it.get("mono")), "")
     tiers = ";".join([it.get("tier","") for it in items])
-    lg_flags = ";".join(["true" if it.get("luxury_grand") else "false" for it in items])
+    lg_flags = ";.join(["true" if it.get("luxury_grand") else "false" for it in items])
     row = [time.strftime("%Y-%m-%dT%H:%M:%S%z"), request_id, PERSONA, path, str(latency_ms), str(prompt_len), detected_emotion, mix_ids, mono_id, tiers, lg_flags]
 
     need_header = not os.path.exists(csv_path) or os.path.getsize(csv_path) == 0
@@ -215,14 +215,18 @@ def analytics_guard_check() -> Dict[str, Any]:
 
 # -- payload coercion shim: accept raw string, {"prompt"}, {"text"}, {"q"}, form, or query
 async def _coerce_prompt(request: Request) -> str:
-    # 1) JSON body
+    # 1) JSON body (accept common keys OR first string value)
     try:
         data = await request.json()
     except Exception:
         data = None
     if isinstance(data, dict):
-        for k in ("prompt", "text", "q", "message"):
+        for k in ("prompt", "text", "q", "message", "input"):
             v = data.get(k)
+            if isinstance(v, str) and v.strip():
+                return v.strip()
+        # last resort: pick the first non-empty string value in the dict
+        for v in data.values():
             if isinstance(v, str) and v.strip():
                 return v.strip()
 
@@ -243,7 +247,7 @@ async def _coerce_prompt(request: Request) -> str:
         return raw
 
     # 4) query params
-    for k in ("prompt", "text", "q", "message"):
+    for k in ("prompt", "text", "q", "message", "input"):
         v = request.query_params.get(k)
         if v and v.strip():
             return v.strip()
@@ -377,6 +381,17 @@ async def curate_get(request: Request):
     analytics_guard_check()
 
     return JSONResponse(items)
+
+# ---- Aliases so legacy/front-end calls to /curate keep working ----
+@app.post("/curate")
+@limiter.limit(f"{RATE_LIMIT_PER_MIN}/minute")
+async def curate_alias_post(request: Request):
+    return await curate(request)
+
+@app.get("/curate")
+@limiter.limit(f"{RATE_LIMIT_PER_MIN}/minute")
+async def curate_alias_get(request: Request):
+    return await curate_get(request)
 
 
 # -------------------------
