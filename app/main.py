@@ -154,7 +154,7 @@ def append_selection_log(items: List[Dict[str, Any]], request_id: str, latency_m
     mix_ids = ";".join([it["id"] for it in items if not it.get("mono")])
     mono_id = next((it["id"] for it in items if it.get("mono")), "")
     tiers = ";".join([it.get("tier","") for it in items])
-    lg_flags = ";.join(["true" if it.get("luxury_grand") else "false" for it in items])
+    lg_flags = ";".join(["true" if it.get("luxury_grand") else "false" for it in items])
     row = [time.strftime("%Y-%m-%dT%H:%M:%S%z"), request_id, PERSONA, path, str(latency_ms), str(prompt_len), detected_emotion, mix_ids, mono_id, tiers, lg_flags]
 
     need_header = not os.path.exists(csv_path) or os.path.getsize(csv_path) == 0
@@ -165,11 +165,11 @@ def append_selection_log(items: List[Dict[str, Any]], request_id: str, latency_m
         w.writerow(row)
 
 def analytics_guard_check() -> Dict[str, Any]:
+    """Read last 50 rows of selection_log.csv and compute R/L/O share in MIX items (Phase-3)."""
     # Off by default; enable later by setting ANALYTICS_ENABLED=1 in env.
     if not ANALYTICS_ENABLED:
         return {"window": 0, "mix_iconic_ratio": None, "alert": False, "message": "Analytics disabled."}
     
-    """Read last 50 rows of selection_log.csv and compute R/L/O share in MIX items."""
     logs_dir = os.path.join(HERE, "logs")
     csv_path = os.path.join(logs_dir, "selection_log.csv")
     result = {"window": 0, "mix_iconic_ratio": None, "alert": False, "message": ""}
@@ -249,60 +249,61 @@ def seed_disable():
 @app.post("/api/curate")
 @limiter.limit(f"{RATE_LIMIT_PER_MIN}/minute")
 def curate(body: Any, request: Request):
-    started = time.time()
-    # --- payload coercion shim (Option A) ---
-    # Accepts: {"prompt":"..."} (canonical), {"text":"..."} (alternate), or raw string
-    if isinstance(body, str):
-        payload = {"prompt": body, "context": None}
-    elif isinstance(body, dict):
-        if isinstance(body.get("prompt"), str):
-            payload = {"prompt": body["prompt"], "context": body.get("context")}
-        elif isinstance(body.get("text"), str):
-            payload = {"prompt": body["text"], "context": body.get("context")}
+    try:
+        started = time.time()
+        # --- payload coercion shim (Option A) ---
+        # Accepts: {"prompt":"..."} (canonical), {"text":"..."} (alternate), or raw string
+        if isinstance(body, str):
+            payload = {"prompt": body, "context": None}
+        elif isinstance(body, dict):
+            if isinstance(body.get("prompt"), str):
+                payload = {"prompt": body["prompt"], "context": body.get("context")}
+            elif isinstance(body.get("text"), str):
+                payload = {"prompt": body["text"], "context": body.get("context")}
+            else:
+                return error_json("BAD_INPUT", "Expected 'prompt' or 'text' string.", 422)
         else:
-            return error_json("BAD_INPUT", "Expected 'prompt' or 'text' string.", 422)
-    else:
-        return error_json("BAD_INPUT", "Expected JSON string or object.", 422)
+            return error_json("BAD_INPUT", "Expected JSON string or object.", 422)
 
-    # Re-validate via Pydantic bounds (1..500)
-    body = CurateIn(**payload)
-    prompt = sanitize_text(body.prompt)
-    if not prompt:
-        return error_json("EMPTY_PROMPT", "Please write a short line.", 422)
-    prompt_len = len(prompt)
+        # Re-validate via Pydantic bounds (1..500)
+        body = CurateIn(**payload)
+        prompt = sanitize_text(body.prompt)
+        if not prompt:
+            return error_json("EMPTY_PROMPT", "Please write a short line.", 422)
+        prompt_len = len(prompt)
 
-    # Seed-mode check (1 hour window)
-    seed_state = seed_mode_status()
-    items = None
-    if seed_state.get("enabled"):
-        # Determine emotion using the engine's normalize+detect
-        norm = normalize(prompt)
-        emo = detect_emotion(norm, body.context or {})
-        seeds = load_seeds().get(emo) or []
-        if len(seeds) == 3:
-            seeded = map_ids_to_output(seeds)
-            if seeded:
-                items = seeded
+        # Seed-mode check (1 hour window)
+        seed_state = seed_mode_status()
+        items = None
+        if seed_state.get("enabled"):
+            # Determine emotion using the engine's normalize+detect
+            norm = normalize(prompt)
+            emo = detect_emotion(norm, body.context or {})
+            seeds = load_seeds().get(emo) or []
+            if len(seeds) == 3:
+                seeded = map_ids_to_output(seeds)
+                if seeded:
+                    items = seeded
 
-    # If no seed triad (or invalid), fall back to engine
-    if items is None:
-        items = selection_engine(prompt=prompt, context=body.context or {})
+        # If no seed triad (or invalid), fall back to engine
+        if items is None:
+            items = selection_engine(prompt=prompt, context=body.context or {})
 
-    # Basic metrics and a request id
-    latency_ms = int((time.time() - started) * 1000)
-    request_id = str(uuid.uuid4())
+        # Basic metrics and a request id
+        latency_ms = int((time.time() - started) * 1000)
+        request_id = str(uuid.uuid4())
 
-    # Safe logs (never log full prompt)
-    ip = get_remote_address(request)
-    logging.info("[%s] CURATE ip=%s emotion=%s latency_ms=%s prompt_len=%s%s",
-                 PERSONA, ip, items[0].get("emotion",""), latency_ms, prompt_len,
-                 " (seed-mode)" if seed_state.get("enabled") and items is not None else "")
+        # Safe logs (never log full prompt)
+        ip = get_remote_address(request)
+        logging.info("[%s] CURATE ip=%s emotion=%s latency_ms=%s prompt_len=%s%s",
+                     PERSONA, ip, items[0].get("emotion",""), latency_ms, prompt_len,
+                     " (seed-mode)" if seed_state.get("enabled") and items is not None else "")
 
-    # CSV analytics guard (R/L/O share checks offline)
-    append_selection_log(items, request_id, latency_ms, prompt_len)
-    analytics_guard_check()
+        # CSV analytics guard (R/L/O share checks offline)
+        append_selection_log(items, request_id, latency_ms, prompt_len)
+        analytics_guard_check()
 
-    return items
+        return items
 
     except Exception as e:
         logging.exception("[%s] CURATE_ERROR %s", PERSONA, repr(e))
@@ -423,7 +424,7 @@ def checkout(body: CheckoutIn, request: Request):
         return error_json("BAD_PRODUCT", "product_id is required.", 422)
     url = f"https://checkout.example/intent?pid={pid}"
     ip = get_remote_address(request)
-    logger.info(f"[{PERSONA}] CHECKOUT ip=%s product=%s", ip, pid)
+    logger.info(f"[{PERSONA}] CHECKOUT ip={ip} product={pid}")
     return {"checkout_url": url}
 
 # =========================
