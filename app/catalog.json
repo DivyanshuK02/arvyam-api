@@ -318,7 +318,7 @@
   },
   {
     "id": "apo_mono_orchid_lg",
-    "title": "Mono Orchids Grand • Luxury",
+    "title": "A grand gesture of roses for farewell.",
     "desc": "A lavish apology in orchids.",
     "image_url": "https://raw.githubusercontent.com/DivyanshuK02/arvyam-landing/refs/heads/main/assets/card-3.jpg",
     "price_inr": 5099,
@@ -431,7 +431,7 @@
   {
     "id": "far_mono_rose_lg",
     "title": "Mono Roses Grand • Luxury",
-    "desc": "Grand gesture of roses for farewell.",
+    "desc": "A grand gesture of roses for farewell.",
     "image_url": "https://raw.githubusercontent.com/DivyanshuK02/arvyam-landing/refs/heads/main/assets/card-2.jpg",
     "price_inr": 5099,
     "emotion": "Loyalty/Dependability",
@@ -832,7 +832,7 @@
   },
   {
     "id": "fri_mono_rose_s",
-    "title": "Mono Roses • Signature",
+    "title": "A rosy nod to friendship.",
     "desc": "A rosy nod to friendship.",
     "image_url": "https://raw.githubusercontent.com/DivyanshuK02/arvyam-landing/refs/heads/main/assets/card-3.jpg",
     "price_inr": 2599,
@@ -1012,7 +1012,7 @@
   },
   {
     "id": "enc_mono_orchid_s",
-    "title": "Mono Orchids • Signature",
+    "title": "Encouraging, composed orchids.",
     "desc": "Encouraging, composed orchids.",
     "image_url": "https://raw.githubusercontent.com/DivyanshuK02/arvyam-landing/refs/heads/main/assets/card-3.jpg",
     "price_inr": 2599,
