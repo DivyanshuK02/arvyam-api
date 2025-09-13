@@ -1,5 +1,5 @@
-import os, json, logging, uuid
-from typing import Any, Dict, List
+import os, json, logging, uuid, time, csv
+from typing import Any, Dict, List, Optional
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -14,6 +14,9 @@ from slowapi.util import get_remote_address
 from slowapi.middleware import SlowAPIMiddleware
 from slowapi.errors import RateLimitExceeded
 
+# Selection Engine and helpers (package-relative import)
+from .selection_engine import selection_engine, normalize, detect_emotion, curate
+
 # =========================
 # Environment & Constants
 # =========================
@@ -22,6 +25,7 @@ ASSET_BASE = os.getenv("PUBLIC_ASSET_BASE", "https://arvyam.com").rstrip("/")
 RATE_LIMIT_PER_MIN = int(os.getenv("RATE_LIMIT_PER_MIN", "10"))
 PERSONA = os.getenv("PERSONA_NAME", "ARVY")  # for logs/UI
 ERROR_PERSONA = "ARVY"                       # hard-coded in API errors
+ICONIC = {"rose","lily","orchid"}            # for analytics guard
 
 # =========================
 # Logging
@@ -50,146 +54,169 @@ app.add_middleware(
 # =========================
 HERE = os.path.dirname(__file__)
 
-def load_json(relpath: str):
-    with open(os.path.join(HERE, relpath), "r", encoding="utf-8") as f:
-        return json.load(f)
+def load_json(relpath: str, default=None):
+    try:
+        with open(os.path.join(HERE, relpath), "r", encoding="utf-8") as f:
+            return json.load(f)
+    except Exception:
+        return default
 
-RULES: List[Dict[str, Any]] = load_json("rules.json")
-CATALOG: List[Dict[str, Any]] = load_json("catalog.json")
+CATALOG: List[Dict[str, Any]] = load_json("catalog.json", default=[])
+CAT_BY_ID: Dict[str, Dict[str, Any]] = {it["id"]: it for it in CATALOG if isinstance(it, dict) and "id" in it}
+
+# =========================
+# Seed rollback utilities
+# =========================
+SEED_FILE = os.path.join(HERE, "rules", "seed_triads.json")
+SEED_TOGGLE_FILE = os.path.join(HERE, "rules", "seed_toggle.json")
+
+def load_seeds() -> Dict[str, List[str]]:
+    seeds = load_json(os.path.relpath(SEED_FILE, HERE), default={})
+    return seeds or {}
+
+def _now() -> int:
+    return int(time.time())
+
+def seed_mode_status() -> Dict[str, Any]:
+    data = load_json(os.path.relpath(SEED_TOGGLE_FILE, HERE), default={"enabled": False, "until": 0})
+    # auto-expire
+    if data.get("enabled") and _now() >= int(data.get("until", 0)):
+        data = {"enabled": False, "until": 0}
+        try:
+            with open(SEED_TOGGLE_FILE, "w", encoding="utf-8") as f:
+                json.dump(data, f)
+        except Exception:
+            pass
+    return data
+
+def enable_seed_mode(minutes: int = 60) -> Dict[str, Any]:
+    data = {"enabled": True, "until": _now() + max(1, int(minutes))*60}
+    os.makedirs(os.path.dirname(SEED_TOGGLE_FILE), exist_ok=True)
+    with open(SEED_TOGGLE_FILE, "w", encoding="utf-8") as f:
+        json.dump(data, f)
+    return data
+
+def disable_seed_mode() -> Dict[str, Any]:
+    data = {"enabled": False, "until": 0}
+    os.makedirs(os.path.dirname(SEED_TOGGLE_FILE), exist_ok=True)
+    with open(SEED_TOGGLE_FILE, "w", encoding="utf-8") as f:
+        json.dump(data, f)
+    return data
+
+def map_ids_to_output(ids: List[str]) -> Optional[List[Dict[str, Any]]]:
+    """Builds output triad from catalog ids. Returns None if invalid/missing data."""
+    out: List[Dict[str, Any]] = []
+    for pid in ids:
+        it = CAT_BY_ID.get(pid)
+        if not it: return None
+        pal = it.get("palette") or []
+        if not isinstance(pal, list) or not pal: return None
+        out.append({
+            "id": it["id"],
+            "title": it["title"],
+            "desc": it["desc"],
+            "image": it["image_url"],
+            "price": it["price_inr"],
+            "currency": "INR",
+            "emotion": it["emotion"],
+            "tier": it["tier"],
+            "packaging": it["packaging"],
+            "mono": bool(it.get("mono")),
+            "palette": pal,
+            "luxury_grand": bool(it.get("luxury_grand"))
+        })
+    # Validate 2 MIX + 1 MONO
+    if len(out) != 3: return None
+    if sum(1 for x in out if x["mono"]) != 1: return None
+    ids_set = set()
+    for x in out:
+        if x["id"] in ids_set: return None
+        ids_set.add(x["id"])
+    return out
 
 # =========================
 # Helpers
 # =========================
-def to_public_image(url_or_path: str) -> str:
-    if url_or_path.startswith(("http://", "https://")):
-        return url_or_path
-    return f"{ASSET_BASE}{url_or_path}" if ASSET_BASE else url_or_path
-
 def sanitize_text(s: str) -> str:
     return " ".join((s or "").strip().split())
 
-def classify_category(prompt: str) -> str:
-    p = prompt.lower()
-    best_cat, best_hits = None, 0
-    for r in RULES:
-        kws = [k.lower() for k in (r.get("keywords") or [])]
-        hits = sum(1 for k in kws if k and k in p)
-        if hits > best_hits:
-            best_cat, best_hits = r["category"], hits
-    if best_cat:
-        return best_cat
-    # fallback order
-    for fallback in ["Love", "Encouragement", "Gratitude"]:
-        if any(r["category"].lower() == fallback.lower() for r in RULES):
-            return fallback
-    return RULES[0]["category"]
+def append_selection_log(items: List[Dict[str, Any]], request_id: str, latency_ms: int, prompt_len: int, path: str = "/api/curate") -> None:
+    """
+    Appends one analytics row per curate request.
+    Schema: ts, request_id, persona, path, latency_ms, prompt_len, detected_emotion, mix_ids, mono_id, tiers, luxury_grand_flags
+    """
+    logs_dir = os.path.join(HERE, "logs")
+    os.makedirs(logs_dir, exist_ok=True)
+    csv_path = os.path.join(logs_dir, "selection_log.csv")
+    header = ["ts","request_id","persona","path","latency_ms","prompt_len","detected_emotion","mix_ids","mono_id","tiers","luxury_grand_flags"]
+    detected_emotion = items[0].get("emotion") if items else ""
+    mix_ids = ";".join([it["id"] for it in items if not it.get("mono")])
+    mono_id = next((it["id"] for it in items if it.get("mono")), "")
+    tiers = ";".join([it.get("tier","") for it in items])
+    lg_flags = ";".join(["true" if it.get("luxury_grand") else "false" for it in items])
+    row = [time.strftime("%Y-%m-%dT%H:%M:%S%z"), request_id, PERSONA, path, str(latency_ms), str(prompt_len), detected_emotion, mix_ids, mono_id, tiers, lg_flags]
 
-def shape_item(r: Dict[str, Any]) -> Dict[str, Any]:
-    return {
-        "id": r["id"],
-        "title": "Curated Bouquet",
-        "desc": r.get("desc") or "Thoughtfully arranged.",
-        "image": to_public_image(r.get("image_url") or r.get("image", "")),
-        "price": int(r["price_inr"]),
-        "currency": "INR",
-    }
+    need_header = not os.path.exists(csv_path) or os.path.getsize(csv_path) == 0
+    with open(csv_path, "a", newline="", encoding="utf-8") as f:
+        w = csv.writer(f)
+        if need_header:
+            w.writerow(header)
+        w.writerow(row)
 
-def pick_three(category: str) -> List[Dict[str, Any]]:
-    candidates = [c for c in CATALOG if category in (c.get("tags") or [])] or CATALOG[:]
-    candidates.sort(key=lambda x: x.get("price_inr", 999999))
-
-    prices = sorted({c.get("price_inr", 0) for c in candidates})
-    if len(prices) >= 3:
-        targets = [prices[0], prices[len(prices)//2], prices[-1]]
-    elif len(prices) == 2:
-        targets = [prices[0], prices[0], prices[1]]
+def analytics_guard_check() -> Dict[str, Any]:
+    """Read last 50 rows of selection_log.csv and compute R/L/O share in MIX items."""
+    logs_dir = os.path.join(HERE, "logs")
+    csv_path = os.path.join(logs_dir, "selection_log.csv")
+    result = {"window": 0, "mix_iconic_ratio": None, "alert": False, "message": ""}
+    if not os.path.exists(csv_path):
+        return result
+    # Load lines (skip header)
+    with open(csv_path, "r", encoding="utf-8") as f:
+        rows = list(csv.reader(f))
+    if len(rows) <= 1:
+        return result
+    data = rows[1:][-50:]  # last up to 50 rows
+    total_mix = 0
+    iconic_mix = 0
+    for r in data:
+        try:
+            mix_ids_field = r[7] if len(r) > 7 else ""
+            mix_ids = [x for x in mix_ids_field.split(";") if x]
+            for mid in mix_ids:
+                total_mix += 1
+                # Look up flowers by id
+                it = CAT_BY_ID.get(mid)
+                flowers = (it.get("flowers") or []) if it else []
+                if any((f.lower() in ICONIC) for f in flowers):
+                    iconic_mix += 1
+        except Exception:
+            continue
+    result["window"] = len(data)
+    if total_mix > 0:
+        ratio = iconic_mix / float(total_mix)
+        result["mix_iconic_ratio"] = ratio
+        if ratio < 0.5:
+            result["alert"] = True
+            result["message"] = "Iconic MIX share dipped below 50% over the last {} requests.".format(len(data))
+    # Persist guard status
+    os.makedirs(logs_dir, exist_ok=True)
+    with open(os.path.join(logs_dir, "analytics_guard.json"), "w", encoding="utf-8") as f:
+        json.dump(result, f, indent=2)
+    if result["alert"]:
+        logger.warning("[GUARD] MIX iconic ratio %.2f < 0.5 over last %s requests", result.get("mix_iconic_ratio", 0.0), result["window"])
     else:
-        targets = [prices[0], prices[0], prices[0]]
-
-    chosen, seen_imgs = [], set()
-
-    def first_at(price):
-        for c in candidates:
-            if c.get("price_inr") == price:
-                img = (c.get("image_url") or c.get("image", ""))
-                if img not in seen_imgs:
-                    seen_imgs.add(img)
-                    return c
-        return None
-
-    for p in targets:
-        item = first_at(p)
-        if item and item not in chosen:
-            chosen.append(item)
-
-    for c in candidates:
-        if len(chosen) >= 3:
-            break
-        img = (c.get("image_url") or c.get("image", ""))
-        if img not in seen_imgs and c not in chosen:
-            seen_imgs.add(img)
-            chosen.append(c)
-
-    i = 0
-    while len(chosen) < 3 and i < len(candidates):
-        if candidates[i] not in chosen:
-            chosen.append(candidates[i])
-        i += 1
-
-    return [shape_item(x) for x in chosen[:3]]
-
-def refine_copy(items: List[Dict[str, Any]], category: str) -> List[Dict[str, Any]]:
-    prices = sorted({it["price"] for it in items})
-    if len(prices) >= 3:
-        low, mid, high = prices[0], prices[len(prices)//2], prices[-1]
-    elif len(prices) == 2:
-        low, mid, high = prices[0], prices[0], prices[1]
-    else:
-        low = mid = high = prices[0]
-
-    tones = {
-        "love": ("A simple, heartfelt gesture.", "Thoughtful and softly romantic.", "Luxe and timeless."),
-        "encouragement": ("A warm lift of spirit.", "Uplifting with gentle accents.", "A fuller, elegant pick-me-up."),
-        "gratitude": ("A kind thank-you.", "Warm appreciation, softly styled.", "A gracious, elevated thank-you."),
-        "sympathy": ("Calm and respectful.", "Peaceful, light arrangement.", "Serene, composed statement."),
-        "celebration": ("Bright and cheerful.", "Festive with soft greens.", "Lush and celebratory."),
-    }
-    key = next((k for k in tones if k.lower() in category.lower()), None)
-    low_t, mid_t, high_t = tones.get(key, ("A simple gesture.", "Thoughtful and balanced.", "Luxe and refined."))
-
-    for it in items:
-        p = it["price"]
-        base_title = "Curated Bouquet"
-        if p == low:
-            it["title"] = f"{base_title} • Classic"
-            it["desc"] = low_t
-        elif p == mid:
-            it["title"] = f"{base_title} • Signature"
-            it["desc"] = mid_t
-        elif p == high:
-            it["title"] = f"{base_title} • Luxury"
-            it["desc"] = high_t
-    return items
+        logger.info("[GUARD] MIX iconic ratio %s over last %s requests", f"{result.get('mix_iconic_ratio', 0.0):.2f}" if result["mix_iconic_ratio"] is not None else "n/a", result["window"])
+    return result
 
 # =========================
-# Canonical Error Builder
-# =========================
-def error_json(code: str, message: str, status: int = 400) -> JSONResponse:
-    """Single place to shape all error responses with persona + request_id."""
-    return JSONResponse(
-        status_code=status,
-        content={
-            "error": {"code": code, "message": message},
-            "persona": ERROR_PERSONA,           # always "ARVY"
-            "request_id": str(uuid.uuid4())
-        }
-    )
-
-# =========================
-# Schemas (UI-aligned caps)
+# Schemas (UI-aligned)
 # =========================
 class CurateIn(BaseModel):
-    prompt: str = Field(..., min_length=1, max_length=240)  # 240 cap
+    prompt: str = Field(..., min_length=1, max_length=500)
+    context: Optional[Dict[str, Any]] = None  # emotion_hint, budget_inr, packaging_pref, locale
+
+class SeedModeIn(BaseModel):
+    minutes: Optional[int] = 60
 
 class CheckoutIn(BaseModel):
     product_id: str
@@ -201,59 +228,192 @@ class CheckoutIn(BaseModel):
 def health():
     return {"status": "ok", "persona": ERROR_PERSONA, "version": "v1"}
 
+@app.get("/api/curate/seed_mode")
+def seed_status():
+    return seed_mode_status()
+
+@app.post("/api/curate/seed_mode")
+def seed_enable(body: SeedModeIn):
+    data = enable_seed_mode(max(1, int(body.minutes or 60)))
+    return data
+
+@app.post("/api/curate/seed_mode/disable")
+def seed_disable():
+    return disable_seed_mode()
+
 @app.post("/api/curate")
 @limiter.limit(f"{RATE_LIMIT_PER_MIN}/minute")
 def curate(body: Any, request: Request):
-    
-    try:
-        # --- payload coercion shim (Option A) ---
-        # Accepts {"prompt":"..."} (canonical), {"text":"..."} (alternate), or raw string
-        if isinstance(body, str):
-            payload = {"prompt": body, "context": None}
-        elif isinstance(body, dict):
-            if isinstance(body.get("prompt"), str):
-                payload = {"prompt": body["prompt"], "context": body.get("context")}
-            elif isinstance(body.get("text"), str):
-                payload = {"prompt": body["text"], "context": body.get("context")}
-            else:
-                return error_json("BAD_INPUT", "Expected 'prompt' or 'text' string.", 422)
+    started = time.time()
+    # --- payload coercion shim (Option A) ---
+    # Accepts: {"prompt":"..."} (canonical), {"text":"..."} (alternate), or raw string
+    if isinstance(body, str):
+        payload = {"prompt": body, "context": None}
+    elif isinstance(body, dict):
+        if isinstance(body.get("prompt"), str):
+            payload = {"prompt": body["prompt"], "context": body.get("context")}
+        elif isinstance(body.get("text"), str):
+            payload = {"prompt": body["text"], "context": body.get("context")}
         else:
-            return error_json("BAD_INPUT", "Expected JSON string or object.", 422)
+            return error_json("BAD_INPUT", "Expected 'prompt' or 'text' string.", 422)
+    else:
+        return error_json("BAD_INPUT", "Expected JSON string or object.", 422)
 
-        # Re-validate via Pydantic bounds
-        body = CurateIn(**payload)
-        prompt = sanitize_text(body.prompt)
+    # Re-validate via Pydantic bounds (1..500)
+    body = CurateIn(**payload)
+    prompt = sanitize_text(body.prompt)
+    if not prompt:
+        return error_json("EMPTY_PROMPT", "Please write a short line.", 422)
+    prompt_len = len(prompt)
 
-        if not prompt:
-            return error_json("EMPTY_PROMPT", "Please write a short line.", 422)
+    # Seed-mode check (1 hour window)
+    seed_state = seed_mode_status()
+    items = None
+    if seed_state.get("enabled"):
+        # Determine emotion using the engine's normalize+detect
+        norm = normalize(prompt)
+        emo = detect_emotion(norm, body.context or {})
+        seeds = load_seeds().get(emo) or []
+        if len(seeds) == 3:
+            seeded = map_ids_to_output(seeds)
+            if seeded:
+                items = seeded
 
-        category = classify_category(prompt)
-        items = refine_copy(pick_three(category), category)
+    # If no seed triad (or invalid), fall back to engine
+    if items is None:
+        items = selection_engine(prompt=prompt, context=body.context or {})
 
-        ip = get_remote_address(request)
-        # Safe, short preview; never log full prompt
-        logger.info(f"[{PERSONA}] CURATE ip=%s category=%s preview=%s", ip, category, prompt[:60])
-        return items
+    # Basic metrics and a request id
+    latency_ms = int((time.time() - started) * 1000)
+    request_id = str(uuid.uuid4())
+
+    # Safe logs (never log full prompt)
+    ip = get_remote_address(request)
+    logging.info("[%s] CURATE ip=%s emotion=%s latency_ms=%s prompt_len=%s%s",
+                 PERSONA, ip, items[0].get("emotion",""), latency_ms, prompt_len,
+                 " (seed-mode)" if seed_state.get("enabled") and items is not None else "")
+
+    # CSV analytics guard (R/L/O share checks offline)
+    append_selection_log(items, request_id, latency_ms, prompt_len)
+    analytics_guard_check()
+
+    return items
 
     except Exception as e:
-        logger.exception(f"[{PERSONA}] CURATE_ERROR")
-        return error_json("SERVER_ERROR", "Something went wrong while curating. Please try again later.", 500)
+        logging.exception("[%s] CURATE_ERROR %s", PERSONA, repr(e))
+        return error_json("CURATE_ERROR", "We couldn’t curate this request. Please try a different phrase.", 400)
 
+# -------------------------
+# Golden-Set Harness
+# -------------------------
+GOLDEN_TESTS: List[Dict[str, Any]] = [
+    # Romance / baseline
+    {"name": "romance_budget_2000", "prompt": "romantic anniversary under 2000", "context": {"budget_inr": 2000}},
+    {"name": "romance_plain", "prompt": "romantic bouquet please"},
+    # Iconic override
+    {"name": "only_lilies", "prompt": "only lilies please", "expect_lily_mono": True},
+    # Redirection
+    {"name": "hydrangea_redirect", "prompt": "hydrangea bouquet", "expect_note": True},
+    # Celebration / bright
+    {"name": "celebration_bright", "prompt": "bright congratulations"},
+    # Encouragement
+    {"name": "encouragement_exams", "prompt": "encouragement for exams"},
+    # Gratitude
+    {"name": "gratitude_thanks", "prompt": "thank you flowers"},
+    # Friendship
+    {"name": "friendship_care", "prompt": "for a dear friend"},
+    # GetWell
+    {"name": "getwell", "prompt": "get well soon flowers"},
+    # Birthday
+    {"name": "birthday", "prompt": "birthday flowers"},
+    # Sympathy core
+    {"name": "sympathy_loss", "prompt": "i’m so sorry for your loss"},
+    # Edge: apology route
+    {"name": "apology", "prompt": "i deeply apologize"},
+    # Edge: farewell
+    {"name": "farewell", "prompt": "farewell flowers"},
+    # Edge: valentine
+    {"name": "valentine", "prompt": "valentine surprise"}
+]
+
+def _run_one(test: Dict[str, Any]) -> Dict[str, Any]:
+    out: Dict[str, Any] = {"name": test["name"], "prompt": test["prompt"], "status": "PASS", "reasons": []}
+    try:
+        items = selection_engine(prompt=test["prompt"], context=test.get("context") or {})
+    except Exception as e:
+        out["status"] = "FAIL"
+        out["reasons"].append(f"engine_error: {repr(e)}")
+        return out
+
+    # Structural checks
+    if len(items) != 3:
+        out["status"] = "FAIL"; out["reasons"].append("triad_len != 3")
+    mono_count = sum(1 for it in items if it.get("mono"))
+    if mono_count != 1:
+        out["status"] = "FAIL"; out["reasons"].append("mono_count != 1")
+    for it in items:
+        pal = it.get("palette")
+        if not isinstance(pal, list) or len(pal) == 0:
+            out["status"] = "FAIL"; out["reasons"].append("palette missing on some item"); break
+    lg_count = sum(1 for it in items if it.get("luxury_grand"))
+    if lg_count > 1:
+        out["status"] = "FAIL"; out["reasons"].append("more than one luxury_grand")
+
+    # Intent checks
+    if test.get("expect_lily_mono"):
+        mono_item = next((it for it in items if it.get("mono")), None)
+        if not mono_item:
+            out["status"] = "FAIL"; out["reasons"].append("no mono item returned")
+        else:
+            cat = CAT_BY_ID.get(mono_item["id"]) or {}
+            species = [s.lower() for s in (cat.get("flowers") or [])]
+            if "lily" not in species:
+                out["status"] = "FAIL"; out["reasons"].append("mono is not lily for 'only lilies' intent")
+
+    if test.get("expect_note"):
+        if not any(it.get("note") for it in items):
+            out["status"] = "FAIL"; out["reasons"].append("redirection note missing for hydrangea")
+
+    out["emotion"] = items[0].get("emotion", "")
+    out["ids"] = [it.get("id") for it in items]
+    out["tiers"] = [it.get("tier") for it in items]
+    out["mono_id"] = next((it.get("id") for it in items if it.get("mono")), "")
+    return out
+
+@app.post("/api/curate/golden")
+def curate_golden(request: Request):
+    started = time.time()
+    results: List[Dict[str, Any]] = []
+    for t in GOLDEN_TESTS:
+        results.append(_run_one(t))
+    passed = sum(1 for r in results if r["status"] == "PASS")
+    failed = len(results) - passed
+    latency_ms = int((time.time() - started) * 1000)
+    summary = {
+        "persona": ERROR_PERSONA,
+        "total": len(results),
+        "passed": passed,
+        "failed": failed,
+        "latency_ms": latency_ms,
+        "results": results
+    }
+    return summary
 
 @app.get("/api/curate/golden/p1")
 def curate_golden_p1(request: Request):
     """
-    Alias for Phase-1 golden suite; will delegate to POST /api/curate/golden if present.
+    Alias for Phase-1 golden suite.
+    Delegates to the existing POST /api/curate/golden.
     """
     try:
-        return curate_golden(request)  # reuse existing golden harness if defined
+        return curate_golden(request)
     except NameError:
         return error_json("NO_GOLDEN", "Golden suite is not available in this build.", 503)
 
 @app.post("/api/checkout")
 @limiter.limit(f"{RATE_LIMIT_PER_MIN}/minute")
 def checkout(body: CheckoutIn, request: Request):
-    pid = sanitize_text(body.product_id)
+    pid = (body.product_id or "").strip()
     if not pid:
         return error_json("BAD_PRODUCT", "product_id is required.", 422)
     url = f"https://checkout.example/intent?pid={pid}"
@@ -264,9 +424,18 @@ def checkout(body: CheckoutIn, request: Request):
 # =========================
 # Error Normalization
 # =========================
+def error_json(code: str, message: str, status: int = 400) -> JSONResponse:
+    return JSONResponse(
+        status_code=status,
+        content={
+            "error": {"code": code, "message": message},
+            "persona": ERROR_PERSONA,
+            "request_id": str(uuid.uuid4())
+        }
+    )
+
 @app.exception_handler(HTTPException)
 async def http_exc_handler(request: Request, exc: HTTPException):
-    # Normalize any legacy raises into our canonical shape
     if isinstance(exc.detail, dict):
         shaped = {
             "error": exc.detail.get("error", {"code": "HTTP_ERROR", "message": "Request error."}),
