@@ -213,6 +213,43 @@ def analytics_guard_check() -> Dict[str, Any]:
         logger.info("[GUARD] MIX iconic ratio %s over last %s requests", f"{result.get('mix_iconic_ratio', 0.0):.2f}" if result["mix_iconic_ratio"] is not None else "n/a", result["window"])
     return result
 
+# -- payload coercion shim: accept raw string, {"prompt"}, {"text"}, {"q"}, form, or query
+async def _coerce_prompt(request: Request) -> str:
+    # 1) JSON body
+    try:
+        data = await request.json()
+    except Exception:
+        data = None
+    if isinstance(data, dict):
+        for k in ("prompt", "text", "q", "message"):
+            v = data.get(k)
+            if isinstance(v, str) and v.strip():
+                return v.strip()
+
+    # 2) form-encoded
+    try:
+        form = await request.form()
+        for k in ("prompt", "text", "q", "message"):
+            if k in form:
+                v = str(form[k]).strip()
+                if v:
+                    return v
+    except Exception:
+        pass
+
+    # 3) raw text body (text/plain or fetch without content-type)
+    raw = (await request.body() or b"").decode("utf-8", "ignore").strip()
+    if raw and not (raw.startswith("{") or raw.startswith("[")):  # not JSON-looking
+        return raw
+
+    # 4) query params
+    for k in ("prompt", "text", "q", "message"):
+        v = request.query_params.get(k)
+        if v and v.strip():
+            return v.strip()
+
+    return ""
+
 # =========================
 # Schemas (UI-aligned)
 # =========================
@@ -248,66 +285,99 @@ def seed_disable():
 
 @app.post("/api/curate")
 @limiter.limit(f"{RATE_LIMIT_PER_MIN}/minute")
-def curate(body: Any, request: Request):
-    try:
-        started = time.time()
-        # --- payload coercion shim (Option A) ---
-        # Accepts: {"prompt":"..."} (canonical), {"text":"..."} (alternate), or raw string
-        if isinstance(body, str):
-            payload = {"prompt": body, "context": None}
-        elif isinstance(body, dict):
-            if isinstance(body.get("prompt"), str):
-                payload = {"prompt": body["prompt"], "context": body.get("context")}
-            elif isinstance(body.get("text"), str):
-                payload = {"prompt": body["text"], "context": body.get("context")}
-            else:
-                return error_json("BAD_INPUT", "Expected 'prompt' or 'text' string.", 422)
-        else:
-            return error_json("BAD_INPUT", "Expected JSON string or object.", 422)
+async def curate(request: Request):
+    started = time.time()
+    # Coerce input from a variety of sources
+    prompt = await _coerce_prompt(request)
+    if not isinstance(prompt, str) or len(prompt.strip()) < 3:
+        return JSONResponse({"error": "Invalid input."}, status_code=400)
+    
+    prompt = sanitize_text(prompt)
+    if not prompt:
+        return error_json("EMPTY_PROMPT", "Please write a short line.", 422)
+    prompt_len = len(prompt)
+    context = None # Assuming no context from these new input types, as per the user's patch
 
-        # Re-validate via Pydantic bounds (1..500)
-        body = CurateIn(**payload)
-        prompt = sanitize_text(body.prompt)
-        if not prompt:
-            return error_json("EMPTY_PROMPT", "Please write a short line.", 422)
-        prompt_len = len(prompt)
+    # Seed-mode check (1 hour window)
+    seed_state = seed_mode_status()
+    items = None
+    if seed_state.get("enabled"):
+        # Determine emotion using the engine's normalize+detect
+        norm = normalize(prompt)
+        emo = detect_emotion(norm, context or {})
+        seeds = load_seeds().get(emo) or []
+        if len(seeds) == 3:
+            seeded = map_ids_to_output(seeds)
+            if seeded:
+                items = seeded
 
-        # Seed-mode check (1 hour window)
-        seed_state = seed_mode_status()
-        items = None
-        if seed_state.get("enabled"):
-            # Determine emotion using the engine's normalize+detect
-            norm = normalize(prompt)
-            emo = detect_emotion(norm, body.context or {})
-            seeds = load_seeds().get(emo) or []
-            if len(seeds) == 3:
-                seeded = map_ids_to_output(seeds)
-                if seeded:
-                    items = seeded
+    # If no seed triad (or invalid), fall back to engine
+    if items is None:
+        items = selection_engine(prompt=prompt, context=context or {})
 
-        # If no seed triad (or invalid), fall back to engine
-        if items is None:
-            items = selection_engine(prompt=prompt, context=body.context or {})
+    # Basic metrics and a request id
+    latency_ms = int((time.time() - started) * 1000)
+    request_id = str(uuid.uuid4())
 
-        # Basic metrics and a request id
-        latency_ms = int((time.time() - started) * 1000)
-        request_id = str(uuid.uuid4())
+    # Safe logs (never log full prompt)
+    ip = get_remote_address(request)
+    logging.info("[%s] CURATE ip=%s emotion=%s latency_ms=%s prompt_len=%s%s",
+                 PERSONA, ip, items[0].get("emotion",""), latency_ms, prompt_len,
+                 " (seed-mode)" if seed_state.get("enabled") and items is not None else "")
 
-        # Safe logs (never log full prompt)
-        ip = get_remote_address(request)
-        logging.info("[%s] CURATE ip=%s emotion=%s latency_ms=%s prompt_len=%s%s",
-                     PERSONA, ip, items[0].get("emotion",""), latency_ms, prompt_len,
-                     " (seed-mode)" if seed_state.get("enabled") and items is not None else "")
+    # CSV analytics guard (R/L/O share checks offline)
+    append_selection_log(items, request_id, latency_ms, prompt_len)
+    analytics_guard_check()
 
-        # CSV analytics guard (R/L/O share checks offline)
-        append_selection_log(items, request_id, latency_ms, prompt_len)
-        analytics_guard_check()
+    return JSONResponse(items)
 
-        return items
+@app.get("/api/curate")
+@limiter.limit(f"{RATE_LIMIT_PER_MIN}/minute")
+async def curate_get(request: Request):
+    started = time.time()
+    prompt = await _coerce_prompt(request)
+    if not isinstance(prompt, str) or len(prompt.strip()) < 3:
+        return JSONResponse({"error": "Invalid input."}, status_code=400)
+    
+    prompt = sanitize_text(prompt)
+    if not prompt:
+        return error_json("EMPTY_PROMPT", "Please write a short line.", 422)
+    prompt_len = len(prompt)
+    context = None # Assuming no context from these new input types, as per the user's patch
 
-    except Exception as e:
-        logging.exception("[%s] CURATE_ERROR %s", PERSONA, repr(e))
-        return error_json("CURATE_ERROR", "We couldn’t curate this request. Please try a different phrase.", 400)
+    # Seed-mode check (1 hour window)
+    seed_state = seed_mode_status()
+    items = None
+    if seed_state.get("enabled"):
+        # Determine emotion using the engine's normalize+detect
+        norm = normalize(prompt)
+        emo = detect_emotion(norm, context or {})
+        seeds = load_seeds().get(emo) or []
+        if len(seeds) == 3:
+            seeded = map_ids_to_output(seeds)
+            if seeded:
+                items = seeded
+
+    # If no seed triad (or invalid), fall back to engine
+    if items is None:
+        items = selection_engine(prompt=prompt, context=context or {})
+
+    # Basic metrics and a request id
+    latency_ms = int((time.time() - started) * 1000)
+    request_id = str(uuid.uuid4())
+
+    # Safe logs (never log full prompt)
+    ip = get_remote_address(request)
+    logging.info("[%s] CURATE ip=%s emotion=%s latency_ms=%s prompt_len=%s%s",
+                 PERSONA, ip, items[0].get("emotion",""), latency_ms, prompt_len,
+                 " (seed-mode)" if seed_state.get("enabled") and items is not None else "")
+
+    # CSV analytics guard (R/L/O share checks offline)
+    append_selection_log(items, request_id, latency_ms, prompt_len, path="/api/curate_get")
+    analytics_guard_check()
+
+    return JSONResponse(items)
+
 
 # -------------------------
 # Golden-Set Harness
