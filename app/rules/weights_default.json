@@ -13,72 +13,20 @@
     "tuberose": 65
   },
   "emotion_bias": {
-    "Romance": {
+    "Affection/Support": {
       "rose": 100,
       "lily": 90,
       "orchid": 88,
       "tuberose": 72,
-      "carnation": 70,
       "alstroemeria": 68,
+      "carnation": 62,
       "baby's breath": 60,
       "gerbera": 55,
       "chrysanthemum": 50,
       "sunflower": 40,
       "marigold": 30
     },
-    "Sympathy": {
-      "lily": 98,
-      "tuberose": 80,
-      "chrysanthemum": 75,
-      "orchid": 85,
-      "rose": 70,
-      "carnation": 65,
-      "alstroemeria": 60,
-      "baby's breath": 58,
-      "gerbera": 40,
-      "sunflower": 30,
-      "marigold": 25
-    },
-    "Celebration": {
-      "orchid": 95,
-      "gerbera": 80,
-      "chrysanthemum": 72,
-      "rose": 70,
-      "lily": 68,
-      "sunflower": 65,
-      "carnation": 60,
-      "alstroemeria": 58,
-      "marigold": 55,
-      "baby's breath": 45,
-      "tuberose": 50
-    },
-    "Encouragement": {
-      "gerbera": 80,
-      "chrysanthemum": 72,
-      "sunflower": 70,
-      "carnation": 58,
-      "alstroemeria": 58,
-      "rose": 60,
-      "orchid": 55,
-      "lily": 55,
-      "baby's breath": 45,
-      "marigold": 50,
-      "tuberose": 40
-    },
-    "Gratitude": {
-      "rose": 80,
-      "lily": 75,
-      "alstroemeria": 70,
-      "orchid": 65,
-      "carnation": 62,
-      "chrysanthemum": 58,
-      "gerbera": 55,
-      "tuberose": 55,
-      "sunflower": 45,
-      "baby's breath": 50,
-      "marigold": 40
-    },
-    "Friendship": {
+    "Loyalty/Dependability": {
       "gerbera": 78,
       "sunflower": 65,
       "chrysanthemum": 62,
@@ -91,31 +39,83 @@
       "marigold": 50,
       "tuberose": 40
     },
-    "GetWell": {
+    "Encouragement/Positivity": {
+      "gerbera": 80,
+      "chrysanthemum": 72,
+      "sunflower": 70,
+      "carnation": 58,
+      "alstroemeria": 58,
+      "rose": 60,
+      "orchid": 55,
+      "lily": 55,
+      "baby's breath": 45,
+      "marigold": 50,
+      "tuberose": 40
+    },
+    "Strength/Resilience": {
+      "lily": 98,
+      "orchid": 85,
+      "tuberose": 80,
+      "chrysanthemum": 75,
+      "rose": 65,
+      "carnation": 65,
+      "alstroemeria": 60,
+      "baby's breath": 58,
+      "gerbera": 40,
+      "sunflower": 30,
+      "marigold": 25
+    },
+    "Intellect/Wisdom": {
+      "orchid": 95,
       "lily": 85,
       "chrysanthemum": 70,
-      "alstroemeria": 62,
       "tuberose": 60,
+      "alstroemeria": 60,
+      "rose": 65,
+      "carnation": 58,
+      "gerbera": 50,
+      "baby's breath": 50,
+      "sunflower": 40,
+      "marigold": 35
+    },
+    "Adventurous/Creativity": {
+      "gerbera": 85,
+      "sunflower": 75,
+      "orchid": 80,
+      "rose": 70,
+      "chrysanthemum": 65,
+      "marigold": 55,
+      "alstroemeria": 58,
+      "lily": 60,
+      "carnation": 55,
+      "baby's breath": 45,
+      "tuberose": 45
+    },
+    "Selflessness/Generosity": {
+      "rose": 80,
+      "lily": 75,
+      "alstroemeria": 70,
+      "orchid": 65,
+      "carnation": 62,
+      "chrysanthemum": 58,
+      "gerbera": 55,
+      "tuberose": 55,
+      "sunflower": 45,
+      "baby's breath": 50,
+      "marigold": 40
+    },
+    "Fun/Humor": {
+      "gerbera": 85,
+      "sunflower": 75,
+      "chrysanthemum": 65,
+      "marigold": 60,
       "rose": 60,
       "orchid": 58,
-      "gerbera": 55,
-      "baby's breath": 55,
-      "sunflower": 45,
-      "marigold": 40,
-      "carnation": 58
-    },
-    "Birthday": {
-      "rose": 80,
-      "gerbera": 78,
-      "orchid": 75,
-      "lily": 68,
-      "chrysanthemum": 65,
-      "sunflower": 65,
-      "carnation": 60,
-      "alstroemeria": 60,
-      "tuberose": 50,
-      "marigold": 50,
-      "baby's breath": 45
+      "alstroemeria": 58,
+      "lily": 55,
+      "carnation": 55,
+      "baby's breath": 45,
+      "tuberose": 45
     }
   }
 }
