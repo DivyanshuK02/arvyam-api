@@ -520,6 +520,11 @@ async def curate_post(q: Optional[str] = Query(None), prompt: Optional[str] = Qu
     items = selection_engine(text, {})
     return {"items": items, "edge_case": any(i.get("edge_case") for i in items)}
 
+# Alias the existing endpoints to also work with the /api prefix
+@app.post("/api/curate", tags=["public"])
+async def curate_post_api(q: Optional[str] = Query(None), prompt: Optional[str] = Query(None)):
+    return await curate_post(q, prompt)
+
 @app.get("/curate", tags=["public"])
 async def curate_get(q: Optional[str] = Query(None), prompt: Optional[str] = Query(None)):
     text = (q or prompt or "").strip()
@@ -527,3 +532,7 @@ async def curate_get(q: Optional[str] = Query(None), prompt: Optional[str] = Que
         raise HTTPException(status_code=400, detail="Invalid input")
     items = selection_engine(text, {})
     return {"items": items, "edge_case": any(i.get("edge_case") for i in items)}
+
+@app.get("/api/curate", tags=["public"])
+async def curate_get_api(q: Optional[str] = Query(None), prompt: Optional[str] = Query(None)):
+    return await curate_get(q, prompt)
