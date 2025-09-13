@@ -1,0 +1,4 @@
+{
+  "default": "Requested {from} is seasonal/unavailable; offering {alt} as the nearest alternative.",
+  "hydrangea": "Hydrangea is seasonal/unavailable; offering {alt} instead."
+}
