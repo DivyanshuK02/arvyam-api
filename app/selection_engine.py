@@ -63,6 +63,9 @@ ICONIC_SPECIES = {
 
 ONLY_ICONIC_RE = re.compile(r"\bonly\s+(lil(?:y|ies)|roses?|orchids?)\b", re.I)
 
+VAGUE_TERMS = {"nice", "beautiful", "pretty", "some", "any", "simple", "best", "good", "flowers", "flower"}
+GRAND_INTENT = {"grand","bigger","large","lavish","extravagant","50+","hundred","massive","most beautiful"}
+
 def normalize(s: str) -> str:
     s = (s or "").strip().lower()
     s = re.sub(r"\s+", " ", s)
@@ -78,6 +81,25 @@ def _any_match(text: str, phrases: List[str]) -> bool:
             return True
     return False
 
+def _intent_clarity(prompt: str, matched_keywords: int) -> float:
+    """Return 0.0 when prompt is very generic/unclear; else 1.0."""
+    p = normalize(prompt)
+    words = re.findall(r"[a-z]+", p)
+    if matched_keywords == 0 and (len(words) <= 4 or all(w in VAGUE_TERMS for w in words)):
+        return 0.0
+    return 1.0
+
+def _has_grand_intent(prompt: str) -> bool:
+    p = normalize(prompt)
+    return any(w in p for w in GRAND_INTENT)
+
+def _add_unclear_mix_note(triad: list) -> None:
+    """Attach a single gentle clarifying note to the first MIX card, if none already."""
+    for it in triad:
+        if not it.get("mono") and not it.get("note"):
+            it["note"] = "Versatile picks while you decide — tell us the occasion for a more personal curation."
+            break
+
 def detect_emotion(prompt: str, context: Optional[Dict[str, Any]] = None) -> str:
     """
     Rules-first emotion detection against Phase-1 schema in rules/emotion_keywords.json.
@@ -90,7 +112,8 @@ def detect_emotion(prompt: str, context: Optional[Dict[str, Any]] = None) -> str
     if context and isinstance(context.get("emotion_hint"), str):
         hint = context["emotion_hint"].strip()
         anchors = EMOTION_KEYWORDS.get("anchors", [])
-        return hint if hint in anchors else hint.title()
+        if hint in anchors:
+            return hint
 
     anchors: List[str] = EMOTION_KEYWORDS.get("anchors", [])
     exact: Dict[str, str] = EMOTION_KEYWORDS.get("exact", {})
@@ -333,10 +356,23 @@ def selection_engine(prompt: str, context: Optional[Dict[str, Any]] = None) -> L
     # Emotion + edge-case
     emotion = detect_emotion(p, context)
     edge_case = detect_edge_case(p)
-    
+
+    # --- intent clarity & LG dampener ---
+    bucket = (EMOTION_KEYWORDS.get("keywords", {}) or {}).get(emotion, [])
+    matched_keywords = sum(1 for k in bucket if normalize(k) in normalize(prompt))
+    clarity = _intent_clarity(prompt, matched_keywords)
+    soft_lg_multiplier = 1.0
+    if clarity == 0.0 and not _has_grand_intent(prompt):
+        try:
+            budget = int((context or {}).get("budget_inr", 0) or 0)
+        except Exception:
+            budget = 0
+        if budget < 4999:
+            soft_lg_multiplier = 0.8
+
     redirect_from: Optional[str] = None
     redirect_alts: List[str] = []
-    
+
     # Check for specific substitution case (e.g., hydrangea)
     if "hydrangea" in p:
         redirect_from = "hydrangea"
@@ -347,11 +383,12 @@ def selection_engine(prompt: str, context: Optional[Dict[str, Any]] = None) -> L
     iconic_intent = None
     m = ONLY_ICONIC_RE.search(p)
     if m:
-        if "lil" in m.group(0):
+        g = m.group(1).lower()
+        if g.startswith("lil"):
             iconic_intent = "lily"
-        elif "rose" in m.group(0):
+        elif g.startswith("rose"):
             iconic_intent = "rose"
-        elif "orchid" in m.group(0):
+        elif g.startswith("orchid"):
             iconic_intent = "orchid"
 
     # Register for edge-case
@@ -367,6 +404,10 @@ def selection_engine(prompt: str, context: Optional[Dict[str, Any]] = None) -> L
         base = int(item.get("weight", 50))
         w = _compute_weight(item, base, register, edge_case, iconic_intent)
         w *= _apply_lg_policy(item, emotion, edge_case)
+
+        # dampen LG softly for unclear intent (unless 'grand' or budget qualifies)
+        if item.get("luxury_grand"):
+            w *= soft_lg_multiplier
 
         # If LG blocked multiplier is 0 → effectively remove
         if w <= 0:
@@ -431,6 +472,10 @@ def selection_engine(prompt: str, context: Optional[Dict[str, Any]] = None) -> L
 
     # Apply notes for substituted species
     _apply_substitution_notes(triad, redirect_from, redirect_alts)
+
+    # if the user intent is very generic, add a single clarifying note on first MIX
+    if clarity == 0.0:
+        _add_unclear_mix_note(triad)
 
     # Edge-case copy limit
     for it in triad:
