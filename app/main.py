@@ -26,6 +26,7 @@ RATE_LIMIT_PER_MIN = int(os.getenv("RATE_LIMIT_PER_MIN", "10"))
 PERSONA = os.getenv("PERSONA_NAME", "ARVY")  # for logs/UI
 ERROR_PERSONA = "ARVY"                       # hard-coded in API errors
 ICONIC = {"rose","lily","orchid"}            # for analytics guard
+ANALYTICS_ENABLED = os.getenv("ANALYTICS_ENABLED", "0") == "1"
 
 # =========================
 # Logging
@@ -153,7 +154,7 @@ def append_selection_log(items: List[Dict[str, Any]], request_id: str, latency_m
     mix_ids = ";".join([it["id"] for it in items if not it.get("mono")])
     mono_id = next((it["id"] for it in items if it.get("mono")), "")
     tiers = ";".join([it.get("tier","") for it in items])
-    lg_flags = ";".join(["true" if it.get("luxury_grand") else "false" for it in items])
+    lg_flags = ";.join(["true" if it.get("luxury_grand") else "false" for it in items])
     row = [time.strftime("%Y-%m-%dT%H:%M:%S%z"), request_id, PERSONA, path, str(latency_ms), str(prompt_len), detected_emotion, mix_ids, mono_id, tiers, lg_flags]
 
     need_header = not os.path.exists(csv_path) or os.path.getsize(csv_path) == 0
@@ -164,6 +165,10 @@ def append_selection_log(items: List[Dict[str, Any]], request_id: str, latency_m
         w.writerow(row)
 
 def analytics_guard_check() -> Dict[str, Any]:
+    # Off by default; enable later by setting ANALYTICS_ENABLED=1 in env.
+    if not ANALYTICS_ENABLED:
+        return {"window": 0, "mix_iconic_ratio": None, "alert": False, "message": "Analytics disabled."}
+    
     """Read last 50 rows of selection_log.csv and compute R/L/O share in MIX items."""
     logs_dir = os.path.join(HERE, "logs")
     csv_path = os.path.join(logs_dir, "selection_log.csv")
@@ -322,8 +327,8 @@ GOLDEN_TESTS: List[Dict[str, Any]] = [
     {"name": "gratitude_thanks", "prompt": "thank you flowers"},
     # Friendship
     {"name": "friendship_care", "prompt": "for a dear friend"},
-    # GetWell
-    {"name": "getwell", "prompt": "get well soon flowers"},
+    # Encouragement
+    {"name": "encouragement_getwell", "prompt": "get well soon flowers"},
     # Birthday
     {"name": "birthday", "prompt": "birthday flowers"},
     # Sympathy core
