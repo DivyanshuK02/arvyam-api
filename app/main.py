@@ -154,7 +154,7 @@ def append_selection_log(items: List[Dict[str, Any]], request_id: str, latency_m
     mix_ids = ";".join([it["id"] for it in items if not it.get("mono")])
     mono_id = next((it["id"] for it in items if it.get("mono")), "")
     tiers = ";".join([it.get("tier","") for it in items])
-    lg_flags = ";.join(["true" if it.get("luxury_grand") else "false" for it in items])
+    lg_flags = ";".join(["true" if it.get("luxury_grand") else "false" for it in items])
     row = [time.strftime("%Y-%m-%dT%H:%M:%S%z"), request_id, PERSONA, path, str(latency_ms), str(prompt_len), detected_emotion, mix_ids, mono_id, tiers, lg_flags]
 
     need_header = not os.path.exists(csv_path) or os.path.getsize(csv_path) == 0
