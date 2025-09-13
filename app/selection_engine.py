@@ -45,7 +45,7 @@ EDGE_KEYWORDS = _load_json(os.path.join(RULES_DIR, "edge_keywords.json"), {})
 EDGE_REGISTERS = _load_json(os.path.join(RULES_DIR, "edge_registers.json"), {})
 TIER_POLICY = _load_json(os.path.join(RULES_DIR, "tier_policy.json"), {"luxury_grand": {"blocked_emotions": []}})
 # Edge register keys (strict): only these four are considered "edge cases".
-EDGE_REGISTERS = {"sympathy","apology","farewell","valentine"}
+EDGE_CASE_KEYS = {"sympathy", "apology", "farewell", "valentine"}
 
 # ------------------------------------------------------------
 # Utilities
@@ -216,8 +216,8 @@ def _apply_lg_policy(item: Dict[str, Any], emotion: str, edge_case: Optional[str
         return 0.0
 
     # Edge register soft multiplier
-    if edge_case and edge_case in EDGE_REGISTERS:
-        reg = EDGE_REGISTERS[edge_case]
+    if edge_case and edge_case in EDGE_CASE_KEYS:
+        reg = EDGE_REGISTERS.get(edge_case, {})
         if str(reg.get("lg_policy", "")).lower() == "block":
             return 0.0
         mul = float(reg.get("lg_weight_multiplier", 1.0))
@@ -351,7 +351,7 @@ def selection_engine(prompt: str, context: Optional[Dict[str, Any]] = None) -> L
         candidate = dict(item)
         candidate["_score"] = w
         # Strict edge gating + proper emotion (anchor) assignment
-        edge_type = edge_case if edge_case in EDGE_REGISTERS else None
+        edge_type = edge_case if edge_case in EDGE_CASE_KEYS else None
         candidate["emotion"] = emotion               # resolved anchor from detect_emotion(...)
         candidate["edge_case"] = bool(edge_type)
         candidate["_edge_type"] = edge_type          # optional, useful for logs/UI
@@ -393,7 +393,7 @@ def selection_engine(prompt: str, context: Optional[Dict[str, Any]] = None) -> L
             if pool:
                 # replace the current item for that pref_tier
                 for i, it in enumerate(triad):
-                    if it.get("tier")==pref_tier:
+                    if it.get("tier") == pref_tier:
                         triad[i] = pool[0]
                         break
                 break
