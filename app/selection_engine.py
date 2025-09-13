@@ -170,7 +170,7 @@ def _truncate_words(text: str, max_words: int) -> str:
 
 def _enforce_copy_limit(text: str, edge_type: Optional[str]) -> str:
     # read register-specific cap if present; else fall back to global root
-    root_cap = int(EDGE_REGISTers.get("copy_max_words", 20))
+    root_cap = int(EDGE_REGISTERS.get("copy_max_words", 20))
     reg_cap = int(EDGE_REGISTERS.get(edge_type, {}).get("copy_max_words", root_cap)) if edge_type else root_cap
     cap = max(1, min(reg_cap, 20))  # hard fence at 20 as per Phase-1 contract
     words = text.split()
