@@ -295,13 +295,13 @@ def _apply_substitution_notes(triad: List[Dict[str, Any]], redirect_from: Option
         flowers = [f.lower() for f in (it.get("flowers") or [])]
         hit = next((a for a in alts if a.lower() in flowers), None)
         if hit:
-            it["note"] = note_tpl.format(from=redirect_from, alt=hit)
+            it["note"] = note_tpl.format(from_=redirect_from, alt=hit)
             matched += 1
     if matched == 0:
         # fallback: first MIX only (keeps UI clean)
         for it in triad:
             if not it.get("mono"):
-                it["note"] = note_tpl.format(from=redirect_from, alt=alts[0])
+                it["note"] = note_tpl.format(from_=redirect_from, alt=alts[0])
                 break
 
 def _ensure_two_mix_one_mono(triad: List[Dict[str, Any]], all_items: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
