@@ -143,8 +143,7 @@ def detect_emotion(prompt: str, context: Optional[Dict[str, Any]] = None) -> str
 
 def detect_edge_case(prompt: str) -> Optional[str]:
     p = normalize(prompt)
-    for label in EDGE_CASE_KEYS:  # only the 4 registers
-        phrases = EDGE_KEYWORDS.get(label, [])
+    for label, phrases in EDGE_KEYWORDS.items():
         if _any_match(p, phrases):
             return label  # sympathy | apology | farewell | valentine
     return None
@@ -166,11 +165,12 @@ def _truncate_words(text: str, max_words: int) -> str:
     words = re.findall(r"\S+", text or "")
     if len(words) <= max_words:
         return text or ""
-    return " ".join(words[:max_words])
+    return " ".join(words[:max_words]).rstrip(",.;:!—-") + "…"
+
 
 def _enforce_copy_limit(text: str, edge_type: Optional[str]) -> str:
     # read register-specific cap if present; else fall back to global root
-    root_cap = int(EDGE_REGISTERS.get("copy_max_words", 20))
+    root_cap = int(EDGE_REGISTers.get("copy_max_words", 20))
     reg_cap = int(EDGE_REGISTERS.get(edge_type, {}).get("copy_max_words", root_cap)) if edge_type else root_cap
     cap = max(1, min(reg_cap, 20))  # hard fence at 20 as per Phase-1 contract
     words = text.split()
@@ -290,19 +290,19 @@ def _apply_substitution_notes(triad: List[Dict[str, Any]], redirect_from: Option
     """
     if not redirect_from or not alts:
         return
-    note_tpl = SUB_NOTES.get(redirect_from.lower(), SUB_NOTES.get("default", "Requested {from} is unavailable; offering {alt}."))
+    note_tpl = SUB_NOTES.get(redirect_from.lower(), SUB_NOTES.get("default", "Requested {from} is seasonal/unavailable; offering {alt} as the nearest alternative."))
     matched = 0
     for it in triad:
         flowers = [f.lower() for f in (it.get("flowers") or [])]
         hit = next((a for a in alts if a.lower() in flowers), None)
         if hit:
-            it["note"] = note_tpl.format(from_=redirect_from, alt=hit)
+            it["note"] = note_tpl.format(**{"from": redirect_from, "alt": hit})
             matched += 1
     if matched == 0:
         # fallback: first MIX only (keeps UI clean)
         for it in triad:
             if not it.get("mono"):
-                it["note"] = note_tpl.format(from_=redirect_from, alt=alts[0])
+                it["note"] = note_tpl.format(**{"from": redirect_from, "alt": alts[0]})
                 break
 
 def _ensure_two_mix_one_mono(triad: List[Dict[str, Any]], all_items: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
