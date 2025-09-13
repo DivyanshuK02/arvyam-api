@@ -3,6 +3,7 @@
 
   "sympathy": {
     "edge_case": true,
+    "copy_max_words": 18,
     "tone": "muted",
     "palette_targets": ["white", "cream", "soft-green", "eucalyptus", "ivory"],
     "palette_avoid": ["neon", "neon-mixed", "electric", "bright-yellow"],
@@ -19,6 +20,7 @@
 
   "apology": {
     "edge_case": true,
+    "copy_max_words": 20,
     "tone": "gentle",
     "palette_targets": ["white", "soft-purple", "lavender", "blush", "soft-green"],
     "palette_avoid": ["neon", "neon-mixed", "electric"],
@@ -34,6 +36,7 @@
 
   "farewell": {
     "edge_case": true,
+    "copy_max_words": 18,
     "tone": "respectful",
     "palette_targets": ["white", "cream", "peach", "soft-green"],
     "palette_avoid": ["neon", "neon-mixed", "electric", "bright-yellow"],
@@ -49,6 +52,7 @@
 
   "valentine": {
     "edge_case": true,
+    "copy_max_words": 20,
     "tone": "bold-elegant",
     "palette_targets": ["red", "crimson", "burgundy", "blush", "soft-pink", "cream"],
     "palette_avoid": ["neon", "neon-mixed", "electric"],
