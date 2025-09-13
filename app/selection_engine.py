@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import json, os, re, hashlib
 from typing import Any, Dict, List, Optional, Tuple
+from fastapi import FastAPI, HTTPException, Query # Added Query import
 
 __all__ = ["curate", "selection_engine", "normalize", "detect_emotion"]
 
@@ -507,3 +508,22 @@ def selection_engine(prompt: str, context: Optional[Dict[str, Any]] = None) -> L
 # Back-compat thin wrapper
 def curate(prompt: str, context: Optional[Dict[str, Any]] = None) -> List[Dict[str, Any]]:
     return selection_engine(prompt, context or {})
+
+# FastAPI endpoints
+app = FastAPI()
+
+@app.post("/curate", tags=["public"])
+async def curate_post(q: Optional[str] = Query(None), prompt: Optional[str] = Query(None)):
+    text = (q or prompt or "").strip()
+    if not text:
+        raise HTTPException(status_code=400, detail="Invalid input")
+    items = selection_engine(text, {})
+    return {"items": items, "edge_case": any(i.get("edge_case") for i in items)}
+
+@app.get("/curate", tags=["public"])
+async def curate_get(q: Optional[str] = Query(None), prompt: Optional[str] = Query(None)):
+    text = (q or prompt or "").strip()
+    if not text:
+        raise HTTPException(status_code=400, detail="Invalid input")
+    items = selection_engine(text, {})
+    return {"items": items, "edge_case": any(i.get("edge_case") for i in items)}
