@@ -1,9 +1,11 @@
 {
   "luxury_grand": {
+    "policy": "blocklist",
     "allowed_emotions": [],
-    "blocked_emotions": ["Sympathy","GetWell","Encouragement"],
+    "blocked_emotions": ["Strength/Resilience"],
     "max_per_triad": 1,
     "allow_in_mix": true,
-    "allow_in_mono": true
+    "allow_in_mono": true,
+    "notes": "LG lives under tier 'Luxury' (luxury_grand=true). Eligibility is coarse: LG is blocked only for the Strength/Resilience anchor (grief/recovery). All other anchors are eligible; weighting/budget nudges (e.g., softer for Apology/Farewell; boost for Valentine; opt-in via 'grand' intent) are handled elsewhere (edge registers / weights), not here."
   }
 }
