@@ -60,6 +60,8 @@ ICONIC_SPECIES = {
     "orchid": ["orchid", "orchids"]
 }
 
+ONLY_ICONIC_RE = re.compile(r"\bonly\s+(lil(?:y|ies)|roses?|orchids?)\b", re.I)
+
 def normalize(s: str) -> str:
     s = (s or "").strip().lower()
     s = re.sub(r"\s+", " ", s)
@@ -317,7 +319,7 @@ def selection_engine(prompt: str, context: Optional[Dict[str, Any]] = None) -> L
 
     # Iconic override intent (only lilies/roses/orchids)
     iconic_intent = None
-    m = re.search(r"only\s+(lil(y|ies)|roses?|orchids?)", p)
+    m = ONLY_ICONIC_RE.search(p)
     if m:
         if "lil" in m.group(0):
             iconic_intent = "lily"
