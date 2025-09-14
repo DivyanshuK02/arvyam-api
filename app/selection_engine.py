@@ -129,11 +129,12 @@ def detect_emotion(prompt: str, context: dict | None) -> str:
     p = (prompt or "").strip().lower()
 
     # 0) Safe context hint (only accept known anchors)
-    hint = (context or {}).get("emotion_hint")
-    anchors = EMOTION_KEYWORDS.get("anchors", [])
-    if isinstance(hint, str) and hint in anchors:
+    anchors: List[str] = EMOTION_KEYWORDS.get("anchors", []) or []
+    hint = (context or {}).get("emotion_hint", "") or ""
+    hint = hint.strip()
+    if hint and hint in anchors:
         return hint
-
+    
     # Tables
     exact_map = EMOTION_KEYWORDS.get("exact", {}) or {}
     combos    = EMOTION_KEYWORDS.get("combos", []) or []
