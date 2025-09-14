@@ -298,49 +298,83 @@ def seed_enable(body: SeedModeIn):
 def seed_disable():
     return disable_seed_mode()
 
-@app.post("/api/curate", summary="Curate")
-async def curate_post(request: Request):
-    # 1) Read raw body (works for application/json and text/plain)
-    raw = await request.body()
-    payload = {}
+
+# =========================
+# Typed POST: JSON-only contract for Swagger
+# =========================
+class ItemOut(BaseModel):
+    id: str
+    title: str
+    desc: str
+    image: str
+    price: int
+    currency: str
+    emotion: str
+    tier: str
+    packaging: Optional[str] = None
+    mono: bool
+    palette: List[str]
+    luxury_grand: bool
+    edge_case: Optional[bool] = False
+    edge_type: Optional[str] = None
+    note: Optional[str] = None
+
+@app.post("/api/curate", summary="Curate", response_model=List[ItemOut])
+async def curate_post(body: CurateRequest, request: Request):
+    """
+    JSON-only canonical endpoint (typed) so Swagger renders a JSON schema.
+    Coercion is intentionally NOT applied here to keep the contract audit-clean.
+    """
+    started = time.time()
+    prompt = body.prompt.strip()
+    context = body.context.dict() if isinstance(body.context, CurateContext) else {}
+
     try:
-        if raw:
-            payload = json.loads(raw.decode("utf-8"))
-    except Exception:
-        # Treat non-JSON body as raw prompt text
-        payload = {"prompt": raw.decode("utf-8", errors="ignore").strip()}
-
-    # 2) Coerce to canonical contract
-    if isinstance(payload, str):
-        payload = {"prompt": payload}
-    if "prompt" not in payload or not isinstance(payload["prompt"], str) or not payload["prompt"].strip():
-        # Also accept {"text": "..."} as alias
-        if isinstance(payload.get("text"), str) and payload["text"].strip():
-            payload["prompt"] = payload["text"].strip()
-        else:
-            # final fallback: check querystring ?prompt=
-            qs_prompt = request.query_params.get("prompt") or request.query_params.get("q")
-            if qs_prompt:
-                payload["prompt"] = qs_prompt.strip()
-
-    if "prompt" not in payload or not payload["prompt"]:
-        return JSONResponse(
-            status_code=400,
-            content={"error": "prompt_required", "message": "Provide a non-empty 'prompt'."},
-        )
-
-    context = payload.get("context") or {}
-    # 3) Call the engine (your existing function)
-    try:
-        triad = selection_engine(payload["prompt"], context)
+        items = selection_engine(prompt=prompt, context=context)
     except Exception as e:
-        # Always return JSON on errors so the UI never tries to parse HTML
-        return JSONResponse(
-            status_code=500,
-            content={"error": "engine_error", "message": str(e)[:400]},
-        )
+        # normalized error (JSON only)
+        raise HTTPException(status_code=500, detail={"error": {"code": "ENGINE_ERROR", "message": str(e)[:400]}})
 
-    return JSONResponse(content=triad)
+    # (Optional) minimal analytics/logging parity with GET handler
+    latency_ms = int((time.time() - started) * 1000)
+    request_id = str(uuid.uuid4())
+    ip = get_remote_address(request)
+    logging.info("[%s] CURATE ip=%s emotion=%s latency_ms=%s prompt_len=%s",
+                 PERSONA, ip, items[0].get("emotion",""), latency_ms, len(prompt))
+    append_selection_log(items, request_id, latency_ms, len(prompt), path="/api/curate")
+    analytics_guard_check()
+    return items
+
+# =========================
+# Helper for flexible/legacy calls (keeps shim behavior)
+# =========================
+async def _curate_flexible(request: Request) -> JSONResponse:
+    """
+    Coercion shim for legacy/alias routes:
+    - raw string
+    - { "text": "..." } / { "prompt": "..." } / { "q": "..." }
+    - form-encoded
+    - querystring ?prompt=
+    """
+    started = time.time()
+    prompt = await _coerce_prompt(request)
+    if not prompt:
+        return error_json("PROMPT_REQUIRED", "Provide a non-empty 'prompt'.", 400)
+
+    prompt = sanitize_text(prompt)
+    try:
+        items = selection_engine(prompt=prompt, context={})
+    except Exception as e:
+        return error_json("ENGINE_ERROR", str(e)[:400], 500)
+
+    latency_ms = int((time.time() - started) * 1000)
+    request_id = str(uuid.uuid4())
+    ip = get_remote_address(request)
+    logging.info("[%s] CURATE(SHIM) ip=%s emotion=%s latency_ms=%s prompt_len=%s",
+                 PERSONA, ip, items[0].get("emotion",""), latency_ms, len(prompt))
+    append_selection_log(items, request_id, latency_ms, len(prompt), path="/curate(shim)")
+    analytics_guard_check()
+    return JSONResponse(items)
 
 @app.get("/api/curate")
 @limiter.limit(f"{RATE_LIMIT_PER_MIN}/minute")
@@ -393,7 +427,7 @@ async def curate_get(request: Request):
 @app.post("/curate")
 @limiter.limit(f"{RATE_LIMIT_PER_MIN}/minute")
 async def curate_alias_post(request: Request):
-    return await curate_post(request)
+    return await _curate_flexible(request)
 
 @app.get("/curate")
 @limiter.limit(f"{RATE_LIMIT_PER_MIN}/minute")
