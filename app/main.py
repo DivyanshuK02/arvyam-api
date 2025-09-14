@@ -1,7 +1,7 @@
 import os, json, logging, uuid, time, csv
 from typing import Any, Dict, List, Optional
 
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import FastAPI, HTTPException, Request, Body
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.exception_handlers import http_exception_handler
@@ -261,6 +261,17 @@ class CurateIn(BaseModel):
     prompt: str = Field(..., min_length=1, max_length=500)
     context: Optional[Dict[str, Any]] = None  # emotion_hint, budget_inr, packaging_pref, locale
 
+class CurateContext(BaseModel):
+    budget_inr: Optional[int] = None
+    emotion_hint: Optional[str] = None
+    packaging_pref: Optional[str] = None
+    locale: Optional[str] = None
+    recent_ids: Optional[List[str]] = None   # for session-level dedupe (optional, see B2)
+
+class CurateRequest(BaseModel):
+    prompt: str = Field(..., min_length=1, max_length=500)
+    context: Optional[CurateContext] = None
+
 class SeedModeIn(BaseModel):
     minutes: Optional[int] = 60
 
@@ -287,20 +298,25 @@ def seed_enable(body: SeedModeIn):
 def seed_disable():
     return disable_seed_mode()
 
-@app.post("/api/curate")
-@limiter.limit(f"{RATE_LIMIT_PER_MIN}/minute")
-async def curate(request: Request):
+@app.post("/api/curate", summary="Curate", response_model=list)
+async def curate(req: CurateRequest = Body(
+    ...,
+    examples={
+        "basic": {
+            "summary": "Standard",
+            "value": {"prompt": "romantic anniversary under 2000", "context": {"budget_inr": 2000}}
+        },
+        "loose": {
+            "summary": "Loose phrase",
+            "value": {"prompt": "fun birthday"}
+        }
+    }
+)):
     started = time.time()
-    # Coerce input from a variety of sources
-    prompt = await _coerce_prompt(request)
-    if not isinstance(prompt, str) or len(prompt.strip()) < 3:
-        return JSONResponse({"error": "Invalid input."}, status_code=400)
-    
-    prompt = sanitize_text(prompt)
-    if not prompt:
-        return error_json("EMPTY_PROMPT", "Please write a short line.", 422)
-    prompt_len = len(prompt)
-    context = None # Assuming no context from these new input types, as per the user's patch
+    # coercion shim still tolerated (keeps Option A resilience)
+    payload = {"prompt": req.prompt, "context": (req.context.model_dump() if req.context else {})}
+    prompt = payload["prompt"]
+    context = payload["context"]
 
     # Seed-mode check (1 hour window)
     seed_state = seed_mode_status()
@@ -322,9 +338,10 @@ async def curate(request: Request):
     # Basic metrics and a request id
     latency_ms = int((time.time() - started) * 1000)
     request_id = str(uuid.uuid4())
+    prompt_len = len(prompt)
 
     # Safe logs (never log full prompt)
-    ip = get_remote_address(request)
+    ip = get_remote_address(req)
     logging.info("[%s] CURATE ip=%s emotion=%s latency_ms=%s prompt_len=%s%s",
                  PERSONA, ip, items[0].get("emotion",""), latency_ms, prompt_len,
                  " (seed-mode)" if seed_state.get("enabled") and items is not None else "")
