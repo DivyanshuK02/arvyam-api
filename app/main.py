@@ -214,21 +214,24 @@ def analytics_guard_check() -> Dict[str, Any]:
     return result
 
 # -- payload coercion shim: accept raw string, {"prompt"}, {"text"}, {"q"}, form, or query
-async def _coerce_prompt(request: Request) -> str:
-    # 1) JSON body (accept common keys OR first string value)
+async def _coerce_prompt_and_context(request: Request) -> Dict[str, Any]:
+    # 1) JSON body (accept common keys and context)
     try:
         data = await request.json()
     except Exception:
         data = None
     if isinstance(data, dict):
+        payload = {"prompt": "", "context": data.get("context", {})}
         for k in ("prompt", "text", "q", "message", "input"):
             v = data.get(k)
             if isinstance(v, str) and v.strip():
-                return v.strip()
+                payload["prompt"] = v.strip()
+                return payload
         # last resort: pick the first non-empty string value in the dict
         for v in data.values():
             if isinstance(v, str) and v.strip():
-                return v.strip()
+                payload["prompt"] = v.strip()
+                return payload
 
     # 2) form-encoded
     try:
@@ -237,22 +240,24 @@ async def _coerce_prompt(request: Request) -> str:
             if k in form:
                 v = str(form[k]).strip()
                 if v:
-                    return v
+                    return {"prompt": v, "context": {}}
     except Exception:
         pass
 
     # 3) raw text body (text/plain or fetch without content-type)
     raw = (await request.body() or b"").decode("utf-8", "ignore").strip()
     if raw and not (raw.startswith("{") or raw.startswith("[")):  # not JSON-looking
-        return raw
+        return {"prompt": raw, "context": {}}
 
     # 4) query params
+    context = {}
     for k in ("prompt", "text", "q", "message", "input"):
         v = request.query_params.get(k)
         if v and v.strip():
-            return v.strip()
+            return {"prompt": v.strip(), "context": {}}
 
-    return ""
+    return {"prompt": "", "context": {}}
+
 
 # =========================
 # Schemas (UI-aligned)
@@ -299,6 +304,7 @@ def seed_disable():
     return disable_seed_mode()
 
 @app.post("/api/curate", summary="Curate")
+@limiter.limit(f"{RATE_LIMIT_PER_MIN}/minute")
 async def curate_post(request: Request):
     # 1) Read raw body (works for application/json and text/plain)
     raw = await request.body()
@@ -329,6 +335,7 @@ async def curate_post(request: Request):
             content={"error": "prompt_required", "message": "Provide a non-empty 'prompt'."},
         )
     context = payload.get("context") or {}
+    
     # 3) Call the engine (your existing function)
     try:
         triad = selection_engine(payload["prompt"], context)
@@ -338,22 +345,21 @@ async def curate_post(request: Request):
             status_code=500,
             content={"error": "engine_error", "message": str(e)[:400]},
         )
-
     return JSONResponse(content=triad)
 
 @app.get("/api/curate")
 @limiter.limit(f"{RATE_LIMIT_PER_MIN}/minute")
 async def curate_get(request: Request):
     started = time.time()
-    prompt = await _coerce_prompt(request)
+    prompt = (request.query_params.get("prompt") or request.query_params.get("q") or "").strip()
+    context = None
     if not isinstance(prompt, str) or len(prompt.strip()) < 3:
-        return JSONResponse({"error": "Invalid input."}, status_code=400)
-    
+        return error_json("invalid_input", "Please provide a non-empty prompt of at least 3 characters.", 400)
+
     prompt = sanitize_text(prompt)
     if not prompt:
         return error_json("EMPTY_PROMPT", "Please write a short line.", 422)
     prompt_len = len(prompt)
-    context = None # Assuming no context from these new input types, as per the user's patch
 
     # Seed-mode check (1 hour window)
     seed_state = seed_mode_status()
@@ -370,7 +376,13 @@ async def curate_get(request: Request):
 
     # If no seed triad (or invalid), fall back to engine
     if items is None:
-        items = selection_engine(prompt=prompt, context=context or {})
+        try:
+            items = selection_engine(prompt=prompt, context=context or {})
+        except Exception as e:
+            return JSONResponse(
+                status_code=500,
+                content={"error": "engine_error", "message": str(e)[:400]},
+            )
 
     # Basic metrics and a request id
     latency_ms = int((time.time() - started) * 1000)
