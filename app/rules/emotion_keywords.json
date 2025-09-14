@@ -9,7 +9,6 @@
     "Selflessness/Generosity",
     "Fun/Humor"
   ],
-
   "notes": {
     "evaluation_order": [
       "edge_registers (sympathy/apology/farewell/valentine)",
@@ -19,7 +18,6 @@
     ],
     "intent": "English-only. No numeric budgets in rules. Ambiguity resolved via combos first, then anchor priority."
   },
-
   "exact": {
     "be my valentine": "Affection/Support",
     "valentine surprise": "Affection/Support",
@@ -45,100 +43,341 @@
     "thanks for always being there": "Loyalty/Dependability",
     "birthday bash": "Fun/Humor",
     "make it fun": "Fun/Humor",
-    "party vibes": "Fun/Humor"
+    "party vibes": "Fun/Humor",
+    "fun birthday": "Fun/Humor",
+    "birthday fun": "Fun/Humor",
+    "she is feeling lovely": "Affection/Support",
+    "feeling lovely": "Affection/Support",
+    "mentor": "Selflessness/Generosity",
+    "thank you mentor": "Selflessness/Generosity",
+    "she had a tough week": "Encouragement/Positivity"
   },
-
   "combos": [
-    { "all": ["work", "anniversary"], "anchor": "Loyalty/Dependability" },
-    { "all": ["wedding", "anniversary"], "anchor": "Affection/Support" },
-    { "all": ["get well"], "anchor": "Encouragement/Positivity" },
-    { "all": ["speedy", "recovery"], "anchor": "Strength/Resilience" },
-    { "all": ["mentor", "thank"], "anchor": "Selflessness/Generosity" },
-    { "all": ["teacher", "thanks"], "anchor": "Intellect/Wisdom" },
-    { "all": ["new", "job"], "anchor": "Encouragement/Positivity" },
-    { "all": ["new", "home"], "anchor": "Adventurous/Creativity" },
-    { "all": ["promotion", "congrats"], "anchor": "Encouragement/Positivity" },
-    { "all": ["team", "support"], "anchor": "Loyalty/Dependability" }
+    {
+      "all": [
+        "work",
+        "anniversary"
+      ],
+      "anchor": "Loyalty/Dependability"
+    },
+    {
+      "all": [
+        "wedding",
+        "anniversary"
+      ],
+      "anchor": "Affection/Support"
+    },
+    {
+      "all": [
+        "get well"
+      ],
+      "anchor": "Encouragement/Positivity"
+    },
+    {
+      "all": [
+        "speedy",
+        "recovery"
+      ],
+      "anchor": "Strength/Resilience"
+    },
+    {
+      "all": [
+        "mentor",
+        "thank"
+      ],
+      "anchor": "Selflessness/Generosity"
+    },
+    {
+      "all": [
+        "teacher",
+        "thanks"
+      ],
+      "anchor": "Intellect/Wisdom"
+    },
+    {
+      "all": [
+        "new",
+        "job"
+      ],
+      "anchor": "Encouragement/Positivity"
+    },
+    {
+      "all": [
+        "new",
+        "home"
+      ],
+      "anchor": "Adventurous/Creativity"
+    },
+    {
+      "all": [
+        "promotion",
+        "congrats"
+      ],
+      "anchor": "Encouragement/Positivity"
+    },
+    {
+      "all": [
+        "team",
+        "support"
+      ],
+      "anchor": "Loyalty/Dependability"
+    },
+    {
+      "all": [
+        "feeling",
+        "lovely"
+      ],
+      "anchor": "Affection/Support"
+    },
+    {
+      "all": [
+        "tough",
+        "week"
+      ],
+      "anchor": "Encouragement/Positivity"
+    },
+    {
+      "all": [
+        "birthday",
+        "fun"
+      ],
+      "anchor": "Fun/Humor"
+    },
+    {
+      "all": [
+        "thank",
+        "mentor"
+      ],
+      "anchor": "Selflessness/Generosity"
+    }
   ],
-
   "keywords": {
     "Affection/Support": [
-      "love", "romance", "romantic", "blush", "sweetheart", "crush",
-      "miss you", "thinking of you", "together", "couple", "partner",
-      "wife", "husband", "girlfriend", "boyfriend", "fiancé", "anniversary",
-      "hearts", "affection", "care", "warmth"
+      "love",
+      "romance",
+      "romantic",
+      "blush",
+      "sweetheart",
+      "crush",
+      "miss you",
+      "thinking of you",
+      "together",
+      "couple",
+      "partner",
+      "wife",
+      "husband",
+      "girlfriend",
+      "boyfriend",
+      "fiancé",
+      "anniversary",
+      "hearts",
+      "affection",
+      "care",
+      "warmth"
     ],
-
     "Loyalty/Dependability": [
-      "loyal", "reliable", "dependable", "steady", "trust", "always there",
-      "backbone", "colleague", "coworker", "teammate", "partner at work",
-      "service award", "milestone", "workiversary", "commitment", "dedication",
-      "supportive", "pillar", "solid"
+      "loyal",
+      "reliable",
+      "dependable",
+      "steady",
+      "trust",
+      "always there",
+      "backbone",
+      "colleague",
+      "coworker",
+      "teammate",
+      "partner at work",
+      "service award",
+      "milestone",
+      "workiversary",
+      "commitment",
+      "dedication",
+      "supportive",
+      "pillar",
+      "solid"
     ],
-
     "Encouragement/Positivity": [
-      "congrats", "congratulations", "celebrate", "cheers", "uplift", "optimism",
-      "proud", "you got this", "go for it", "good luck", "best of luck",
-      "get well", "feel better", "bounce back", "brighten", "sunny",
-      "encourage", "positive", "motivation", "hopeful"
+      "congrats",
+      "congratulations",
+      "celebrate",
+      "cheers",
+      "uplift",
+      "optimism",
+      "proud",
+      "you got this",
+      "go for it",
+      "good luck",
+      "best of luck",
+      "get well",
+      "feel better",
+      "bounce back",
+      "brighten",
+      "sunny",
+      "encourage",
+      "positive",
+      "motivation",
+      "hopeful"
     ],
-
     "Strength/Resilience": [
-      "resilient", "strength", "courage", "brave", "tough time", "difficult time",
-      "recovery", "heal", "healing", "overcome", "persevere", "endure",
-      "stand tall", "with you", "thinking of you", "calm", "steady",
-      "support through", "after surgery", "bounce back strong"
+      "resilient",
+      "strength",
+      "courage",
+      "brave",
+      "tough time",
+      "difficult time",
+      "recovery",
+      "heal",
+      "healing",
+      "overcome",
+      "persevere",
+      "endure",
+      "stand tall",
+      "with you",
+      "thinking of you",
+      "calm",
+      "steady",
+      "support through",
+      "after surgery",
+      "bounce back strong"
     ],
-
     "Intellect/Wisdom": [
-      "mentor", "teacher", "professor", "guide", "wisdom", "learn",
-      "study", "exam", "graduation", "scholar", "thesis", "research",
-      "clarity", "insight", "knowledge", "coach"
+      "mentor",
+      "teacher",
+      "professor",
+      "guide",
+      "wisdom",
+      "learn",
+      "study",
+      "exam",
+      "graduation",
+      "scholar",
+      "thesis",
+      "research",
+      "clarity",
+      "insight",
+      "knowledge",
+      "coach"
     ],
-
     "Adventurous/Creativity": [
-      "adventurous", "creative", "artsy", "bold", "vibrant", "new chapter",
-      "new home", "housewarming", "fresh start", "explore", "travel",
-      "wander", "move", "launch", "startup", "statement", "showstopper"
+      "adventurous",
+      "creative",
+      "artsy",
+      "bold",
+      "vibrant",
+      "new chapter",
+      "new home",
+      "housewarming",
+      "fresh start",
+      "explore",
+      "travel",
+      "wander",
+      "move",
+      "launch",
+      "startup",
+      "statement",
+      "showstopper"
     ],
-
     "Selflessness/Generosity": [
-      "thank you", "thanks", "gratitude", "appreciate", "appreciation",
-      "much obliged", "kindness", "help", "support", "favor", "mentor thanks",
-      "above and beyond", "for you", "gesture", "gift", "thoughtful"
+      "thank you",
+      "thanks",
+      "gratitude",
+      "appreciate",
+      "appreciation",
+      "much obliged",
+      "kindness",
+      "help",
+      "support",
+      "favor",
+      "mentor thanks",
+      "above and beyond",
+      "for you",
+      "gesture",
+      "gift",
+      "thoughtful"
     ],
-
     "Fun/Humor": [
-      "fun", "playful", "cheerful", "party", "birthday", "cake", "balloons",
-      "smile", "laugh", "lively", "bright", "surprise me", "weekend", "vibes",
-      "good times", "yay"
+      "fun",
+      "playful",
+      "cheerful",
+      "party",
+      "birthday",
+      "cake",
+      "balloons",
+      "smile",
+      "laugh",
+      "lively",
+      "bright",
+      "surprise me",
+      "weekend",
+      "vibes",
+      "good times",
+      "yay"
     ]
   },
-
   "negations": [
-    "not", "no", "never", "without", "don’t", "dont", "do not"
+    "not",
+    "no",
+    "never",
+    "without",
+    "don’t",
+    "dont",
+    "do not"
   ],
-
   "disambiguation": [
     {
-      "when_any": ["anniversary"],
+      "when_any": [
+        "anniversary"
+      ],
       "route": [
-        { "if_any": ["work", "office", "team", "years of service"], "anchor": "Loyalty/Dependability" },
-        { "else": "Affection/Support" }
+        {
+          "if_any": [
+            "work",
+            "office",
+            "team",
+            "years of service"
+          ],
+          "anchor": "Loyalty/Dependability"
+        },
+        {
+          "else": "Affection/Support"
+        }
       ]
     },
     {
-      "when_any": ["sorry"],
+      "when_any": [
+        "sorry"
+      ],
       "route": [
-        { "if_any": ["loss", "passing", "passed", "bereavement"], "anchor": "Strength/Resilience" },
-        { "else": "Encouragement/Positivity" }
+        {
+          "if_any": [
+            "loss",
+            "passing",
+            "passed",
+            "bereavement"
+          ],
+          "anchor": "Strength/Resilience"
+        },
+        {
+          "else": "Encouragement/Positivity"
+        }
       ]
     },
     {
-      "when_any": ["mentor"],
+      "when_any": [
+        "mentor"
+      ],
       "route": [
-        { "if_any": ["thank", "thanks", "appreciate"], "anchor": "Selflessness/Generosity" },
-        { "else": "Intellect/Wisdom" }
+        {
+          "if_any": [
+            "thank",
+            "thanks",
+            "appreciate"
+          ],
+          "anchor": "Selflessness/Generosity"
+        },
+        {
+          "else": "Intellect/Wisdom"
+        }
       ]
     }
   ]
