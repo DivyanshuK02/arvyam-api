@@ -430,6 +430,10 @@ def selection_engine(prompt: str, context: Optional[Dict[str, Any]] = None) -> L
     context = context or {}
     p = normalize(prompt)
 
+    # 1) read recent_ids at the top of curate/selection function
+    recent_ids = set((context or {}).get("recent_ids", []) or [])
+    original_catalog = list(CATALOG)
+
     # Emotion + edge-case
     emotion = detect_emotion(p, context)
     edge_case = detect_edge_register(p)
@@ -473,7 +477,14 @@ def selection_engine(prompt: str, context: Optional[Dict[str, Any]] = None) -> L
 
     # Score all catalog items
     scored: List[Dict[str, Any]] = []
-    for item in CATALOG:
+    # 2) when scoring/choosing, filter out recent_ids first
+    candidates = [c for c in CATALOG if c["id"] not in recent_ids]
+    
+    # 3) if filtering leaves too few to satisfy 2 MIX + 1 MONO, fall back to the full set to keep guarantees
+    if len(candidates) < 3:
+        candidates = original_catalog
+
+    for item in candidates:
         # Skip items missing required fields
         if item.get("tier") not in TIER_ORDER or not item.get("palette"):
             continue
@@ -497,7 +508,7 @@ def selection_engine(prompt: str, context: Optional[Dict[str, Any]] = None) -> L
         candidate = dict(item)
         candidate["_score"] = w
         resolved_anchor = detect_emotion(prompt, context)
-        # Strict edge gating + proper emotion (anchor) assignment
+        # Strict edge gating + proper emotion (anchor) asisgnment
         candidate["emotion"]   = resolved_anchor
         candidate["edge_case"] = bool(edge_case in EDGE_CASE_KEYS)
         candidate["_edge_type"] = edge_case if edge_case in EDGE_CASE_KEYS else None
@@ -588,26 +599,28 @@ def curate(prompt: str, context: Optional[Dict[str, Any]] = None) -> List[Dict[s
 app = FastAPI()
 
 @app.post("/curate", tags=["public"])
-async def curate_post(q: Optional[str] = Query(None), prompt: Optional[str] = Query(None)):
+async def curate_post(q: Optional[str] = Query(None), prompt: Optional[str] = Query(None), recent_ids: Optional[List[str]] = Query(None)):
     text = (q or prompt or "").strip()
     if not text:
         raise HTTPException(status_code=400, detail="Invalid input")
-    items = selection_engine(text, {})
+    context = {"recent_ids": recent_ids}
+    items = selection_engine(text, context)
     return {"items": items, "edge_case": any(i.get("edge_case") for i in items)}
 
 # Alias the existing endpoints to also work with the /api prefix
 @app.post("/api/curate", tags=["public"])
-async def curate_post_api(q: Optional[str] = Query(None), prompt: Optional[str] = Query(None)):
-    return await curate_post(q, prompt)
+async def curate_post_api(q: Optional[str] = Query(None), prompt: Optional[str] = Query(None), recent_ids: Optional[List[str]] = Query(None)):
+    return await curate_post(q, prompt, recent_ids)
 
 @app.get("/curate", tags=["public"])
-async def curate_get(q: Optional[str] = Query(None), prompt: Optional[str] = Query(None)):
+async def curate_get(q: Optional[str] = Query(None), prompt: Optional[str] = Query(None), recent_ids: Optional[List[str]] = Query(None)):
     text = (q or prompt or "").strip()
     if not text:
         raise HTTPException(status_code=400, detail="Invalid input")
-    items = selection_engine(text, {})
+    context = {"recent_ids": recent_ids}
+    items = selection_engine(text, context)
     return {"items": items, "edge_case": any(i.get("edge_case") for i in items)}
 
 @app.get("/api/curate", tags=["public"])
-async def curate_get_api(q: Optional[str] = Query(None), prompt: Optional[str] = Query(None)):
-    return await curate_get(q, prompt)
+async def curate_get_api(q: Optional[str] = Query(None), prompt: Optional[str] = Query(None), recent_ids: Optional[List[str]] = Query(None)):
+    return await curate_get(q, prompt, recent_ids)
