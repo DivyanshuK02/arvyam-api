@@ -1,26 +1,155 @@
 {
+  "version": "1.3-en",
+  "updated_at": "2025-09-14T00:00:00Z",
+
+  "priority": { "sympathy": 100, "apology": 90, "farewell": 80, "valentine": 70 },
+
+  "notes": "English-only. Hinglish/Devanagari deferred to Phase 4.5. Keep arrays backward-compatible; enriched blocks are optional for future precision.",
+
+  /* --------- BACKWARD-COMPATIBLE PHRASE LISTS (ENGINE USES THESE TODAY) --------- */
+
   "sympathy": [
-    "sorry for your loss", "condolence", "condolences",
-    "grief", "passing", "passed away", "bereavement"
+    "sorry for your loss", "so sorry for your loss", "my condolences", "our condolences",
+    "deepest condolences", "heartfelt condolences", "sending condolences",
+    "with sympathy", "in this difficult time", "thinking of you",
+    "loss of your", "loss of his", "loss of her", "loss of their", "tragic loss",
+    "passed away", "has passed", "passing", "gone too soon", "rest in peace", "rip",
+    "bereavement", "mourning", "grieving", "funeral", "wake", "demise"
   ],
+
   "apology": [
-    "sorry", "apologize", "apology", "forgive", "forgiveness",
-    "my mistake", "i was wrong"
+    "i am sorry", "i'm sorry", "so sorry", "truly sorry", "deeply sorry",
+    "i apologize", "i apologise", "my apologies", "accept my apology",
+    "please forgive me", "forgive me", "seeking forgiveness",
+    "my mistake", "my fault", "i was wrong", "i messed up", "i screwed up",
+    "let me make it up to you", "make amends", "amends", "regret", "deep regret", "remorse"
   ],
+
   "farewell": [
-    "farewell", "goodbye", "last day", "send off", "parting",
-    "moving on", "retiring", "retirement"
+    "farewell", "goodbye", "good bye", "adieu", "bon voyage",
+    "send-off", "send off", "parting", "we will miss you", "miss you",
+    "last day", "last working day", "moving on", "moving to", "new chapter", "next chapter",
+    "best of luck", "all the best", "congrats on the new role", "handover",
+    "retiring", "retirement", "resigning", "transfer", "promotion", "farewell party"
   ],
+
   "valentine": [
-    "valentine", "valentines", "love", "romantic", "anniversary",
-    "be my valentine", "proposal"
+    "valentine", "valentines", "valentine's", "valentine's day",
+    "be my valentine", "v-day", "vday", "cupid",
+    "my love", "for my love", "my sweetheart", "be mine",
+    "romantic date", "date night", "feb 14", "february 14"
   ],
+
+  /* --------- ENRICHED (OPTIONAL) SECTIONS FOR FUTURE PRECISION --------- */
+  /* These are not required by the current engine. Safe to ignore until wired. */
+
+  "sympathy_enriched": {
+    "exact": [
+      "sorry for your loss", "my condolences", "our condolences",
+      "deepest condolences", "heartfelt condolences", "with sympathy",
+      "rest in peace", "gone too soon"
+    ],
+    "contains_any": [
+      "condolence", "condolences", "bereavement", "mourning", "grieving",
+      "passed away", "has passed", "passing", "tragic loss", "demise", "funeral", "wake"
+    ],
+    "regex": [
+      "\\bloss of\\s+(?:my|your|his|her|their)\\b",
+      "\\brest\\s+in\\s+peace\\b",
+      "\\bpassed\\s+(?:away|on)\\b",
+      "\\brip\\b"
+    ],
+    "proximity_pairs": [
+      { "a": "sorry", "b": "loss", "window": 4 },
+      { "a": "deepest", "b": "condolences", "window": 3 }
+    ],
+    "false_friends": [
+      "sorry i am late", "sorry i'm late", "sorry to bother",
+      "sorry for the inconvenience", "sorry not sorry"
+    ]
+  },
+
+  "apology_enriched": {
+    "exact": [
+      "i am sorry", "i'm sorry", "i apologize", "my apologies", "please forgive me",
+      "accept my apology", "let me make it up to you"
+    ],
+    "contains_any": [
+      "remorse", "regret", "apology", "apologise", "apologize",
+      "my fault", "my mistake", "i was wrong", "messed up", "screwed up", "amends"
+    ],
+    "regex": [
+      "\\b(i\\s*am|i'?m)\\s+sorry\\b",
+      "\\bplease\\s+forgive\\s+me\\b",
+      "\\bmy\\s+(?:fault|mistake)\\b"
+    ],
+    "proximity_pairs": [
+      { "a": "sorry", "b": "again", "window": 3 },
+      { "a": "make", "b": "amends", "window": 2 }
+    ],
+    "false_friends": [
+      "sorry not sorry"  /* sarcasm; do not route to apology register */
+    ]
+  },
+
+  "farewell_enriched": {
+    "exact": [
+      "farewell", "goodbye", "good bye", "bon voyage", "adieu",
+      "last working day", "we will miss you", "farewell party"
+    ],
+    "contains_any": [
+      "moving on", "moving to", "new chapter", "next chapter",
+      "retiring", "retirement", "resigning", "transfer", "handover",
+      "promotion", "send-off", "send off", "parting"
+    ],
+    "regex": [
+      "\\blast\\s+(?:day|working\\s+day)\\b",
+      "\\bcongrats?\\s+on\\s+the\\s+new\\s+role\\b",
+      "\\bmoving\\s+(?:on|to)\\b"
+    ],
+    "proximity_pairs": [
+      { "a": "best", "b": "luck", "window": 2 },
+      { "a": "all", "b": "best", "window": 2 }
+    ],
+    "false_friends": [
+      "goodbye 2024", "goodbye summer", "farewell tour", "farewell sale"
+    ]
+  },
+
+  "valentine_enriched": {
+    "exact": [
+      "valentine", "valentines", "valentine's", "valentine's day",
+      "be my valentine", "v-day", "vday"
+    ],
+    "contains_any": [
+      "cupid", "be mine", "sweetheart", "my love", "romantic date", "date night"
+    ],
+    "regex": [
+      "\\bfeb(?:\\.|ruary)?\\s*14\\b",
+      "\\b14\\s*(?:/|\\s)\\s*2\\b"
+    ],
+    "proximity_pairs": [
+      { "a": "be", "b": "valentine", "window": 2 },
+      { "a": "date", "b": "night", "window": 2 }
+    ],
+    "false_friends": [
+      "love the color", "love this product"
+    ]
+  },
+
+  /* --------- CONTEXT CUES FOR LUXURY-GRAND INTENT (USED BY POLICY) --------- */
+
   "grand_intent_keywords": [
-    "grand","bigger","large","lavish","extravagant","50+","hundred",
-    "massive","most beautiful","impressive","showstopper","statement"
+    "grand", "grande", "lavish", "opulent", "statement", "showstopper",
+    "extravagant", "over the top", "ott", "massive", "huge", "bigger", "biggest",
+    "deluxe", "largest", "supersize", "more stems", "extra stems",
+    "50+", "100+", "fifty", "hundred", "dozen roses", "many roses"
   ],
+
   "relationship_grandeur_cues": [
-    "boss","manager","director","ceo","founder","mentor","teacher",
-    "professor","parents","grandparents","board"
+    "boss", "manager", "director", "vp", "svp", "ceo", "cto", "founder",
+    "partner", "board", "investor", "client", "vip",
+    "parents", "grandparents", "in-laws",
+    "mentor", "teacher", "professor", "principal", "chairperson", "head", "lead"
   ]
 }
