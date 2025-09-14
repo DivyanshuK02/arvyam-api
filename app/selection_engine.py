@@ -352,14 +352,9 @@ def selection_engine(prompt: str, context: Optional[Dict[str, Any]] = None) -> L
     bucket = (EMOTION_KEYWORDS.get("keywords", {}) or {}).get(emotion, [])
     matched_keywords = sum(1 for k in bucket if normalize(k) in normalize(prompt))
     clarity = _intent_clarity(prompt, matched_keywords)
-    soft_lg_multiplier = 1.0
-    if clarity == 0.0 and not _has_grand_intent(prompt):
-        try:
-            budget = int((context or {}).get("budget_inr", 0) or 0)
-        except Exception:
-            budget = 0
-        if budget < 4999:
-            soft_lg_multiplier = 0.8
+    
+    # Soft LG dampener ONLY for unclear + no 'grand' intent (no numeric budgets in code)
+    soft_lg_multiplier = 0.8 if (clarity == 0.0 and not _has_grand_intent(prompt)) else 1.0
 
     redirect_from: Optional[str] = None
     redirect_alts: List[str] = []
