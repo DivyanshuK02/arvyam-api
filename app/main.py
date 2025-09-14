@@ -258,7 +258,6 @@ async def _coerce_prompt_and_context(request: Request) -> Dict[str, Any]:
 
     return {"prompt": "", "context": {}}
 
-
 # =========================
 # Schemas (UI-aligned)
 # =========================
@@ -306,59 +305,15 @@ def seed_disable():
 @app.post("/api/curate", summary="Curate")
 @limiter.limit(f"{RATE_LIMIT_PER_MIN}/minute")
 async def curate_post(request: Request):
-    # 1) Read raw body (works for application/json and text/plain)
-    raw = await request.body()
-    payload = {}
-    try:
-        if raw:
-            payload = json.loads(raw.decode("utf-8"))
-    except Exception:
-        # Treat non-JSON body as raw prompt text
-        payload = {"prompt": raw.decode("utf-8", errors="ignore").strip()}
-
-    # 2) Coerce to canonical contract
-    if isinstance(payload, str):
-        payload = {"prompt": payload}
-    if "prompt" not in payload or not isinstance(payload["prompt"], str) or not payload["prompt"].strip():
-        # Also accept {"text": "..."} as alias
-        if isinstance(payload.get("text"), str) and payload["text"].strip():
-            payload["prompt"] = payload["text"].strip()
-        else:
-            # final fallback: check querystring ?prompt=
-            qs_prompt = request.query_params.get("prompt") or request.query_params.get("q")
-            if qs_prompt:
-                payload["prompt"] = qs_prompt.strip()
-
-    if "prompt" not in payload or not payload["prompt"]:
+    started = time.time()
+    payload = await _coerce_prompt_and_context(request)
+    prompt = payload["prompt"]
+    context = payload["context"]
+    if not prompt:
         return JSONResponse(
             status_code=400,
             content={"error": "prompt_required", "message": "Provide a non-empty 'prompt'."},
         )
-    context = payload.get("context") or {}
-    
-    # 3) Call the engine (your existing function)
-    try:
-        triad = selection_engine(payload["prompt"], context)
-    except Exception as e:
-        # Always return JSON on errors so the UI never tries to parse HTML
-        return JSONResponse(
-            status_code=500,
-            content={"error": "engine_error", "message": str(e)[:400]},
-        )
-    return JSONResponse(content=triad)
-
-@app.get("/api/curate")
-@limiter.limit(f"{RATE_LIMIT_PER_MIN}/minute")
-async def curate_get(request: Request):
-    started = time.time()
-    prompt = (request.query_params.get("prompt") or request.query_params.get("q") or "").strip()
-    context = None
-    if not isinstance(prompt, str) or len(prompt.strip()) < 3:
-        return error_json("invalid_input", "Please provide a non-empty prompt of at least 3 characters.", 400)
-
-    prompt = sanitize_text(prompt)
-    if not prompt:
-        return error_json("EMPTY_PROMPT", "Please write a short line.", 422)
     prompt_len = len(prompt)
 
     # Seed-mode check (1 hour window)
@@ -377,24 +332,66 @@ async def curate_get(request: Request):
     # If no seed triad (or invalid), fall back to engine
     if items is None:
         try:
+            items = selection_engine(prompt=prompt, context=context)
+        except Exception as e:
+            # Always return JSON on errors so the UI never tries to parse HTML
+            return JSONResponse(
+                status_code=500,
+                content={"error": "engine_error", "message": str(e)[:400]},
+            )
+    
+    latency_ms = int((time.time() - started) * 1000)
+    request_id = str(uuid.uuid4())
+    
+    ip = get_remote_address(request)
+    logging.info("[%s] CURATE ip=%s emotion=%s latency_ms=%s prompt_len=%s%s",
+                 PERSONA, ip, items[0].get("emotion",""), latency_ms, prompt_len,
+                 " (seed-mode)" if seed_state.get("enabled") and items is not None else "")
+    
+    append_selection_log(items, request_id, latency_ms, prompt_len, path="/api/curate")
+    analytics_guard_check()
+    
+    return JSONResponse(content=items)
+
+@app.get("/api/curate")
+@limiter.limit(f"{RATE_LIMIT_PER_MIN}/minute")
+async def curate_get(request: Request):
+    started = time.time()
+    prompt = (request.query_params.get("prompt") or request.query_params.get("q") or "").strip()
+    if not prompt:
+        return error_json("EMPTY_PROMPT", "Please provide a prompt.", 400)
+    
+    context = None # GET requests don't have a structured body, so no context
+    prompt_len = len(prompt)
+    
+    seed_state = seed_mode_status()
+    items = None
+    if seed_state.get("enabled"):
+        norm = normalize(prompt)
+        emo = detect_emotion(norm, context or {})
+        seeds = load_seeds().get(emo) or []
+        if len(seeds) == 3:
+            seeded = map_ids_to_output(seeds)
+            if seeded:
+                items = seeded
+
+    if items is None:
+        try:
             items = selection_engine(prompt=prompt, context=context or {})
         except Exception as e:
             return JSONResponse(
                 status_code=500,
                 content={"error": "engine_error", "message": str(e)[:400]},
             )
-
-    # Basic metrics and a request id
+    
     latency_ms = int((time.time() - started) * 1000)
     request_id = str(uuid.uuid4())
-
-    # Safe logs (never log full prompt)
+    
     ip = get_remote_address(request)
     logging.info("[%s] CURATE ip=%s emotion=%s latency_ms=%s prompt_len=%s%s",
                  PERSONA, ip, items[0].get("emotion",""), latency_ms, prompt_len,
                  " (seed-mode)" if seed_state.get("enabled") and items is not None else "")
-
-    # CSV analytics guard (R/L/O share checks offline)
+    
     append_selection_log(items, request_id, latency_ms, prompt_len, path="/api/curate_get")
     analytics_guard_check()
 
