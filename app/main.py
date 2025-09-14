@@ -298,59 +298,48 @@ def seed_enable(body: SeedModeIn):
 def seed_disable():
     return disable_seed_mode()
 
-@app.post("/api/curate", summary="Curate", response_model=list)
-async def curate(req: CurateRequest = Body(
-    ...,
-    examples={
-        "basic": {
-            "summary": "Standard",
-            "value": {"prompt": "romantic anniversary under 2000", "context": {"budget_inr": 2000}}
-        },
-        "loose": {
-            "summary": "Loose phrase",
-            "value": {"prompt": "fun birthday"}
-        }
-    }
-)):
-    started = time.time()
-    # coercion shim still tolerated (keeps Option A resilience)
-    payload = {"prompt": req.prompt, "context": (req.context.model_dump() if req.context else {})}
-    prompt = payload["prompt"]
-    context = payload["context"]
+@app.post("/api/curate", summary="Curate")
+async def curate_post(request: Request):
+    # 1) Read raw body (works for application/json and text/plain)
+    raw = await request.body()
+    payload = {}
+    try:
+        if raw:
+            payload = json.loads(raw.decode("utf-8"))
+    except Exception:
+        # Treat non-JSON body as raw prompt text
+        payload = {"prompt": raw.decode("utf-8", errors="ignore").strip()}
 
-    # Seed-mode check (1 hour window)
-    seed_state = seed_mode_status()
-    items = None
-    if seed_state.get("enabled"):
-        # Determine emotion using the engine's normalize+detect
-        norm = normalize(prompt)
-        emo = detect_emotion(norm, context or {})
-        seeds = load_seeds().get(emo) or []
-        if len(seeds) == 3:
-            seeded = map_ids_to_output(seeds)
-            if seeded:
-                items = seeded
+    # 2) Coerce to canonical contract
+    if isinstance(payload, str):
+        payload = {"prompt": payload}
+    if "prompt" not in payload or not isinstance(payload["prompt"], str) or not payload["prompt"].strip():
+        # Also accept {"text": "..."} as alias
+        if isinstance(payload.get("text"), str) and payload["text"].strip():
+            payload["prompt"] = payload["text"].strip()
+        else:
+            # final fallback: check querystring ?prompt=
+            qs_prompt = request.query_params.get("prompt") or request.query_params.get("q")
+            if qs_prompt:
+                payload["prompt"] = qs_prompt.strip()
 
-    # If no seed triad (or invalid), fall back to engine
-    if items is None:
-        items = selection_engine(prompt=prompt, context=context or {})
+    if "prompt" not in payload or not payload["prompt"]:
+        return JSONResponse(
+            status_code=400,
+            content={"error": "prompt_required", "message": "Provide a non-empty 'prompt'."},
+        )
+    context = payload.get("context") or {}
+    # 3) Call the engine (your existing function)
+    try:
+        triad = selection_engine(payload["prompt"], context)
+    except Exception as e:
+        # Always return JSON on errors so the UI never tries to parse HTML
+        return JSONResponse(
+            status_code=500,
+            content={"error": "engine_error", "message": str(e)[:400]},
+        )
 
-    # Basic metrics and a request id
-    latency_ms = int((time.time() - started) * 1000)
-    request_id = str(uuid.uuid4())
-    prompt_len = len(prompt)
-
-    # Safe logs (never log full prompt)
-    ip = get_remote_address(req)
-    logging.info("[%s] CURATE ip=%s emotion=%s latency_ms=%s prompt_len=%s%s",
-                 PERSONA, ip, items[0].get("emotion",""), latency_ms, prompt_len,
-                 " (seed-mode)" if seed_state.get("enabled") and items is not None else "")
-
-    # CSV analytics guard (R/L/O share checks offline)
-    append_selection_log(items, request_id, latency_ms, prompt_len)
-    analytics_guard_check()
-
-    return JSONResponse(items)
+    return JSONResponse(content=triad)
 
 @app.get("/api/curate")
 @limiter.limit(f"{RATE_LIMIT_PER_MIN}/minute")
@@ -403,7 +392,7 @@ async def curate_get(request: Request):
 @app.post("/curate")
 @limiter.limit(f"{RATE_LIMIT_PER_MIN}/minute")
 async def curate_alias_post(request: Request):
-    return await curate(request)
+    return await curate_post(request)
 
 @app.get("/curate")
 @limiter.limit(f"{RATE_LIMIT_PER_MIN}/minute")
