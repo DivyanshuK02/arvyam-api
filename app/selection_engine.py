@@ -170,13 +170,12 @@ def _truncate_words(text: str, max_words: int) -> str:
 
 
 def _enforce_copy_limit(text: str, edge_type: Optional[str]) -> str:
-    # read register-specific cap if present; else fall back to global root
     root_cap = int(EDGE_REGISTERS.get("copy_max_words", 20))
     reg_cap = int(EDGE_REGISTERS.get(edge_type, {}).get("copy_max_words", root_cap)) if edge_type else root_cap
-    cap = max(1, min(reg_cap, 20))  # hard fence at 20 as per Phase-1 contract
-    words = text.split()
+    cap = max(1, min(reg_cap, 20))  # Phase-1 hard fence
+    words = re.findall(r"\S+", text or "")
     if len(words) <= cap:
-        return text
+        return text or ""
     return " ".join(words[:cap]).rstrip(",.;:!—-") + "…"
 
 
@@ -198,7 +197,6 @@ def _compute_weight(item: Dict[str, Any],
                     edge_case: Optional[str],
                     iconic_intent: Optional[str]) -> float:
     w = float(base_int)
-
     palette = [p.lower() for p in item.get("palette", [])]
     flowers = [f.lower() for f in item.get("flowers", [])]
 
@@ -206,61 +204,52 @@ def _compute_weight(item: Dict[str, Any],
     if edge_case and register:
         ptb = float(register.get("palette_target_boost", 1.0))
         pap = float(register.get("palette_avoid_penalty", 1.0))
-
         targets = [x.lower() for x in register.get("palette_targets", [])]
         avoids  = [x.lower() for x in register.get("palette_avoid", [])]
-
         if targets and any(t in palette for t in targets):
             w *= ptb
         if avoids and any(a in palette for a in avoids):
             w *= pap
 
-        spref = [x.lower() for x in register.get("species_prefer", [])]
+        spref  = [x.lower() for x in register.get("species_prefer", [])]
         savoid = [x.lower() for x in register.get("species_avoid", [])]
-
         if spref and any(s in flowers for s in spref):
             w *= 1.10
         if savoid and any(s in flowers for s in savoid):
             w *= 0.90
 
-        # Sympathy lily guard encourages lilies strongly
+        # Sympathy lily guard
         if edge_case == "sympathy" and "lily" in flowers:
             w *= 1.25
 
-        # Soft LG encouragement/penalty via multiplier (applied later per-item).
-
-    # Iconic "only X" intent: massive preference for mono of that species
+    # Iconic "only X" override intent
     if iconic_intent:
-        species = iconic_intent
-        if _is_mono(item) and species in flowers:
+        if _is_mono(item) and iconic_intent in flowers:
             w *= 10.0
-        elif species in flowers:
+        elif iconic_intent in flowers:
             w *= 1.5
         else:
             w *= 0.6
 
-    # Item's own editorial weight
+    # Editorial base weight
     w *= max(0.1, float(item.get("weight", 50)) / 50.0)
-
     return w
 
 def _apply_lg_policy(item: Dict[str, Any], emotion: str, edge_case: Optional[str]) -> float:
-    """Return a multiplier (0..1.5) based on LG policies and edge registers."""
-    if not _is_lg(item):
+    if not item.get("luxury_grand"):
         return 1.0
 
-    # Global block-list from tier policy
+    # Global block-list
     blocked = [x.lower() for x in TIER_POLICY.get("luxury_grand", {}).get("blocked_emotions", [])]
     if emotion.lower() in blocked:
         return 0.0
 
-    # Edge register soft multiplier
+    # Edge soft policy
     if edge_case and edge_case in EDGE_CASE_KEYS:
         reg = EDGE_REGISTERS.get(edge_case, {})
         if str(reg.get("lg_policy", "")).lower() == "block":
             return 0.0
-        mul = float(reg.get("lg_weight_multiplier", 1.0))
-        return mul
+        return float(reg.get("lg_weight_multiplier", 1.0))
 
     return 1.0
 
@@ -422,10 +411,9 @@ def selection_engine(prompt: str, context: Optional[Dict[str, Any]] = None) -> L
         candidate = dict(item)
         candidate["_score"] = w
         # Strict edge gating + proper emotion (anchor) assignment
-        edge_type = edge_case if edge_case in EDGE_CASE_KEYS else None
-        candidate["emotion"] = emotion               # resolved anchor from detect_emotion(...)
-        candidate["edge_case"] = bool(edge_type)
-        candidate["_edge_type"] = edge_type          # optional, useful for logs/UI
+        candidate["emotion"]   = emotion
+        candidate["edge_case"] = bool(edge_case in EDGE_CASE_KEYS)
+        candidate["_edge_type"] = edge_case if edge_case in EDGE_CASE_KEYS else None
         scored.append(candidate)
 
     if not scored:
