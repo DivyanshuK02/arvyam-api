@@ -1131,10 +1131,20 @@
     "tier": "Classic",
     "packaging": "Box",
     "mono": false,
-    "palette": ["white", "cream", "soft-green", "eucalyptus", "lavender"],
+    "palette": [
+      "white",
+      "cream",
+      "soft-green",
+      "eucalyptus",
+      "lavender"
+    ],
     "luxury_grand": false,
     "seasonal": false,
-    "flowers": ["alstroemeria", "chrysanthemum", "eucalyptus"],
+    "flowers": [
+      "alstroemeria",
+      "chrysanthemum",
+      "eucalyptus"
+    ],
     "weight": 70
   },
   {
@@ -1147,10 +1157,20 @@
     "tier": "Signature",
     "packaging": "Vase",
     "mono": false,
-    "palette": ["white", "ivory", "soft-purple", "lavender", "soft-green"],
+    "palette": [
+      "white",
+      "ivory",
+      "soft-purple",
+      "lavender",
+      "soft-green"
+    ],
     "luxury_grand": false,
     "seasonal": false,
-    "flowers": ["orchid", "rose", "hydrangea"],
+    "flowers": [
+      "orchid",
+      "rose",
+      "hydrangea"
+    ],
     "weight": 85
   },
   {
@@ -1163,10 +1183,16 @@
     "tier": "Luxury",
     "packaging": "Vase",
     "mono": true,
-    "palette": ["white", "ivory", "soft-green"],
+    "palette": [
+      "white",
+      "ivory",
+      "soft-green"
+    ],
     "luxury_grand": false,
     "seasonal": false,
-    "flowers": ["orchid"],
+    "flowers": [
+      "orchid"
+    ],
     "weight": 95
   },
   {
@@ -1179,10 +1205,19 @@
     "tier": "Classic",
     "packaging": "Box",
     "mono": false,
-    "palette": ["peach", "coral", "soft-pink", "cream"],
+    "palette": [
+      "peach",
+      "coral",
+      "soft-pink",
+      "cream"
+    ],
     "luxury_grand": false,
     "seasonal": false,
-    "flowers": ["gerbera", "rose", "alstroemeria"],
+    "flowers": [
+      "gerbera",
+      "rose",
+      "alstroemeria"
+    ],
     "weight": 70
   },
   {
@@ -1195,10 +1230,19 @@
     "tier": "Signature",
     "packaging": "Vase",
     "mono": false,
-    "palette": ["peach", "blush", "soft-pink", "soft-green"],
+    "palette": [
+      "peach",
+      "blush",
+      "soft-pink",
+      "soft-green"
+    ],
     "luxury_grand": false,
     "seasonal": false,
-    "flowers": ["rose", "gerbera", "hydrangea"],
+    "flowers": [
+      "rose",
+      "gerbera",
+      "hydrangea"
+    ],
     "weight": 85
   },
   {
@@ -1211,10 +1255,114 @@
     "tier": "Luxury",
     "packaging": "Vase",
     "mono": false,
-    "palette": ["peach", "blush", "cream"],
+    "palette": [
+      "peach",
+      "blush",
+      "cream"
+    ],
     "luxury_grand": false,
     "seasonal": false,
-    "flowers": ["rose", "orchid", "hydrangea"],
+    "flowers": [
+      "rose",
+      "orchid",
+      "hydrangea"
+    ],
     "weight": 95
+  },
+  {
+  "id": "int_mix_c1",
+  "title": "Thoughtful Clarity • Classic",
+  "desc": "A composed mix in soft lavenders and whites.",
+  "image_url": "https://raw.githubusercontent.com/DivyanshuK02/arvyam-landing/refs/heads/main/assets/card-1.jpg",
+  "price_inr": 1599,
+  "emotion": "Intellect/Wisdom",
+  "tier": "Classic",
+  "packaging": "Box",
+  "mono": false,
+  "palette": ["lavender", "soft-purple", "pearl"],
+  "luxury_grand": false,
+  "seasonal": false,
+  "flowers": ["orchid", "lily"],
+  "weight": 60
+  },
+  {
+  "id": "int_mix_s1",
+  "title": "Sage Counsel • Signature",
+  "desc": "Elegant, reflective tones with orchids and lilies.",
+  "image_url": "https://raw.githubusercontent.com/DivyanshuK02/arvyam-landing/refs/heads/main/assets/card-2.jpg",
+  "price_inr": 2699,
+  "emotion": "Intellect/Wisdom",
+  "tier": "Signature",
+  "packaging": "Vase",
+  "mono": false,
+  "palette": ["white", "lavender", "soft-green"],
+  "luxury_grand": false,
+  "seasonal": false,
+  "flowers": ["orchid", "lily"],
+  "weight": 60
+  },
+  {
+  "id": "int_mix_l1",
+  "title": "Mindful Grandeur • Luxury",
+  "desc": "Luxurious lavender whites with calm depth.",
+  "image_url": "https://raw.githubusercontent.com/DivyanshuK02/arvyam-landing/refs/heads/main/assets/card-3.jpg",
+  "price_inr": 4099,
+  "emotion": "Intellect/Wisdom",
+  "tier": "Luxury",
+  "packaging": "Vase",
+  "mono": false,
+  "palette": ["pearl", "soft-purple", "white"],
+  "luxury_grand": false,
+  "seasonal": false,
+  "flowers": ["orchid", "rose"],
+  "weight": 55
+  },
+  {
+  "id": "adv_mix_c1",
+  "title": "Creative Spark • Classic",
+  "desc": "A lively mix to celebrate bold ideas.",
+  "image_url": "https://raw.githubusercontent.com/DivyanshuK02/arvyam-landing/refs/heads/main/assets/card-2.jpg",
+  "price_inr": 1599,
+  "emotion": "Adventurous/Creativity",
+  "tier": "Classic",
+  "packaging": "Box",
+  "mono": false,
+  "palette": ["peach", "gold", "white"],
+  "luxury_grand": false,
+  "seasonal": false,
+  "flowers": ["rose", "lily"],
+  "weight": 60
+  },
+  {
+  "id": "adv_mix_s1",
+  "title": "Bold Vision • Signature",
+  "desc": "Expressive signature bouquet with warm contrast.",
+  "image_url": "https://raw.githubusercontent.com/DivyanshuK02/arvyam-landing/refs/heads/main/assets/card-1.jpg",
+  "price_inr": 2699,
+  "emotion": "Adventurous/Creativity",
+  "tier": "Signature",
+  "packaging": "Vase",
+  "mono": false,
+  "palette": ["gold", "peach", "white"],
+  "luxury_grand": false,
+  "seasonal": false,
+  "flowers": ["rose", "orchid"],
+  "weight": 60
+  },
+  {
+  "id": "adv_mix_l1",
+  "title": "Avant-Garde Luxe • Luxury",
+  "desc": "Opulent arrangement with vivid accents.",
+  "image_url": "https://raw.githubusercontent.com/DivyanshuK02/arvyam-landing/refs/heads/main/assets/card-3.jpg",
+  "price_inr": 4099,
+  "emotion": "Adventurous/Creativity",
+  "tier": "Luxury",
+  "packaging": "Vase",
+  "mono": false,
+  "palette": ["crimson", "gold", "pearl"],
+  "luxury_grand": false,
+  "seasonal": false,
+  "flowers": ["rose", "orchid"],
+  "weight": 55
   }
 ]
