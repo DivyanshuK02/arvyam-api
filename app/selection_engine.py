@@ -501,11 +501,15 @@ def selection_engine(prompt: str, context: Optional[Dict[str, Any]] = None) -> L
     original_catalog = list(CATALOG)
     
     # single source of truth; detect_emotion() already handles edge-first
-    resolved_anchor, edge_type_raw, anchor_scores = detect_emotion(p, context)
+    resolved_anchor, edge_type, anchor_scores = detect_emotion(p, context)
+    is_edge = bool(edge_type)
     
     # 2) canonical edge gating (two-step)
     prompt_norm = _normalize(prompt)
-    is_edge, edge_type = _is_canonical_edge(resolved_anchor, prompt_norm)
+    # The redundant _is_canonical_edge check is being removed as per the instructions,
+    # as the new `is_edge` variable already represents the outcome of the primary
+    # `detect_edge_register` check.
+    # is_edge, edge_type = _is_canonical_edge(resolved_anchor, prompt_norm)
 
     # Optional: Log near-tie emotions
     if FEATURE_MULTI_ANCHOR_LOGGING and anchor_scores:
@@ -674,7 +678,7 @@ def selection_engine(prompt: str, context: Optional[Dict[str, Any]] = None) -> L
         it["edge_case"] = is_edge
         it["edge_type"] = edge_type if is_edge else None
         if is_edge:
-            it["desc"] = _enforce_copy_limit(it.get("desc", ""), it.get("edge_type"))
+            it["desc"] = _enforce_copy_limit(it.get("desc", ""), edge_type if is_edge else None)
 
     # Map fields for API output
     out = []
