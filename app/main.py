@@ -267,6 +267,8 @@ class CurateContext(BaseModel):
     packaging_pref: Optional[str] = None
     locale: Optional[str] = None
     recent_ids: Optional[List[str]] = None   # for session-level dedupe (optional, see B2)
+    session_id: Optional[str] = None         # for deterministic rotation seed
+    run_count: Optional[int] = 0             # increment to rotate within top-K
 
 class CurateRequest(BaseModel):
     prompt: str = Field(..., min_length=1, max_length=500)
@@ -434,6 +436,12 @@ async def curate_alias_post(request: Request):
 async def curate_alias_get(request: Request):
     return await curate_get(request)
 
+@app.post("/api/curate/next", summary="Curate (rotate next)")
+async def curate_post_next(body: CurateRequest, request: Request):
+    payload_ctx = body.context.dict() if isinstance(body.context, CurateContext) else {}
+    payload_ctx["run_count"] = int(payload_ctx.get("run_count") or 0) + 1
+    items = selection_engine(prompt=body.prompt.strip(), context=payload_ctx)
+    return items
 
 # -------------------------
 # Golden-Set Harness
