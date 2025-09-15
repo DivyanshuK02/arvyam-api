@@ -15,7 +15,8 @@
     "lg_policy": "block",
     "lg_weight_multiplier": 0.0,
     "allow_lg_in_mix": false,
-    "allow_lg_in_mono": false
+    "allow_lg_in_mono": false,
+    "exclude_title_keywords": ["birthday","celebrate","party"]
   },
 
   "apology": {
