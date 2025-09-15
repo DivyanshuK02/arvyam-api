@@ -1,6 +1,4 @@
 {
-  "copy_max_words": 20,
-
   "sympathy": {
     "edge_case": true,
     "copy_max_words": 18,
@@ -16,7 +14,7 @@
     "lg_weight_multiplier": 0.0,
     "allow_lg_in_mix": false,
     "allow_lg_in_mono": false,
-    "exclude_title_keywords": ["birthday","celebrate","party"]
+    "exclude_title_keywords": ["birthday", "celebrate", "party"]
   },
 
   "apology": {
@@ -25,45 +23,51 @@
     "tone": "gentle",
     "palette_targets": ["white", "soft-purple", "lavender", "blush", "soft-green"],
     "palette_avoid": ["neon", "neon-mixed", "electric"],
-    "palette_target_boost": 1.15,
-    "palette_avoid_penalty": 0.90,
-    "species_prefer": ["orchid", "lily", "rose"],
-    "species_avoid": [],
-    "lg_policy": "allow_soft",
-    "lg_weight_multiplier": 0.8,
+    "palette_target_boost": 1.10,
+    "palette_avoid_penalty": 0.92,
+    "species_prefer": ["orchid", "lily"],
+    "species_avoid": ["sunflower"],
+    "mono_must_include": [],
+    "lg_policy": "allow",
+    "lg_weight_multiplier": 0.85,
     "allow_lg_in_mix": true,
-    "allow_lg_in_mono": true
+    "allow_lg_in_mono": false,
+    "exclude_title_keywords": ["birthday", "party", "congrats", "festival"]
   },
 
   "farewell": {
     "edge_case": true,
     "copy_max_words": 18,
     "tone": "respectful",
-    "palette_targets": ["white", "cream", "peach", "soft-green"],
-    "palette_avoid": ["neon", "neon-mixed", "electric", "bright-yellow"],
-    "palette_target_boost": 1.15,
+    "palette_targets": ["white", "cream", "eucalyptus", "soft-green", "ivory"],
+    "palette_avoid": ["neon", "neon-mixed", "electric"],
+    "palette_target_boost": 1.12,
     "palette_avoid_penalty": 0.90,
-    "species_prefer": ["rose", "lily", "orchid"],
+    "species_prefer": ["lily", "orchid"],
     "species_avoid": ["sunflower", "gerbera"],
-    "lg_policy": "allow_soft",
-    "lg_weight_multiplier": 0.8,
+    "mono_must_include": [],
+    "lg_policy": "allow",
+    "lg_weight_multiplier": 0.80,
     "allow_lg_in_mix": true,
-    "allow_lg_in_mono": true
+    "allow_lg_in_mono": false,
+    "exclude_title_keywords": ["birthday", "celebrate", "party"]
   },
 
   "valentine": {
     "edge_case": true,
-    "copy_max_words": 20,
-    "tone": "bold-elegant",
-    "palette_targets": ["red", "crimson", "burgundy", "blush", "soft-pink", "cream"],
+    "copy_max_words": 18,
+    "tone": "romantic",
+    "palette_targets": ["deep-red", "red", "ivory", "pearl"],
     "palette_avoid": ["neon", "neon-mixed", "electric"],
-    "palette_target_boost": 1.15,
-    "palette_avoid_penalty": 0.90,
-    "species_prefer": ["rose", "lily"],
+    "palette_target_boost": 1.08,
+    "palette_avoid_penalty": 0.94,
+    "species_prefer": ["rose", "orchid"],
     "species_avoid": [],
-    "lg_policy": "allow_soft",
-    "lg_weight_multiplier": 1.5,
+    "mono_must_include": [],
+    "lg_policy": "allow",
+    "lg_weight_multiplier": 1.00,
     "allow_lg_in_mix": true,
-    "allow_lg_in_mono": true
+    "allow_lg_in_mono": true,
+    "exclude_title_keywords": ["get-well", "recovery", "farewell", "sorry for your loss"]
   }
 }
