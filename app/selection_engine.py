@@ -74,6 +74,13 @@ def normalize(s: str) -> str:
     s = re.sub(r"\s+", " ", s)
     return s[:500]
 
+def _normalize(text: str) -> str:
+    if not isinstance(text, str):
+        return ""
+    # lower, collapse whitespace, unify quotes, strip punctuation we don’t match on
+    t = text.lower().replace("’", "'")
+    return " ".join(t.replace(",", " ").split())
+
 def _tokenize(s: str) -> List[str]:
     return re.findall(r"[a-z]+", normalize(s))
 
@@ -252,6 +259,20 @@ def detect_emotion(prompt: str, context: dict | None) -> Tuple[str, Optional[str
     # 7) Fallback default
     return anchors[0] if anchors else "Affection/Support", None, {}
 
+def _is_canonical_edge(resolved_emotion: str, prompt_norm: str) -> tuple[bool, Optional[str]]:
+    """
+    Returns (edge_case_bool, edge_type).
+    Step 1: The resolved emotion must be configured as a potential edge in EDGE_REGISTERS.
+    Step 2: The prompt must contain at least one canonical phrase from EDGE_KEYWORDS[emotion].
+    """
+    reg = EDGE_REGISTERS.get(resolved_emotion) or {}
+    if not reg.get("edge_case"):
+        return False, None
+    phrases = EDGE_KEYWORDS.get(resolved_emotion) or []
+    for p in phrases:
+        if p and p.lower() in prompt_norm:
+            return True, resolved_emotion # edge confirmed for that emotion
+    return False, None
 
 def _has_species(item: Dict[str, Any], species: str) -> bool:
     flowers = [f.lower() for f in item.get("flowers", [])]
@@ -480,8 +501,12 @@ def selection_engine(prompt: str, context: Optional[Dict[str, Any]] = None) -> L
     original_catalog = list(CATALOG)
     
     # single source of truth; detect_emotion() already handles edge-first
-    resolved_anchor, edge_type, anchor_scores = detect_emotion(p, context)
+    resolved_anchor, edge_type_raw, anchor_scores = detect_emotion(p, context)
     
+    # 2) canonical edge gating (two-step)
+    prompt_norm = _normalize(prompt)
+    is_edge, edge_type = _is_canonical_edge(resolved_anchor, prompt_norm)
+
     # Optional: Log near-tie emotions
     if FEATURE_MULTI_ANCHOR_LOGGING and anchor_scores:
         thresholds = ANCHOR_THRESHOLDS.get("multi_anchor_logging", {})
@@ -644,7 +669,6 @@ def selection_engine(prompt: str, context: Optional[Dict[str, Any]] = None) -> L
         _add_unclear_mix_note(triad)
 
     # Apply emotional/edge-case stamping and copy limits
-    is_edge = edge_type in EDGE_CASE_KEYS
     for it in triad:
         it["emotion"] = resolved_anchor
         it["edge_case"] = is_edge
