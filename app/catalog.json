@@ -1246,6 +1246,23 @@
     "weight": 85
   },
   {
+  "id": "cre_mono_lily_s",
+  "title": "Mono Lilies • Signature",
+  "desc": "Bold single-species lilies with creative flair.",
+  "image_url": "https://raw.githubusercontent.com/DivyanshuK02/arvyam-landing/refs/heads/main/assets/card-3.jpg",
+  "price_inr": 2599,
+  "emotion": "Adventurous/Creativity",
+  "tier": "Signature",
+  "packaging": "Vase",
+  "mono": true,
+  "palette": ["peach", "coral", "soft-pink"],
+  "luxury_grand": false,
+  "seasonal": false,
+  "flowers": ["lily"],
+  "weight": 75,
+  "tags": ["temp_p1_coverage"]
+  },
+  {
     "id": "cre_mix_l1",
     "title": "Velvet Citrus • Luxury",
     "desc": "Vibrant luxury mix with creative flair.",
