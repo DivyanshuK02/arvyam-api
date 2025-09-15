@@ -133,79 +133,8 @@ def _rotation_index(seed: str, k: int) -> int:
     if k <= 1: return 0
     return _stable_hash_u32(seed) % k
 
-def detect_emotion(prompt: str, context: dict | None) -> str:
-    p = (prompt or "").strip().lower()
-
-    # 0) Safe context hint (only accept known anchors)
-    anchors: List[str] = EMOTION_KEYWORDS.get("anchors", []) or []
-    hint = (context or {}).get("emotion_hint", "") or ""
-    hint = hint.strip()
-    if hint and hint in anchors:
-        return hint
-    
-    # Tables
-    exact_map = EMOTION_KEYWORDS.get("exact", {}) or {}
-    combos    = EMOTION_KEYWORDS.get("combos", []) or []
-    buckets   = EMOTION_KEYWORDS.get("keywords", {}) or {}
-    disamb    = EMOTION_KEYWORDS.get("disambiguation", []) or {} # Changed from [] to {}
-
-    # 1) Disambiguation rules (highest precision)
-    for rule in disamb:
-        when_any = rule.get("when_any", [])
-        if not when_any or not any(w in p for w in map(str.lower, when_any)):
-            continue
-        for branch in rule.get("route", []):
-            if_any = branch.get("if_any", [])
-            if if_any and any(t in p for t in map(str.lower, if_any)):
-                return branch.get("anchor")
-            if "else" in branch:
-                return branch["else"]
-
-    # 2) Edge keywords are handled elsewhere; here we do emotion rails.
-
-    # 3) Exact phrase map (case-insensitive contains)
-    for phrase, anchor in exact_map.items():
-        if phrase.lower() in p:
-            return anchor
-
-    # 4) Combos: all terms present
-    for combo in combos:
-        terms = [t.lower() for t in combo.get("all", [])]
-        if terms and all(t in p for t in terms):
-            return combo.get("anchor")
-
-    # 5) Enriched (optional) — regex & proximity_pairs
-    enr = EMOTION_KEYWORDS.get("enriched", {}) or {}
-    if enr.get("false_friends") and _is_false_friend(p, enr["false_friends"]):
-        # fall through to buckets without enriched scoring
-        pass
-    else:
-        # regex with anchor
-        for spec in enr.get("regex", []):
-            if _matches_regex_list(p, [spec.get("pattern","")]):
-                return spec.get("anchor")
-        # proximity pairs with anchor
-        for spec in enr.get("proximity_pairs", []):
-            if _has_proximity(p, spec.get("a",""), spec.get("b",""), int(spec.get("window",2))):
-                return spec.get("anchor")
-
-    # 6) Buckets: score by keyword hits; tie-break by anchors[] order
-    scores = {a: 0 for a in anchors}
-    for a, words in (buckets or {}).items():
-        scores[a] = sum(1 for w in (words or []) if w.lower() in p)
-
-    # pick best; if tie, prefer earlier in anchors[]
-    best = max(anchors, key=lambda a: (scores.get(a,0), -anchors.index(a))) if anchors else None
-    if best and scores.get(best, 0) > 0:
-        return best
-
-    # 7) Fallback default
-    return anchors[0] if anchors else "Affection/Support"
-
-EDGE_CASE_KEYS = {"sympathy","apology","farewell","valentine"}
-
 def detect_edge_register(prompt: str) -> str | None:
-    p = (prompt or "").strip().lower()
+    p = normalize(prompt)
     if not p: return None
 
     # 1) Priority order (highest first)
@@ -243,6 +172,81 @@ def detect_edge_register(prompt: str) -> str | None:
             return key
 
     return None
+
+def detect_emotion(prompt: str, context: dict | None) -> Tuple[str, Optional[str]]:
+    p = normalize(prompt)
+
+    # 0) Edge case check (highest priority)
+    edge_type = detect_edge_register(p)
+    if edge_type:
+        resolved_anchor = EDGE_REGISTERS.get(edge_type, {}).get("emotion_anchor", None)
+        if resolved_anchor:
+            return resolved_anchor, edge_type
+
+    # 1) Safe context hint (only accept known anchors)
+    anchors: List[str] = EMOTION_KEYWORDS.get("anchors", []) or []
+    hint = (context or {}).get("emotion_hint", "") or ""
+    hint = hint.strip()
+    if hint and hint in anchors:
+        return hint, None
+    
+    # Tables
+    exact_map = EMOTION_KEYWORDS.get("exact", {}) or {}
+    combos    = EMOTION_KEYWORDS.get("combos", []) or []
+    buckets   = EMOTION_KEYWORDS.get("keywords", {}) or {}
+    disamb    = EMOTION_KEYWORDS.get("disambiguation", []) or {}
+
+    # 2) Disambiguation rules (highest precision)
+    for rule in disamb:
+        when_any = rule.get("when_any", [])
+        if not when_any or not any(w in p for w in map(str.lower, when_any)):
+            continue
+        for branch in rule.get("route", []):
+            if_any = branch.get("if_any", [])
+            if if_any and any(t in p for t in map(str.lower, if_any)):
+                return branch.get("anchor"), None
+            if "else" in branch:
+                return branch["else"], None
+
+    # 3) Exact phrase map (case-insensitive contains)
+    for phrase, anchor in exact_map.items():
+        if phrase.lower() in p:
+            return anchor, None
+
+    # 4) Combos: all terms present
+    for combo in combos:
+        terms = [t.lower() for t in combo.get("all", [])]
+        if terms and all(t in p for t in terms):
+            return combo.get("anchor"), None
+
+    # 5) Enriched (optional) — regex & proximity_pairs
+    enr = EMOTION_KEYWORDS.get("enriched", {}) or {}
+    if enr.get("false_friends") and _is_false_friend(p, enr["false_friends"]):
+        # fall through to buckets without enriched scoring
+        pass
+    else:
+        # regex with anchor
+        for spec in enr.get("regex", []):
+            if _matches_regex_list(p, [spec.get("pattern","")]):
+                return spec.get("anchor"), None
+        # proximity pairs with anchor
+        for spec in enr.get("proximity_pairs", []):
+            if _has_proximity(p, spec.get("a",""), spec.get("b",""), int(spec.get("window",2))):
+                return spec.get("anchor"), None
+
+    # 6) Buckets: score by keyword hits; tie-break by anchors[] order
+    scores = {a: 0 for a in anchors}
+    for a, words in (buckets or {}).items():
+        scores[a] = sum(1 for w in (words or []) if w.lower() in p)
+
+    # pick best; if tie, prefer earlier in anchors[]
+    best = max(anchors, key=lambda a: (scores.get(a,0), -anchors.index(a))) if anchors else None
+    if best and scores.get(best, 0) > 0:
+        return best, None
+
+    # 7) Fallback default
+    return anchors[0] if anchors else "Affection/Support", None
+
 
 def _has_species(item: Dict[str, Any], species: str) -> bool:
     flowers = [f.lower() for f in item.get("flowers", [])]
@@ -457,11 +461,12 @@ def selection_engine(prompt: str, context: Optional[Dict[str, Any]] = None) -> L
     original_catalog = list(CATALOG)
 
     # Emotion + edge-case
-    emotion = detect_emotion(p, context)
-    edge_case = detect_edge_register(p)
-
+    resolved_anchor, edge_type = detect_emotion(p, context)
+    is_edge = bool(edge_type)
+    register = EDGE_REGISTERS.get(edge_type or "", {})
+    
     # --- intent clarity & LG dampener ---
-    bucket = (EMOTION_KEYWORDS.get("keywords", {}) or {}).get(emotion, [])
+    bucket = (EMOTION_KEYWORDS.get("keywords", {}) or {}).get(resolved_anchor, [])
     matched_keywords = sum(1 for k in bucket if normalize(k) in normalize(prompt))
     clarity = _intent_clarity(prompt, matched_keywords)
     soft_lg_multiplier = 1.0
@@ -494,9 +499,6 @@ def selection_engine(prompt: str, context: Optional[Dict[str, Any]] = None) -> L
         elif g.startswith("orchid"):
             iconic_intent = "orchid"
 
-    # Register for edge-case
-    register = EDGE_REGISTERS.get(edge_case or "", {})
-
     # Score all catalog items
     scored: List[Dict[str, Any]] = []
     
@@ -513,8 +515,8 @@ def selection_engine(prompt: str, context: Optional[Dict[str, Any]] = None) -> L
             continue
 
         base = int(item.get("weight", 50))
-        w = _compute_weight(item, base, register, edge_case, iconic_intent)
-        w *= _apply_lg_policy(item, emotion, edge_case)
+        w = _compute_weight(item, base, register, edge_type, iconic_intent)
+        w *= _apply_lg_policy(item, resolved_anchor, edge_type)
 
         # dampen LG softly for unclear intent (unless 'grand' or budget qualifies)
         if item.get("luxury_grand"):
@@ -530,11 +532,6 @@ def selection_engine(prompt: str, context: Optional[Dict[str, Any]] = None) -> L
 
         candidate = dict(item)
         candidate["_score"] = w
-        resolved_anchor = detect_emotion(prompt, context)
-        # Strict edge gating + proper emotion (anchor) asisgnment
-        candidate["emotion"]   = resolved_anchor
-        candidate["edge_case"] = bool(edge_case in EDGE_CASE_KEYS)
-        candidate["_edge_type"] = edge_case if edge_case in EDGE_CASE_KEYS else None
         scored.append(candidate)
 
     if not scored:
@@ -604,9 +601,13 @@ def selection_engine(prompt: str, context: Optional[Dict[str, Any]] = None) -> L
     if clarity == 0.0:
         _add_unclear_mix_note(triad)
 
-    # Edge-case copy limit
+    # Apply emotional/edge-case stamping and copy limits
     for it in triad:
-        it["desc"] = _enforce_copy_limit(it.get("desc", ""), it.get("_edge_type"))
+        it["emotion"] = resolved_anchor
+        it["edge_case"] = is_edge
+        it["edge_type"] = edge_type
+        if is_edge:
+            it["desc"] = _enforce_copy_limit(it.get("desc", ""), it.get("edge_type"))
 
     # Map fields for API output
     out = []
@@ -626,7 +627,7 @@ def selection_engine(prompt: str, context: Optional[Dict[str, Any]] = None) -> L
             "luxury_grand": bool(it.get("luxury_grand")),
             "note": it.get("note"),
             "edge_case": bool(it.get("edge_case")),
-            "edge_type": it.get("_edge_type"), # optional exposure
+            "edge_type": it.get("edge_type"), # optional exposure
         })
     return out
 
