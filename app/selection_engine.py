@@ -46,8 +46,10 @@ EDGE_KEYWORDS = _load_json(os.path.join(RULES_DIR, "edge_keywords.json"), {})
 EDGE_REGISTERS = _load_json(os.path.join(RULES_DIR, "edge_registers.json"), {})
 TIER_POLICY = _load_json(os.path.join(RULES_DIR, "tier_policy.json"), {"luxury_grand": {"blocked_emotions": []}})
 SUB_NOTES = _load_json(os.path.join(RULES_DIR, "substitution_notes.json"), {"default": "Requested {from} is seasonal/unavailable; offering {alt} as the nearest alternative."})
+ANCHOR_THRESHOLDS = _load_json(os.path.join(RULES_DIR, "anchor_thresholds.json"), {})
 # Edge register keys (strict): only these four are considered "edge cases".
 EDGE_CASE_KEYS = {"sympathy", "apology", "farewell", "valentine"}
+FEATURE_MULTI_ANCHOR_LOGGING = False # Off by default
 
 # ------------------------------------------------------------
 # Utilities
@@ -173,7 +175,7 @@ def detect_edge_register(prompt: str) -> str | None:
 
     return None
 
-def detect_emotion(prompt: str, context: dict | None) -> Tuple[str, Optional[str]]:
+def detect_emotion(prompt: str, context: dict | None) -> Tuple[str, Optional[str], Dict[str, float]]:
     p = normalize(prompt)
 
     # 0) Edge case check (highest priority)
@@ -181,14 +183,14 @@ def detect_emotion(prompt: str, context: dict | None) -> Tuple[str, Optional[str
     if edge_type:
         resolved_anchor = EDGE_REGISTERS.get(edge_type, {}).get("emotion_anchor", None)
         if resolved_anchor:
-            return resolved_anchor, edge_type
+            return resolved_anchor, edge_type, {}
 
     # 1) Safe context hint (only accept known anchors)
     anchors: List[str] = EMOTION_KEYWORDS.get("anchors", []) or []
     hint = (context or {}).get("emotion_hint", "") or ""
     hint = hint.strip()
     if hint and hint in anchors:
-        return hint, None
+        return hint, None, {}
     
     # Tables
     exact_map = EMOTION_KEYWORDS.get("exact", {}) or {}
@@ -204,20 +206,20 @@ def detect_emotion(prompt: str, context: dict | None) -> Tuple[str, Optional[str
         for branch in rule.get("route", []):
             if_any = branch.get("if_any", [])
             if if_any and any(t in p for t in map(str.lower, if_any)):
-                return branch.get("anchor"), None
+                return branch.get("anchor"), None, {}
             if "else" in branch:
-                return branch["else"], None
+                return branch["else"], None, {}
 
     # 3) Exact phrase map (case-insensitive contains)
     for phrase, anchor in exact_map.items():
         if phrase.lower() in p:
-            return anchor, None
+            return anchor, None, {}
 
     # 4) Combos: all terms present
     for combo in combos:
         terms = [t.lower() for t in combo.get("all", [])]
         if terms and all(t in p for t in terms):
-            return combo.get("anchor"), None
+            return combo.get("anchor"), None, {}
 
     # 5) Enriched (optional) — regex & proximity_pairs
     enr = EMOTION_KEYWORDS.get("enriched", {}) or {}
@@ -228,11 +230,11 @@ def detect_emotion(prompt: str, context: dict | None) -> Tuple[str, Optional[str
         # regex with anchor
         for spec in enr.get("regex", []):
             if _matches_regex_list(p, [spec.get("pattern","")]):
-                return spec.get("anchor"), None
+                return spec.get("anchor"), None, {}
         # proximity pairs with anchor
         for spec in enr.get("proximity_pairs", []):
             if _has_proximity(p, spec.get("a",""), spec.get("b",""), int(spec.get("window",2))):
-                return spec.get("anchor"), None
+                return spec.get("anchor"), None, {}
 
     # 6) Buckets: score by keyword hits; tie-break by anchors[] order
     scores = {a: 0 for a in anchors}
@@ -242,10 +244,13 @@ def detect_emotion(prompt: str, context: dict | None) -> Tuple[str, Optional[str
     # pick best; if tie, prefer earlier in anchors[]
     best = max(anchors, key=lambda a: (scores.get(a,0), -anchors.index(a))) if anchors else None
     if best and scores.get(best, 0) > 0:
-        return best, None
+        # Normalize scores for logging
+        max_score = scores.get(best) or 1
+        scores_norm = {a: s / max_score for a, s in scores.items()}
+        return best, None, scores_norm
 
     # 7) Fallback default
-    return anchors[0] if anchors else "Affection/Support", None
+    return anchors[0] if anchors else "Affection/Support", None, {}
 
 
 def _has_species(item: Dict[str, Any], species: str) -> bool:
@@ -434,12 +439,26 @@ def _apply_recent_filter(cands: List[Dict[str, Any]], recent_set: set) -> List[D
     return filtered if filtered else cands
 
 def _pick_rotated(cands: List[Dict[str, Any]], tier_name: str, session_id: str, run_count: int, prompt_norm: str) -> Optional[Dict[str, Any]]:
-    K = 5  # Phase-1-safe constant
     if not cands: return None
-    k = min(K, len(cands))
     seed = f"{session_id}|{run_count}|{prompt_norm}|{tier_name}"
-    idx = _rotation_index(seed, k)
+    idx = _rotation_index(seed, len(cands))
     return cands[idx]
+
+def log_near_tie_compact(request_id: str, prompt_hash: str, resolved_anchor: str, edge_type: str, near_tie: List[Dict[str, Any]]):
+    """
+    Compact logger for near-tie emotion detection.
+    (This is a placeholder for a real logging implementation)
+    """
+    log_data = {
+        "req_id": request_id,
+        "prompt_hash": prompt_hash,
+        "anchor": resolved_anchor,
+        "edge": edge_type,
+        "near_tie": near_tie,
+    }
+    # In a real system, you'd send this to a dedicated logging stream
+    # print(json.dumps(log_data))
+    pass
 
 # ------------------------------------------------------------
 # Public entrypoint
@@ -459,11 +478,31 @@ def selection_engine(prompt: str, context: Optional[Dict[str, Any]] = None) -> L
     recent_ids = (context or {}).get("recent_ids") or []
     recent_set = {rid for rid in recent_ids if isinstance(rid, str)}
     original_catalog = list(CATALOG)
-
-    # Emotion + edge-case
-    resolved_anchor, edge_type = detect_emotion(p, context)
+    
+    # single source of truth; detect_emotion() already handles edge-first
+    resolved_anchor, edge_type, anchor_scores = detect_emotion(p, context)
     is_edge = bool(edge_type)
     register = EDGE_REGISTERS.get(edge_type or "", {})
+
+    # Optional: Log near-tie emotions
+    if FEATURE_MULTI_ANCHOR_LOGGING and anchor_scores:
+        thresholds = ANCHOR_THRESHOLDS.get("near_tie_thresholds", {})
+        top = sorted(anchor_scores.items(), key=lambda kv: kv[1], reverse=True)
+        if top:
+            near_tie = [{"a": top[0][0], "s": round(top[0][1], 2)}]
+            if len(top) > 1:
+                s1, s2 = top[0][1], top[1][1]
+                if s2 >= thresholds.get("score2_min", 0.25) and (s1 - s2) <= thresholds.get("delta_max", 0.20):
+                    near_tie.append({"a": top[1][0], "s": round(s2, 2)})
+            
+            # Placeholder for logging function
+            log_near_tie_compact(
+                request_id=context.get("request_id", ""),
+                prompt_hash=hashlib.sha256(p.encode()).hexdigest(),
+                resolved_anchor=resolved_anchor,
+                edge_type=edge_type or "none",
+                near_tie=near_tie
+            )
     
     # --- intent clarity & LG dampener ---
     bucket = (EMOTION_KEYWORDS.get("keywords", {}) or {}).get(resolved_anchor, [])
@@ -542,19 +581,22 @@ def selection_engine(prompt: str, context: Optional[Dict[str, Any]] = None) -> L
     scored_luxury = sorted(_candidates_for_tier(scored, "Luxury"), key=lambda x: x.get("_score", 0.0), reverse=True)
 
     # Per-session dedupe window
-    scored_classic   = _apply_recent_filter(scored_classic, recent_set)
-    scored_signature = _apply_recent_filter(scored_signature, recent_set)
-    scored_luxury    = _apply_recent_filter(scored_luxury, recent_set)
-
-    # Pick per tier with preference: MIX for Classic/Signature, any for Luxury (mono often chosen last)
+    filtered_classic = _apply_recent_filter(scored_classic, recent_set)
+    filtered_signature = _apply_recent_filter(scored_signature, recent_set)
+    filtered_luxury = _apply_recent_filter(scored_luxury, recent_set)
+    
+    # Deterministic dedupe fallback
+    pick_classic = filtered_classic if filtered_classic else scored_classic
+    pick_signature = filtered_signature if filtered_signature else scored_signature
+    pick_luxury = filtered_luxury if filtered_luxury else scored_luxury
+    
     # Deterministic top-K rotation (K=5)
     session_id = (context or {}).get("session_id") or ""
     run_count = int((context or {}).get("run_count") or 0)
-    prompt_norm = normalize(prompt)
 
-    win_classic   = _pick_rotated(scored_classic,   "Classic",   session_id, run_count, prompt_norm)
-    win_signature = _pick_rotated(scored_signature, "Signature", session_id, run_count, prompt_norm)
-    win_luxury    = _pick_rotated(scored_luxury,    "Luxury",    session_id, run_count, prompt_norm)
+    win_classic   = _pick_rotated(pick_classic,   "Classic",   session_id, run_count, p)
+    win_signature = _pick_rotated(pick_signature, "Signature", session_id, run_count, p)
+    win_luxury    = _pick_rotated(pick_luxury,    "Luxury",    session_id, run_count, p)
 
     triad: List[Dict[str, Any]] = []
     if win_classic:
@@ -619,15 +661,15 @@ def selection_engine(prompt: str, context: Optional[Dict[str, Any]] = None) -> L
             "image": it.get("image_url") or it.get("image"),
             "price": it.get("price_inr"),
             "currency": "INR",
-            "emotion": it.get("emotion"),
+            "emotion": resolved_anchor, # ✅ single source of truth
             "tier": it.get("tier"),
             "packaging": it.get("packaging"),
             "mono": bool(it.get("mono")),
             "palette": list(it.get("palette") or []),
             "luxury_grand": bool(it.get("luxury_grand")),
             "note": it.get("note"),
-            "edge_case": bool(it.get("edge_case")),
-            "edge_type": it.get("edge_type"), # optional exposure
+            "edge_case": bool(edge_type), # only true for sympathy/apology/farewell/valentine
+            "edge_type": edge_type if edge_type else None,
         })
     return out
 
