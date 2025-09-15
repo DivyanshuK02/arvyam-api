@@ -186,6 +186,9 @@ def detect_emotion(prompt: str, context: dict | None) -> Tuple[str, Optional[str
     p = normalize(prompt)
 
     # 0) Edge case check (highest priority)
+    # Guardrail: Edge registers short-circuit routing; the returned edge_type is
+    # used exactly once for item stamping downstream. Do not add any re-checks
+    # later in the pipeline—this prevents double-stamping or flip-flops.
     edge_type = detect_edge_register(p)
     if edge_type:
         resolved_anchor = EDGE_REGISTERS.get(edge_type, {}).get("emotion_anchor", None)
@@ -201,7 +204,7 @@ def detect_emotion(prompt: str, context: dict | None) -> Tuple[str, Optional[str
     
     # Tables
     exact_map = EMOTION_KEYWORDS.get("exact", {}) or {}
-    combos    = EMOTION_KEYWORDS.get("combos", []) or []
+    combos    = EMOTION_KEYWORDS.get("combos", []) or {}
     buckets   = EMOTION_KEYWORDS.get("keywords", {}) or {}
     disamb    = EMOTION_KEYWORDS.get("disambiguation", []) or {}
 
@@ -294,10 +297,23 @@ def _truncate_words(text: str, max_words: int) -> str:
     return " ".join(words[:max_words]).rstrip(",.;:!—-") + "…"
 
 
-def _enforce_copy_limit(text: str, edge_type: Optional[str]) -> str:
+def _enforce_copy_limit(text: str, edge_flag_or_type) -> str:
+    """
+    When an edge case is active, cap desc to register's copy_max_words.
+    Accepts either a bool (preferred) or legacy edge_type (str|None).
+    """
+    is_edge = bool(edge_flag_or_type) and not isinstance(edge_flag_or_type, str) or isinstance(edge_flag_or_type, str)
+    if not is_edge:
+        return text or ""
+        
+    reg_cap_str = None
+    if isinstance(edge_flag_or_type, str):
+        reg_cap_str = EDGE_REGISTERS.get(edge_flag_or_type, {}).get("copy_max_words", None)
+    
     root_cap = int(EDGE_REGISTERS.get("copy_max_words", 20))
-    reg_cap = int(EDGE_REGISTERS.get(edge_type, {}).get("copy_max_words", root_cap)) if edge_type else root_cap
-    cap = max(1, min(reg_cap, 20))  # Phase-1 hard fence
+    reg_cap = int(reg_cap_str) if reg_cap_str is not None else root_cap
+    
+    cap = max(1, min(reg_cap, 20))
     words = re.findall(r"\S+", text or "")
     if len(words) <= cap:
         return text or ""
@@ -495,7 +511,9 @@ def selection_engine(prompt: str, context: Optional[Dict[str, Any]] = None) -> L
     context = context or {}
     p = normalize(prompt)
 
-    # 1) read recent_ids at the top of curate/selection function
+    # Dedupe window (Phase-1): UI may supply `recent_ids` (list[str]) to avoid repeat cards
+    # across a short session. Engine should SKIP any candidate whose `id` is in this set,
+    # then fall back deterministically (rotation index) if a tier empties.
     recent_ids = (context or {}).get("recent_ids") or []
     recent_set = {rid for rid in recent_ids if isinstance(rid, str)}
     original_catalog = list(CATALOG)
@@ -504,13 +522,6 @@ def selection_engine(prompt: str, context: Optional[Dict[str, Any]] = None) -> L
     resolved_anchor, edge_type, anchor_scores = detect_emotion(p, context)
     is_edge = bool(edge_type)
     
-    # 2) canonical edge gating (two-step)
-    prompt_norm = _normalize(prompt)
-    # The redundant _is_canonical_edge check is being removed as per the instructions,
-    # as the new `is_edge` variable already represents the outcome of the primary
-    # `detect_edge_register` check.
-    # is_edge, edge_type = _is_canonical_edge(resolved_anchor, prompt_norm)
-
     # Optional: Log near-tie emotions
     if FEATURE_MULTI_ANCHOR_LOGGING and anchor_scores:
         thresholds = ANCHOR_THRESHOLDS.get("multi_anchor_logging", {})
@@ -678,7 +689,7 @@ def selection_engine(prompt: str, context: Optional[Dict[str, Any]] = None) -> L
         it["edge_case"] = is_edge
         it["edge_type"] = edge_type if is_edge else None
         if is_edge:
-            it["desc"] = _enforce_copy_limit(it.get("desc", ""), edge_type if is_edge else None)
+            it["desc"] = _enforce_copy_limit(it.get("desc", ""), is_edge)
 
     # Map fields for API output
     out = []
