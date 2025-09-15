@@ -125,6 +125,14 @@ def _has_proximity(text: str, a: str, b: str, window: int) -> bool:
 def _is_false_friend(text: str, phrases: list[str]) -> bool:
     return _contains_any(text, phrases or [])
 
+def _stable_hash_u32(s: str) -> int:
+    h = hashlib.sha256((s or "").encode("utf-8")).hexdigest()
+    return int(h[:8], 16)
+
+def _rotation_index(seed: str, k: int) -> int:
+    if k <= 1: return 0
+    return _stable_hash_u32(seed) % k
+
 def detect_emotion(prompt: str, context: dict | None) -> str:
     p = (prompt or "").strip().lower()
 
@@ -139,7 +147,7 @@ def detect_emotion(prompt: str, context: dict | None) -> str:
     exact_map = EMOTION_KEYWORDS.get("exact", {}) or {}
     combos    = EMOTION_KEYWORDS.get("combos", []) or []
     buckets   = EMOTION_KEYWORDS.get("keywords", {}) or {}
-    disamb    = EMOTION_KEYWORDS.get("disambiguation", []) or []
+    disamb    = EMOTION_KEYWORDS.get("disambiguation", []) or {} # Changed from [] to {}
 
     # 1) Disambiguation rules (highest precision)
     for rule in disamb:
@@ -416,6 +424,18 @@ def _ensure_two_mix_one_mono(triad: List[Dict[str, Any]], all_items: List[Dict[s
                         triad[i] = pool[0]
                         return triad
     return triad
+def _apply_recent_filter(cands: List[Dict[str, Any]], recent_set: set) -> List[Dict[str, Any]]:
+    if not cands: return cands
+    filtered = [c for c in cands if c.get("id") not in recent_set]
+    return filtered if filtered else cands
+
+def _pick_rotated(cands: List[Dict[str, Any]], tier_name: str, session_id: str, run_count: int, prompt_norm: str) -> Optional[Dict[str, Any]]:
+    K = 5  # Phase-1-safe constant
+    if not cands: return None
+    k = min(K, len(cands))
+    seed = f"{session_id}|{run_count}|{prompt_norm}|{tier_name}"
+    idx = _rotation_index(seed, k)
+    return cands[idx]
 
 # ------------------------------------------------------------
 # Public entrypoint
@@ -432,7 +452,8 @@ def selection_engine(prompt: str, context: Optional[Dict[str, Any]] = None) -> L
     p = normalize(prompt)
 
     # 1) read recent_ids at the top of curate/selection function
-    recent_ids = set((context or {}).get("recent_ids", []) or [])
+    recent_ids = (context or {}).get("recent_ids") or []
+    recent_set = {rid for rid in recent_ids if isinstance(rid, str)}
     original_catalog = list(CATALOG)
 
     # Emotion + edge-case
@@ -478,8 +499,9 @@ def selection_engine(prompt: str, context: Optional[Dict[str, Any]] = None) -> L
 
     # Score all catalog items
     scored: List[Dict[str, Any]] = []
+    
     # 2) when scoring/choosing, filter out recent_ids first
-    candidates = [c for c in CATALOG if c["id"] not in recent_ids]
+    candidates = [c for c in CATALOG if c["id"] not in recent_set]
     
     # 3) if filtering leaves too few to satisfy 2 MIX + 1 MONO, fall back to the full set to keep guarantees
     if len(candidates) < 3:
@@ -518,17 +540,33 @@ def selection_engine(prompt: str, context: Optional[Dict[str, Any]] = None) -> L
     if not scored:
         return []
 
-    # Pick per tier with preference: MIX for Classic/Signature, any for Luxury (mono often chosen last)
-    triad: List[Dict[str, Any]] = []
-    for tier in TIER_ORDER:
-        pool = _candidates_for_tier(scored, tier)
-        want_mono = None
-        if tier in ("Classic", "Signature"):
-            want_mono = False
-        best = _pick_best(pool, want_mono)
-        if best:
-            triad.append(best)
+    scored_classic = sorted(_candidates_for_tier(scored, "Classic"), key=lambda x: x.get("_score", 0.0), reverse=True)
+    scored_signature = sorted(_candidates_for_tier(scored, "Signature"), key=lambda x: x.get("_score", 0.0), reverse=True)
+    scored_luxury = sorted(_candidates_for_tier(scored, "Luxury"), key=lambda x: x.get("_score", 0.0), reverse=True)
 
+    # Per-session dedupe window
+    scored_classic   = _apply_recent_filter(scored_classic, recent_set)
+    scored_signature = _apply_recent_filter(scored_signature, recent_set)
+    scored_luxury    = _apply_recent_filter(scored_luxury, recent_set)
+
+    # Pick per tier with preference: MIX for Classic/Signature, any for Luxury (mono often chosen last)
+    # Deterministic top-K rotation (K=5)
+    session_id = (context or {}).get("session_id") or ""
+    run_count = int((context or {}).get("run_count") or 0)
+    prompt_norm = normalize(prompt)
+
+    win_classic   = _pick_rotated(scored_classic,   "Classic",   session_id, run_count, prompt_norm)
+    win_signature = _pick_rotated(scored_signature, "Signature", session_id, run_count, prompt_norm)
+    win_luxury    = _pick_rotated(scored_luxury,    "Luxury",    session_id, run_count, prompt_norm)
+
+    triad: List[Dict[str, Any]] = []
+    if win_classic:
+        triad.append(win_classic)
+    if win_signature:
+        triad.append(win_signature)
+    if win_luxury:
+        triad.append(win_luxury)
+    
     # If we failed to get three (catalog scarcity), fill from next best irrespective of tier uniqueness
     # But keep only unique tiers (strong invariant)
     tiers_present = {it.get("tier") for it in triad}
