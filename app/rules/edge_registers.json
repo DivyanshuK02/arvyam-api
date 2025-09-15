@@ -1,4 +1,5 @@
 {
+  "copy_max_words": 20,
   "sympathy": {
     "edge_case": true,
     "copy_max_words": 18,
@@ -16,7 +17,6 @@
     "allow_lg_in_mono": false,
     "exclude_title_keywords": ["birthday", "celebrate", "party"]
   },
-
   "apology": {
     "edge_case": true,
     "copy_max_words": 20,
@@ -27,32 +27,30 @@
     "palette_avoid_penalty": 0.92,
     "species_prefer": ["orchid", "lily"],
     "species_avoid": ["sunflower"],
-    "mono_must_include": [],
+    "mono_must_include": ["lily", "orchid"],
     "lg_policy": "allow",
     "lg_weight_multiplier": 0.85,
     "allow_lg_in_mix": true,
     "allow_lg_in_mono": false,
     "exclude_title_keywords": ["birthday", "party", "congrats", "festival"]
   },
-
   "farewell": {
     "edge_case": true,
     "copy_max_words": 18,
-    "tone": "respectful",
+    "tone": "warm-somber",
     "palette_targets": ["white", "cream", "eucalyptus", "soft-green", "ivory"],
     "palette_avoid": ["neon", "neon-mixed", "electric"],
     "palette_target_boost": 1.12,
     "palette_avoid_penalty": 0.90,
     "species_prefer": ["lily", "orchid"],
     "species_avoid": ["sunflower", "gerbera"],
-    "mono_must_include": [],
+    "mono_must_include": ["lily"],
     "lg_policy": "allow",
     "lg_weight_multiplier": 0.80,
     "allow_lg_in_mix": true,
     "allow_lg_in_mono": false,
     "exclude_title_keywords": ["birthday", "celebrate", "party"]
   },
-
   "valentine": {
     "edge_case": true,
     "copy_max_words": 18,
@@ -63,7 +61,7 @@
     "palette_avoid_penalty": 0.94,
     "species_prefer": ["rose", "orchid"],
     "species_avoid": [],
-    "mono_must_include": [],
+    "mono_must_include": ["rose"],
     "lg_policy": "allow",
     "lg_weight_multiplier": 1.00,
     "allow_lg_in_mix": true,
