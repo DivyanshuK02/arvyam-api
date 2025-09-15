@@ -65,6 +65,18 @@ def load_json(relpath: str, default=None):
 CATALOG: List[Dict[str, Any]] = load_json("catalog.json", default=[])
 CAT_BY_ID: Dict[str, Dict[str, Any]] = {it["id"]: it for it in CATALOG if isinstance(it, dict) and "id" in it}
 
+def _load_json(path: str, default: Any) -> Any:
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except Exception:
+        return default
+
+ROOT = os.path.dirname(__file__)
+RULES_DIR = os.path.join(ROOT, "rules")
+ANCHOR_THRESHOLDS = _load_json(os.path.join(RULES_DIR, "anchor_thresholds.json"), {})
+FEATURE_MULTI_ANCHOR_LOGGING = os.getenv("FEATURE_MULTI_ANCHOR_LOGGING", "0") == "1"
+
 # =========================
 # Seed rollback utilities
 # =========================
@@ -345,7 +357,32 @@ async def curate_post(body: CurateRequest, request: Request):
                  PERSONA, ip, items[0].get("emotion",""), latency_ms, len(prompt))
     append_selection_log(items, request_id, latency_ms, len(prompt), path="/api/curate")
     analytics_guard_check()
-    return items
+
+    # Pass-through + Optional QA header flow (OFF by default)
+    emit_header = bool(ANCHOR_THRESHOLDS.get("multi_anchor_logging", {}).get("emit_header", False))
+    resp_body = items
+
+    if FEATURE_MULTI_ANCHOR_LOGGING and emit_header:
+        # Non-mutating header build (we do NOT change items or their resolved anchor)
+        # A lightweight call to detect_emotion() is acceptable for header only;
+        # it must NOT alter the curated items or edge flags.
+        from .selection_engine import normalize, detect_emotion
+        _, _, scores = detect_emotion(normalize(prompt), context or {})
+        if scores:
+            top = sorted(scores.items(), key=lambda kv: kv[1], reverse=True)
+            s1 = round(top[0][1], 2)
+            header_vals = [f"{top[0][0]}:{s1}"]
+            if len(top) > 1:
+                th = ANCHOR_THRESHOLDS.get("multi_anchor_logging", {})
+                s2 = round(top[1][1], 2)
+                if s2 >= float(th.get("score2_min", 0.25)) and (s1 - s2) <= float(th.get("delta_max", 0.15)):
+                    header_vals.append(f"{top[1][0]}:{s2}")
+            resp = JSONResponse(content=resp_body)
+            resp.headers["X-Detected-Emotions"] = ",".join(header_vals)
+            return resp
+
+    # Normal (no header) return path
+    return resp_body
 
 # =========================
 # Helper for flexible/legacy calls (keeps shim behavior)
@@ -390,7 +427,7 @@ async def curate_get(request: Request):
     if not prompt:
         return error_json("EMPTY_PROMPT", "Please write a short line.", 422)
     prompt_len = len(prompt)
-    context = None # Assuming no context from these new input types, as per the user's patch
+    context = {} # Assuming no context from these new input types, as per the user's patch
 
     # Seed-mode check (1 hour window)
     seed_state = seed_mode_status()
@@ -423,7 +460,32 @@ async def curate_get(request: Request):
     append_selection_log(items, request_id, latency_ms, prompt_len, path="/api/curate_get")
     analytics_guard_check()
 
-    return JSONResponse(items)
+    # Pass-through + Optional QA header flow (OFF by default)
+    emit_header = bool(ANCHOR_THRESHOLDS.get("multi_anchor_logging", {}).get("emit_header", False))
+    resp_body = items
+
+    if FEATURE_MULTI_ANCHOR_LOGGING and emit_header:
+        # Non-mutating header build (we do NOT change items or their resolved anchor)
+        # A lightweight call to detect_emotion() is acceptable for header only;
+        # it must NOT alter the curated items or edge flags.
+        from .selection_engine import normalize, detect_emotion
+        _, _, scores = detect_emotion(normalize(prompt), context or {})
+        if scores:
+            top = sorted(scores.items(), key=lambda kv: kv[1], reverse=True)
+            s1 = round(top[0][1], 2)
+            header_vals = [f"{top[0][0]}:{s1}"]
+            if len(top) > 1:
+                th = ANCHOR_THRESHOLDS.get("multi_anchor_logging", {})
+                s2 = round(top[1][1], 2)
+                if s2 >= float(th.get("score2_min", 0.25)) and (s1 - s2) <= float(th.get("delta_max", 0.15)):
+                    header_vals.append(f"{top[1][0]}:{s2}")
+            resp = JSONResponse(content=resp_body)
+            resp.headers["X-Detected-Emotions"] = ",".join(header_vals)
+            return resp
+
+    # Normal (no header) return path
+    return JSONResponse(resp_body)
+
 
 # ---- Aliases so legacy/front-end calls to /curate keep working ----
 @app.post("/curate")
