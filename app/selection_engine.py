@@ -481,9 +481,7 @@ def selection_engine(prompt: str, context: Optional[Dict[str, Any]] = None) -> L
     
     # single source of truth; detect_emotion() already handles edge-first
     resolved_anchor, edge_type, anchor_scores = detect_emotion(p, context)
-    is_edge = bool(edge_type)
-    register = EDGE_REGISTERS.get(edge_type or "", {})
-
+    
     # Optional: Log near-tie emotions
     if FEATURE_MULTI_ANCHOR_LOGGING and anchor_scores:
         thresholds = ANCHOR_THRESHOLDS.get("multi_anchor_logging", {})
@@ -541,19 +539,21 @@ def selection_engine(prompt: str, context: Optional[Dict[str, Any]] = None) -> L
     # Score all catalog items
     scored: List[Dict[str, Any]] = []
     
-    # 2) when scoring/choosing, filter out recent_ids first
-    candidates = [c for c in CATALOG if c["id"] not in recent_set]
+    # Filter candidates based on recent_ids
+    candidates = [c for c in original_catalog if c["id"] not in recent_set]
     
-    # 3) if filtering leaves too few to satisfy 2 MIX + 1 MONO, fall back to the full set to keep guarantees
+    # if filtering leaves too few to satisfy 2 MIX + 1 MONO, fall back to the full set to keep guarantees
     if len(candidates) < 3:
         candidates = original_catalog
 
+    # The rest of the logic for scoring and selection will remain the same.
     for item in candidates:
         # Skip items missing required fields
         if item.get("tier") not in TIER_ORDER or not item.get("palette"):
             continue
 
         base = int(item.get("weight", 50))
+        register = EDGE_REGISTERS.get(edge_type or "", {})
         w = _compute_weight(item, base, register, edge_type, iconic_intent)
         w *= _apply_lg_policy(item, resolved_anchor, edge_type)
 
@@ -644,10 +644,11 @@ def selection_engine(prompt: str, context: Optional[Dict[str, Any]] = None) -> L
         _add_unclear_mix_note(triad)
 
     # Apply emotional/edge-case stamping and copy limits
+    is_edge = edge_type in EDGE_CASE_KEYS
     for it in triad:
         it["emotion"] = resolved_anchor
         it["edge_case"] = is_edge
-        it["edge_type"] = edge_type
+        it["edge_type"] = edge_type if is_edge else None
         if is_edge:
             it["desc"] = _enforce_copy_limit(it.get("desc", ""), it.get("edge_type"))
 
@@ -666,10 +667,10 @@ def selection_engine(prompt: str, context: Optional[Dict[str, Any]] = None) -> L
             "packaging": it.get("packaging"),
             "mono": bool(it.get("mono")),
             "palette": list(it.get("palette") or []),
-            "luxury_grand": bool(it.get("luxury_grand")),
+            "luxury_grand": bool(it.get("luxury_grand", False)),
             "note": it.get("note"),
-            "edge_case": bool(edge_type), # only true for sympathy/apology/farewell/valentine
-            "edge_type": edge_type if edge_type else None,
+            "edge_case": is_edge,
+            "edge_type": edge_type if is_edge else None,
         })
     return out
 
