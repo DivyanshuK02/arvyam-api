@@ -49,7 +49,7 @@ SUB_NOTES = _load_json(os.path.join(RULES_DIR, "substitution_notes.json"), {"def
 ANCHOR_THRESHOLDS = _load_json(os.path.join(RULES_DIR, "anchor_thresholds.json"), {})
 # Edge register keys (strict): only these four are considered "edge cases".
 EDGE_CASE_KEYS = {"sympathy", "apology", "farewell", "valentine"}
-FEATURE_MULTI_ANCHOR_LOGGING = False # Off by default
+FEATURE_MULTI_ANCHOR_LOGGING = os.getenv("FEATURE_MULTI_ANCHOR_LOGGING", "0") == "1" # Off by default
 
 # ------------------------------------------------------------
 # Utilities
@@ -486,7 +486,7 @@ def selection_engine(prompt: str, context: Optional[Dict[str, Any]] = None) -> L
 
     # Optional: Log near-tie emotions
     if FEATURE_MULTI_ANCHOR_LOGGING and anchor_scores:
-        thresholds = ANCHOR_THRESHOLDS.get("near_tie_thresholds", {})
+        thresholds = ANCHOR_THRESHOLDS.get("multi_anchor_logging", {})
         top = sorted(anchor_scores.items(), key=lambda kv: kv[1], reverse=True)
         if top:
             near_tie = [{"a": top[0][0], "s": round(top[0][1], 2)}]
