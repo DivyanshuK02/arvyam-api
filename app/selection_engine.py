@@ -301,22 +301,22 @@ def _truncate_words(text: str, max_words: int) -> str:
     return " ".join(words[:max_words]).rstrip(",.;:!—-") + "…"
 
 
-def _enforce_copy_limit(desc: str, edge_type: Optional[str]) -> str:
+def _enforce_copy_limit(text: str, edge_type: Optional[str]) -> str:
     """
     Truncates `text` to the copy_max_words for the given edge_type.
     Pass the register key (e.g., "sympathy", "apology", "farewell", "valentine") or None.
     Caps to Phase-1 hard fence (≤20 words). Called only when an edge case is active.
     """
     if not edge_type:
-        return desc
+        return text
     reg = EDGE_REGISTERS.get(edge_type) or {}
     max_words = int(reg.get("copy_max_words", 0) or 0)
     if max_words <= 0:
-        return desc
+        return text
 
-    words = (desc or "").strip().split()
+    words = (text or "").strip().split()
     if len(words) <= max_words:
-        return desc
+        return text
     return " ".join(words[:max_words])
 
 
