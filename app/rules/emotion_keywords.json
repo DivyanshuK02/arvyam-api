@@ -1,0 +1,588 @@
+{
+  "version": "1.4-en",
+  "updated_at": "2025-09-14T00:00:00Z",
+  "anchors": [
+    "Affection/Support",
+    "Loyalty/Dependability",
+    "Encouragement/Positivity",
+    "Strength/Resilience",
+    "Intellect/Wisdom",
+    "Adventurous/Creativity",
+    "Selflessness/Generosity",
+    "Fun/Humor"
+  ],
+  "notes": {
+    "evaluation_order": [
+      "edge_registers (sympathy/apology/farewell/valentine)",
+      "exact phrase match",
+      "combo/context rules",
+      "keyword buckets (anchor order above)"
+    ],
+    "tie_breakers": [
+      "prefer exact > combos > keywords",
+      "if multiple anchors match at same rank, use anchors[] order above"
+    ],
+    "intent": "English-only. No numeric budgets here. Ambiguity resolved via combos first, then anchor priority."
+  },
+  "priority": {
+    "Affection/Support": 80,
+    "Loyalty/Dependability": 70,
+    "Encouragement/Positivity": 60,
+    "Strength/Resilience": 50,
+    "Intellect/Wisdom": 40,
+    "Adventurous/Creativity": 30,
+    "Selflessness/Generosity": 20,
+    "Fun/Humor": 10
+  },
+  "exact": {
+    "romantic bouquet": "Affection/Support",
+    "romantic anniversary": "Affection/Support",
+    "wedding anniversary": "Affection/Support",
+    "she is feeling lovely": "Affection/Support",
+    "date night": "Affection/Support",
+    "work anniversary": "Loyalty/Dependability",
+    "years of service": "Loyalty/Dependability",
+    "team appreciation": "Loyalty/Dependability",
+    "always there for me": "Loyalty/Dependability",
+    "you got this": "Encouragement/Positivity",
+    "so proud of you": "Encouragement/Positivity",
+    "cheer up": "Encouragement/Positivity",
+    "good luck": "Encouragement/Positivity",
+    "get well soon": "Encouragement/Positivity",
+    "stay strong": "Strength/Resilience",
+    "wishing you recovery": "Strength/Resilience",
+    "after surgery": "Strength/Resilience",
+    "teacher appreciation": "Intellect/Wisdom",
+    "congrats on your thesis": "Intellect/Wisdom",
+    "mentor guidance": "Intellect/Wisdom",
+    "study hard": "Intellect/Wisdom",
+    "new adventure": "Adventurous/Creativity",
+    "housewarming surprise": "Adventurous/Creativity",
+    "fresh start": "Adventurous/Creativity",
+    "bold and bright": "Adventurous/Creativity",
+    "thank you mentor": "Selflessness/Generosity",
+    "quiet thank you": "Selflessness/Generosity",
+    "deepest thanks": "Selflessness/Generosity",
+    "truly appreciate it": "Selflessness/Generosity",
+    "fun birthday": "Fun/Humor",
+    "party vibes": "Fun/Humor",
+    "make it fun": "Fun/Humor",
+    "surprise me": "Fun/Humor",
+    "she had a tough week": "Encouragement/Positivity",
+    "make her smile": "Fun/Humor",
+    "cheer her up": "Encouragement/Positivity",
+    "message of courage": "Strength/Resilience"
+  },
+  "combos": [
+    {
+      "all": [
+        "wedding",
+        "anniversary"
+      ],
+      "anchor": "Affection/Support"
+    },
+    {
+      "all": [
+        "work",
+        "anniversary"
+      ],
+      "anchor": "Loyalty/Dependability"
+    },
+    {
+      "all": [
+        "promotion",
+        "congrats"
+      ],
+      "anchor": "Encouragement/Positivity"
+    },
+    {
+      "all": [
+        "tough",
+        "week"
+      ],
+      "anchor": "Encouragement/Positivity"
+    },
+    {
+      "all": [
+        "after",
+        "surgery"
+      ],
+      "anchor": "Strength/Resilience"
+    },
+    {
+      "all": [
+        "thank",
+        "mentor"
+      ],
+      "anchor": "Intellect/Wisdom"
+    },
+    {
+      "all": [
+        "teacher",
+        "thanks"
+      ],
+      "anchor": "Intellect/Wisdom"
+    },
+    {
+      "all": [
+        "new",
+        "home"
+      ],
+      "anchor": "Adventurous/Creativity"
+    },
+    {
+      "all": [
+        "team",
+        "support"
+      ],
+      "anchor": "Loyalty/Dependability"
+    },
+    {
+      "all": [
+        "thank",
+        "you"
+      ],
+      "anchor": "Selflessness/Generosity"
+    },
+    {
+      "all": [
+        "housewarming",
+        "gift"
+      ],
+      "anchor": "Adventurous/Creativity"
+    },
+    {
+      "all": [
+        "exam",
+        "luck"
+      ],
+      "anchor": "Encouragement/Positivity"
+    },
+    {
+      "all": [
+        "new",
+        "role"
+      ],
+      "anchor": "Loyalty/Dependability"
+    }
+  ],
+  "keywords": {
+    "Affection/Support": [
+      "love",
+      "romance",
+      "romantic",
+      "blush",
+      "sweetheart",
+      "darling",
+      "my love",
+      "crush",
+      "miss you",
+      "thinking of you",
+      "together",
+      "couple",
+      "partner",
+      "wife",
+      "husband",
+      "girlfriend",
+      "boyfriend",
+      "fiancé",
+      "anniversary",
+      "hearts",
+      "affection",
+      "care",
+      "warmth",
+      "date night",
+      "soulmate",
+      "adoration",
+      "forever"
+    ],
+    "Loyalty/Dependability": [
+      "loyal",
+      "reliable",
+      "dependable",
+      "steady",
+      "trust",
+      "always there",
+      "backbone",
+      "colleague",
+      "coworker",
+      "teammate",
+      "partner at work",
+      "service award",
+      "milestone",
+      "workiversary",
+      "commitment",
+      "dedication",
+      "supportive",
+      "pillar",
+      "solid",
+      "reliability"
+    ],
+    "Encouragement/Positivity": [
+      "congrats",
+      "congratulations",
+      "celebrate",
+      "cheers",
+      "uplift",
+      "optimism",
+      "proud",
+      "you got this",
+      "go for it",
+      "good luck",
+      "best of luck",
+      "get well",
+      "feel better",
+      "bounce back",
+      "brighten",
+      "sunny",
+      "encourage",
+      "positive",
+      "motivation",
+      "hopeful",
+      "exam",
+      "interview",
+      "results",
+      "keep going"
+    ],
+    "Strength/Resilience": [
+      "resilient",
+      "resilience",
+      "strength",
+      "courage",
+      "brave",
+      "tough time",
+      "difficult time",
+      "recovery",
+      "heal",
+      "healing",
+      "overcome",
+      "persevere",
+      "endure",
+      "stand tall",
+      "with you",
+      "calm",
+      "steady",
+      "support through",
+      "after surgery",
+      "bounce back strong",
+      "get better"
+    ],
+    "Intellect/Wisdom": [
+      "mentor",
+      "teacher",
+      "professor",
+      "guide",
+      "wisdom",
+      "learn",
+      "study",
+      "exam",
+      "graduation",
+      "scholar",
+      "thesis",
+      "research",
+      "clarity",
+      "insight",
+      "knowledge",
+      "coach",
+      "advisor",
+      "counsel",
+      "scholarly"
+    ],
+    "Adventurous/Creativity": [
+      "adventurous",
+      "creative",
+      "artsy",
+      "bold",
+      "vibrant",
+      "new chapter",
+      "new home",
+      "housewarming",
+      "fresh start",
+      "explore",
+      "travel",
+      "wander",
+      "move",
+      "launch",
+      "startup",
+      "statement",
+      "showstopper",
+      "original",
+      "imaginative"
+    ],
+    "Selflessness/Generosity": [
+      "thank you",
+      "thanks",
+      "gratitude",
+      "appreciate",
+      "appreciation",
+      "much obliged",
+      "kindness",
+      "help",
+      "support",
+      "favor",
+      "mentor thanks",
+      "above and beyond",
+      "for you",
+      "gesture",
+      "gift",
+      "thoughtful",
+      "grateful",
+      "big thank you"
+    ],
+    "Fun/Humor": [
+      "fun",
+      "playful",
+      "cheerful",
+      "party",
+      "birthday",
+      "cake",
+      "balloons",
+      "smile",
+      "laugh",
+      "lively",
+      "bright",
+      "surprise me",
+      "weekend",
+      "vibes",
+      "good times",
+      "yay",
+      "lol",
+      "haha"
+    ]
+  },
+  "negations": [
+    "not",
+    "no",
+    "never",
+    "without",
+    "don’t",
+    "dont",
+    "do not",
+    "isn’t",
+    "isnt",
+    "won’t",
+    "wont",
+    "avoid"
+  ],
+  "disambiguation": [
+    {
+      "when_any": [
+        "anniversary"
+      ],
+      "route": [
+        {
+          "if_any": [
+            "work",
+            "office",
+            "team",
+            "years of service"
+          ],
+          "anchor": "Loyalty/Dependability"
+        },
+        {
+          "else": "Affection/Support"
+        }
+      ]
+    },
+    {
+      "when_any": [
+        "sorry"
+      ],
+      "route": [
+        {
+          "if_any": [
+            "loss",
+            "passing",
+            "passed",
+            "bereavement"
+          ],
+          "anchor": "Strength/Resilience"
+        },
+        {
+          "else": "Encouragement/Positivity"
+        }
+      ]
+    },
+    {
+      "when_any": [
+        "thank you",
+        "thanks"
+      ],
+      "route": [
+        {
+          "if_any": [
+            "mentor",
+            "teacher"
+          ],
+          "anchor": "Intellect/Wisdom"
+        },
+        {
+          "else": "Selflessness/Generosity"
+        }
+      ]
+    },
+    {
+      "when_any": [
+        "new"
+      ],
+      "route": [
+        {
+          "if_any": [
+            "home",
+            "house",
+            "apartment"
+          ],
+          "anchor": "Adventurous/Creativity"
+        },
+        {
+          "if_any": [
+            "job",
+            "role"
+          ],
+          "anchor": "Loyalty/Dependability"
+        },
+        {
+          "else": "Encouragement/Positivity"
+        }
+      ]
+    }
+  ],
+  "enriched": {
+    "false_friends": [
+      "thank you for your patience",
+      "good job team",
+      "take care of yourself"
+    ],
+    "regex": [
+      {
+        "pattern": "\\b(congrats|proud|cheer|good luck)\\b.*\\b(promotion|new job|project)\\b",
+        "anchor": "Encouragement/Positivity"
+      },
+      {
+        "pattern": "\\b(sorry|my\\s+fault)\\b.*\\b(mistake|mess)\\b",
+        "anchor": "Encouragement/Positivity"
+      },
+      {
+        "pattern": "\\b(you\\s+are\\s+my)\\b.*\\b(rock|pillar|anchor)\\b",
+        "anchor": "Loyalty/Dependability"
+      }
+    ],
+    "proximity_pairs": [
+      {
+        "a": "happy",
+        "b": "anniversary",
+        "window": 2,
+        "anchor": "Affection/Support"
+      },
+      {
+        "a": "get",
+        "b": "well",
+        "window": 2,
+        "anchor": "Encouragement/Positivity"
+      },
+      {
+        "a": "so",
+        "b": "proud",
+        "window": 2,
+        "anchor": "Encouragement/Positivity"
+      }
+    ]
+  },
+  "edges": {
+    "sympathy": {
+      "exact": [
+        "i'm so sorry for your loss",
+        "sorry for your loss",
+        "condolences",
+        "my deepest sympathies"
+      ],
+      "contains_any": [
+        "bereavement",
+        "condolence",
+        "grieving",
+        "passed away"
+      ],
+      "regex": [
+        {
+          "pattern": "\\b(sorry|condolence[s]?)\\b.*\\bloss\\b"
+        }
+      ],
+      "proximity_pairs": [
+        {
+          "a": "sorry",
+          "b": "loss",
+          "window": 4
+        }
+      ]
+    },
+    "apology": {
+      "exact": [
+        "i’m sorry",
+        "i am sorry"
+      ],
+      "contains_any": [
+        "apologize",
+        "my fault",
+        "forgive me"
+      ],
+      "regex": [
+        {
+          "pattern": "\\b(apolog(y|ise|ize))\\b"
+        }
+      ],
+      "proximity_pairs": [
+        {
+          "a": "sorry",
+          "b": "behavior",
+          "window": 5
+        }
+      ]
+    },
+    "farewell": {
+      "exact": [
+        "goodbye",
+        "farewell"
+      ],
+      "contains_any": [
+        "miss you",
+        "take care",
+        "moving away"
+      ],
+      "regex": [
+        {
+          "pattern": "\\b(farewell|good\\s*bye)\\b"
+        }
+      ],
+      "proximity_pairs": [
+        {
+          "a": "goodbye",
+          "b": "friend",
+          "window": 4
+        }
+      ]
+    },
+    "valentine": {
+      "exact": [
+        "be my valentine",
+        "happy valentine's day"
+      ],
+      "contains_any": [
+        "valentine",
+        "sweetheart",
+        "my love"
+      ],
+      "regex": [
+        {
+          "pattern": "\\bvalentine'?s?\\b"
+        }
+      ],
+      "proximity_pairs": [
+        {
+          "a": "love",
+          "b": "valentine",
+          "window": 5
+        }
+      ]
+    }
+  }
+}
