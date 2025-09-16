@@ -142,42 +142,41 @@ def _rotation_index(seed: str, k: int) -> int:
     if k <= 1: return 0
     return _stable_hash_u32(seed) % k
 
-def detect_edge_register(prompt: str) -> str | None:
+def detect_edge_register(prompt: str) -> Optional[str]:
     p = normalize(prompt)
-    if not p: return None
+    if not p:
+        return None
 
-    # 1) Priority order (highest first)
-    order = ["sympathy","apology","farewell","valentine"]
+    # Priority order
+    for key in ("sympathy", "apology", "farewell", "valentine"):
+        enr = EDGE_KEYWORDS.get(f"{key}_enriched") or {}
 
-    for key in order:
-        base = EDGE_KEYWORDS.get(key, [])  # backward-compatible arrays
-        enr  = EDGE_KEYWORDS.get(f"{key}_enriched", {}) or {}
-
-        # False friends gate
+        # Block false-friends first
         if _is_false_friend(p, enr.get("false_friends")):
             continue
 
-        # Exact phrases (enriched)
-        exact = enr.get("exact", [])
-        if exact and _contains_any(p, exact):
+        # Enriched: exact
+        if _contains_any(p, enr.get("exact") or []):
             return key
 
-        # “contains_any” (enriched)
-        if enr.get("contains_any") and _contains_any(p, enr["contains_any"]):
+        # Enriched: contains_any
+        if _contains_any(p, enr.get("contains_any") or []):
             return key
 
-        # Regex (enriched)
-        if enr.get("regex") and _matches_regex_list(p, enr["regex"]):
+        # Enriched: regex
+        if _matches_regex_list(p, enr.get("regex") or []):
             return key
 
-        # Proximity pairs (enriched)
-        prox = enr.get("proximity_pairs") or []
-        for pair in prox:
-            if _has_proximity(p, pair.get("a",""), pair.get("b",""), int(pair.get("window",2))):
-                return key
+        # Enriched: proximity
+        prox = enr.get("proximity") or {}
+        a, b = prox.get("a"), prox.get("b")
+        window = int(prox.get("window", 0) or 0)
+        if a and b and window and _has_proximity(p, a, b, window):
+            return key
 
-        # Back-compat simple arrays
-        if base and _contains_any(p, base):
+        # Legacy fallback (simple array kept for backward-compat)
+        base = EDGE_KEYWORDS.get(key)
+        if isinstance(base, list) and base and _contains_any(p, base):
             return key
 
     return None
@@ -185,10 +184,7 @@ def detect_edge_register(prompt: str) -> str | None:
 def detect_emotion(prompt: str, context: dict | None) -> Tuple[str, Optional[str], Dict[str, float]]:
     p = normalize(prompt)
 
-    # 0) Edge case check (highest priority)
-    # Guardrail: Edge registers short-circuit routing; the returned edge_type is
-    # used exactly once for item stamping downstream. Do not add any re-checks
-    # later in the pipeline—this prevents double-stamping or flip-flops.
+    # Edge registers short-circuit routing; item stamping uses this edge_type exactly once. Canary tests (CI): one exact/regex/proximity sample per register; fail CI if any canary stops matching.
     edge_type = detect_edge_register(p)
     if edge_type:
         resolved_anchor = EDGE_REGISTERS.get(edge_type, {}).get("emotion_anchor", None)
@@ -297,27 +293,22 @@ def _truncate_words(text: str, max_words: int) -> str:
     return " ".join(words[:max_words]).rstrip(",.;:!—-") + "…"
 
 
-def _enforce_copy_limit(text: str, edge_flag_or_type) -> str:
+def _enforce_copy_limit(desc: str, edge_type: Optional[str]) -> str:
     """
-    When an edge case is active, cap desc to register's copy_max_words.
-    Accepts either a bool (preferred) or legacy edge_type (str|None).
+    If edge_type is one of {sympathy, apology, farewell, valentine},
+    clamp desc to that register's copy_max_words; otherwise return as-is.
     """
-    is_edge = bool(edge_flag_or_type) and not isinstance(edge_flag_or_type, str) or isinstance(edge_flag_or_type, str)
-    if not is_edge:
-        return text or ""
-        
-    reg_cap_str = None
-    if isinstance(edge_flag_or_type, str):
-        reg_cap_str = EDGE_REGISTERS.get(edge_flag_or_type, {}).get("copy_max_words", None)
-    
-    root_cap = int(EDGE_REGISTERS.get("copy_max_words", 20))
-    reg_cap = int(reg_cap_str) if reg_cap_str is not None else root_cap
-    
-    cap = max(1, min(reg_cap, 20))
-    words = re.findall(r"\S+", text or "")
-    if len(words) <= cap:
-        return text or ""
-    return " ".join(words[:cap]).rstrip(",.;:!—-") + "…"
+    if not edge_type:
+        return desc
+    reg = EDGE_REGISTERS.get(edge_type) or {}
+    max_words = int(reg.get("copy_max_words", 0) or 0)
+    if max_words <= 0:
+        return desc
+
+    words = (desc or "").strip().split()
+    if len(words) <= max_words:
+        return desc
+    return " ".join(words[:max_words])
 
 
 def _order_by_tier(items: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
@@ -520,7 +511,7 @@ def selection_engine(prompt: str, context: Optional[Dict[str, Any]] = None) -> L
     
     # single source of truth; detect_emotion() already handles edge-first
     resolved_anchor, edge_type, anchor_scores = detect_emotion(p, context)
-    is_edge = bool(edge_type)
+    is_edge = bool(edge_type) and edge_type in EDGE_CASE_KEYS
     
     # Optional: Log near-tie emotions
     if FEATURE_MULTI_ANCHOR_LOGGING and anchor_scores:
@@ -688,8 +679,7 @@ def selection_engine(prompt: str, context: Optional[Dict[str, Any]] = None) -> L
         it["emotion"] = resolved_anchor
         it["edge_case"] = is_edge
         it["edge_type"] = edge_type if is_edge else None
-        if is_edge:
-            it["desc"] = _enforce_copy_limit(it.get("desc", ""), is_edge)
+        it["desc"] = _enforce_copy_limit(it.get("desc", ""), edge_type)
 
     # Map fields for API output
     out = []
