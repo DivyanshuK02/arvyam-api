@@ -135,47 +135,82 @@ def _rotation_index(seed: str, k: int) -> int:
     if k <= 1: return 0
     return _stable_hash_u32(seed) % k
 
-def detect_edge_register(prompt_norm: str) -> Optional[str]:
-    if not prompt_norm:
+def detect_edge_register_from_emotion_keywords(
+    prompt_norm: str,
+    emotion_keywords: dict
+) -> Optional[str]:
+    """
+    Single source of truth for canonical edge detection.
+    Reads enriched rules from emotion_keywords["edges"][edge_type].
+    Returns: edge_type ("sympathy" | "apology" | "farewell" | "valentine") or None.
+    """
+    edges = (emotion_keywords or {}).get("edges", {})
+    if not isinstance(edges, dict):
         return None
 
-    # 0) false_friends (guard rails) — if any false friend appears, bail for that register
-    def has_false_friend(edge_name: str) -> bool:
-        ff = (EDGES.get(edge_name, {}) or {}).get("false_friends", [])
-        return any(tok in prompt_norm for tok in ff)
+    def any_contains(hay: str, needles: list[str]) -> bool:
+        return any(n for n in needles if isinstance(n, str) and n in hay)
 
-    for edge in ("sympathy", "apology", "farewell", "valentine"):
-        rules = EDGES.get(edge, {}) or {}
-        if not rules:
-            continue
-        if has_false_friend(edge):
-            continue
-
-        # 1) exact
-        for phrase in rules.get("exact", []):
-            if phrase and phrase in prompt_norm:
-                return edge
-
-        # 2) contains_any
-        for token in rules.get("contains_any", []):
-            if token and token in prompt_norm:
-                return edge
-
-        # 3) regex
-        for pat in rules.get("regex", []):
+    def matches_regex_list(hay: str, regex_specs: list[dict]) -> bool:
+        import re
+        for spec in regex_specs:
+            pat = spec.get("pattern")
+            if not pat:
+                continue
             try:
-                if pat and re.search(pat, prompt_norm):
-                    return edge
+                if re.search(pat, hay, flags=re.I):
+                    return True
             except re.error:
                 continue
+        return False
 
-        # 4) proximity_pairs: ["wordA","wordB",N] => within N tokens
-        for pair in rules.get("proximity_pairs", []):
-            if not isinstance(pair, (list, tuple)) or len(pair) != 3:
-                continue
-            a, b, dist = pair
-            if _has_proximity(prompt_norm, a, b, window=int(dist)):
-                return edge
+    def has_proximity(hay: str, a: str, b: str, window: int = 2) -> bool:
+        # naive proximity: ensure a and b exist and are within N tokens
+        if not a or not b:
+            return False
+        toks = hay.split()
+        try:
+            idxs_a = [i for i, t in enumerate(toks) if a in t]
+            idxs_b = [i for i, t in enumerate(toks) if b in t]
+        except Exception:
+            return False
+        for ia in idxs_a:
+            for ib in idxs_b:
+                if abs(ia - ib) <= window:
+                    return True
+        return False
+
+    # Priority order inside each edge: exact → contains_any → regex → proximity_pairs
+    for edge_type, enr in edges.items():
+        if not isinstance(enr, dict):
+            continue
+
+        # exact
+        exact = enr.get("exact", [])
+        if isinstance(exact, list) and any_contains(prompt_norm, [s for s in exact if isinstance(s, str)]):
+            return edge_type
+
+        # contains_any
+        contains_any = enr.get("contains_any", [])
+        if isinstance(contains_any, list) and any_contains(prompt_norm, [s for s in contains_any if isinstance(s, str)]):
+            return edge_type
+
+        # regex  (>>> this is where the missing for-loop caused NameError)
+        regex_specs = enr.get("regex", [])
+        if isinstance(regex_specs, list) and matches_regex_list(prompt_norm, regex_specs):
+            return edge_type
+
+        # proximity_pairs (list of {"a": "...", "b": "...", "window": 2})
+        proximity_specs = enr.get("proximity_pairs", [])
+        if isinstance(proximity_specs, list):
+            for spec in proximity_specs:
+                if not isinstance(spec, dict):
+                    continue
+                a = spec.get("a", "")
+                b = spec.get("b", "")
+                w = int(spec.get("window", 2))
+                if has_proximity(prompt_norm, a, b, w):
+                    return edge_type
 
     return None
 
@@ -184,12 +219,12 @@ def detect_emotion(prompt: str, context: dict | None) -> Tuple[str, Optional[str
 
     # Edge registers short-circuit routing; item stamping uses this edge_type exactly once.
     # Canary tests (CI): one exact/regex/proximity sample per register; fail CI if any canary stops matching.
-    edge_type = detect_edge_register(p)
+    # 0) Edge case check (highest priority) from emotion_keywords["edges"]
+    edge_type = detect_edge_register_from_emotion_keywords(p, EMOTION_KEYWORDS)
     if edge_type:
-        resolved_anchor = EDGE_REGISTERS.get(edge_type, {}).get("emotion_anchor", None)
-        if resolved_anchor:
-            return resolved_anchor, edge_type, {}
-
+        # Return early with the canonical edge_type; anchor will be resolved later from edge_registers.
+        return ("__EDGE__", edge_type, {})
+    
     # 1) Safe context hint (only accept known anchors)
     anchors: List[str] = EMOTION_KEYWORDS.get("anchors", []) or []
     hint = (context or {}).get("emotion_hint", "") or ""
@@ -285,15 +320,49 @@ def curate(prompt: str, context: Dict[str, Any] | None = None) -> List[Dict[str,
 
 def selection_engine(prompt: str, context: Dict[str, Any] | None = None) -> List[Dict[str, Any]]:
     # ...
-    pass
+    resolved_anchor, edge_type, _scores = detect_emotion(prompt, context or {})
+
+    # If edge short-circuited, derive anchor from edge_registers
+    if resolved_anchor == "__EDGE__":
+        edge_rules = EDGE_REGISTERS.get(edge_type, {})
+        resolved_anchor = edge_rules.get("emotion_anchor") or resolved_anchor  # fall back if misconfigured
+        is_edge = True
+    else:
+        is_edge = False
+    
+    # ... your scoring/selection happens here, yielding selected_items (2 MIX + 1 MONO)
+    selected_items = []
+
+    # Final stamping (exactly once)
+    for it in selected_items:
+        it["emotion"]  = resolved_anchor
+        it["edge_case"] = is_edge
+        it["edge_type"] = edge_type if is_edge else None
+        # Copy cap only when edge is active and rules specify a cap
+        it["desc"] = _enforce_copy_limit(it.get("desc",""), edge_type if is_edge else None)
+    
+    return selected_items
 
 def find_and_assign_note(triad: list, selected_species: Optional[str], selected_emotion: Optional[str]) -> None:
     # ...
     pass
 
-def _enforce_copy_limit(text: str, edge_type: str|None) -> str:
-    # ...
-    pass
+def _enforce_copy_limit(text: str, edge_type: Optional[str]) -> str:
+    """
+    Truncates `text` to the copy_max_words for the given edge_type.
+    Pass the register key (e.g., "sympathy", "apology", "farewell", "valentine") or None.
+    Caps to Phase-1 hard fence (≤20 words). Called only when an edge case is active.
+    """
+    max_words = 20  # hard fence
+    if edge_type:
+        regs = EDGE_REGISTERS.get(edge_type, {})
+        cap = int(regs.get("copy_max_words", max_words))
+        max_words = min(max_words, cap)
+
+    words = [w for w in (text or "").split()]
+    if len(words) <= max_words:
+        return text or ""
+    return " ".join(words[:max_words]).rstrip() + "…"
 
 # FastAPI endpoints
 app = FastAPI()
