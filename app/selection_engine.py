@@ -42,7 +42,8 @@ def _load_json(path: str, default: Any) -> Any:
 CATALOG = _load_json(_p("catalog.json"), [])
 RULES_DIR = _p("rules")
 EMOTION_KEYWORDS = _load_json(os.path.join(RULES_DIR, "emotion_keywords.json"), {})
-EDGES = (EMOTION_KEYWORDS or {}).get("edges", {})  # single source of truth
+# Single source of truth for edge rules (Phase 1.4a-B):
+EDGES = (EMOTION_KEYWORDS.get("edges", {}) or {})
 EDGE_REGISTERS = _load_json(os.path.join(RULES_DIR, "edge_registers.json"), {})
 TIER_POLICY = _load_json(os.path.join(RULES_DIR, "tier_policy.json"), {"luxury_grand": {"blocked_emotions": []}})
 SUB_NOTES = _load_json(os.path.join(RULES_DIR, "substitution_notes.json"), {"default": "Requested {from} is seasonal/unavailable; offering {alt} as the nearest alternative."})
@@ -141,6 +142,37 @@ def _truncate_words(text: str, max_words: int) -> str:
         return text or ""
     return " ".join(words[:max_words]).rstrip() + "…"
 
+
+def detect_edge_register(prompt: str) -> str | None:
+    p = normalize(prompt)
+    if not p: return None
+    order = ["sympathy","apology","farewell","valentine"]
+    for key in order:
+        enr = EDGES.get(key, {}) or {}
+
+        # False friends gate
+        if _is_false_friend(p, enr.get("false_friends")):
+            continue
+
+        # Exact phrases
+        exact = enr.get("exact", [])
+        if exact and _contains_any(p, exact):
+            return key
+
+        # contains_any
+        if enr.get("contains_any") and _contains_any(p, enr["contains_any"]):
+            return key
+
+        # regex
+        if enr.get("regex") and _matches_regex_list(p, enr["regex"]):
+            return key
+
+        # proximity pairs
+        prox = enr.get("proximity_pairs") or []
+        for pair in prox:
+            if _has_proximity(p, pair.get("a",""), pair.get("b",""), int(pair.get("window",2))):
+                return key
+    return None
 
 def detect_emotion(prompt: str, context: dict | None) -> Tuple[str, Optional[str], Dict[str, float]]:
     """
