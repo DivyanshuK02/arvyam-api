@@ -74,13 +74,6 @@ def normalize(s: str) -> str:
     s = re.sub(r"\s+", " ", s)
     return s[:500]
 
-def _normalize(text: str) -> str:
-    if not isinstance(text, str):
-        return ""
-    # lower, collapse whitespace, unify quotes, strip punctuation we don’t match on
-    t = text.lower().replace("’", "'")
-    return " ".join(t.replace(",", " ").split())
-
 def _tokenize(s: str) -> List[str]:
     return re.findall(r"[a-z]+", normalize(s))
 
@@ -206,9 +199,9 @@ def detect_emotion(prompt: str, context: dict | None) -> Tuple[str, Optional[str
     
     # Tables
     exact_map = EMOTION_KEYWORDS.get("exact", {}) or {}
-    combos    = EMOTION_KEYWORDS.get("combos", []) or {}
-    buckets   = EMOTION_KEYWORDS.get("keywords", {}) or {}
-    disamb    = EMOTION_KEYWORDS.get("disambiguation", []) or {}
+    combos = EMOTION_KEYWORDS.get("combos", []) or {}
+    buckets = EMOTION_KEYWORDS.get("keywords", {}) or {}
+    disamb = EMOTION_KEYWORDS.get("disambiguation", []) or {}
 
     # 2) Disambiguation rules (highest precision)
     for rule in disamb:
@@ -238,12 +231,15 @@ def detect_emotion(prompt: str, context: dict | None) -> Tuple[str, Optional[str
     if enr.get("false_friends") and _is_false_friend(p, enr["false_friends"]): # fall through to buckets without enriched scoring
         pass
     else:
-        # regex with anchor for spec in enr.get("regex", []):
-        if _matches_regex_list(p, [spec.get("pattern","")]):
-            return spec.get("anchor"), None, {}
-        # proximity pairs with anchor for spec in enr.get("proximity_pairs", []):
-        if _has_proximity(p, spec.get("a",""), spec.get("b",""), int(spec.get("window",2))):
-            return spec.get("anchor"), None, {}
+        # regex
+        for spec in enr.get("regex", []):
+            if _matches_regex_list(p, [spec.get("pattern","")]):
+                return spec.get("anchor"), None, {}
+
+        # proximity pairs
+        for spec in enr.get("proximity_pairs", []):
+            if _has_proximity(p, spec.get("a",""), spec.get("b",""), window=int(spec.get("window",2))):
+                return spec.get("anchor"), None, {}
         
     # 6) Buckets: score by keyword hits; tie-break by anchors[] order
     scores = {a: 0 for a in anchors}
