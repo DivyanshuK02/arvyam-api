@@ -2,6 +2,7 @@
   "copy_max_words": 20,
   "sympathy": {
     "edge_case": true,
+    "emotion_anchor": "Strength/Resilience",
     "copy_max_words": 18,
     "tone": "muted",
     "palette_targets": ["white", "cream", "soft-green", "eucalyptus", "ivory"],
@@ -19,6 +20,7 @@
   },
   "apology": {
     "edge_case": true,
+    "emotion_anchor": "Encouragement/Positivity",
     "copy_max_words": 20,
     "tone": "gentle",
     "palette_targets": ["white", "soft-purple", "lavender", "blush", "soft-green"],
@@ -36,6 +38,7 @@
   },
   "farewell": {
     "edge_case": true,
+    "emotion_anchor": "Strength/Resilience",
     "copy_max_words": 18,
     "tone": "warm-somber",
     "palette_targets": ["white", "cream", "eucalyptus", "soft-green", "ivory"],
@@ -53,6 +56,7 @@
   },
   "valentine": {
     "edge_case": true,
+    "emotion_anchor": "Affection/Support",
     "copy_max_words": 18,
     "tone": "romantic",
     "palette_targets": ["deep-red", "red", "ivory", "pearl"],
