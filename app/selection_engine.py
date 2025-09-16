@@ -36,104 +36,51 @@ def _load_json(path: str, default: Any) -> Any:
         return default
 
 # ------------------------------------------------------------
-# Data sources (all project-owned JSON files)
+# Load rules and data
 # ------------------------------------------------------------
 
-CATALOG = _load_json(_p("catalog.json"), [])
-RULES_DIR = _p("rules")
-EMOTION_KEYWORDS = _load_json(os.path.join(RULES_DIR, "emotion_keywords.json"), {})
-EDGES = (EMOTION_KEYWORDS or {}).get("edges", {})
-EDGE_REGISTERS = _load_json(os.path.join(RULES_DIR, "edge_registers.json"), {})
-TIER_POLICY = _load_json(os.path.join(RULES_DIR, "tier_policy.json"), {"luxury_grand": {"blocked_emotions": []}})
-SUB_NOTES = _load_json(os.path.join(RULES_DIR, "substitution_notes.json"), {"default": "Requested {from} is seasonal/unavailable; offering {alt} as the nearest alternative."})
-ANCHOR_THRESHOLDS = _load_json(os.path.join(RULES_DIR, "anchor_thresholds.json"), {})
-# Edge register keys (strict): only these four are considered "edge cases".
-EDGE_CASE_KEYS = {"sympathy", "apology", "farewell", "valentine"}
-FEATURE_MULTI_ANCHOR_LOGGING = os.getenv("FEATURE_MULTI_ANCHOR_LOGGING", "0") == "1" # Off by default
+EMOTION_KEYWORDS = _load_json(_p("emotion_keywords.json"), {})
+TIER_POLICY = _load_json(_p("rules", "tier_policy.json"), {})
+EDGE_REGISTERS = _load_json(_p("edge_registers.json"), {})
+PRODUCT_CATALOG = _load_json(_p("rules", "product_catalog.json"), [])
 
 # ------------------------------------------------------------
-# Utilities
+# Core engine functions
 # ------------------------------------------------------------
 
-TIER_ORDER = ["Classic", "Signature", "Luxury"]
-TIER_RANK = {t: i for i, t in enumerate(TIER_ORDER)}
+def normalize(prompt: str) -> str:
+    # Remove extra spaces, convert to lowercase, etc.
+    return " ".join(prompt.lower().split())
 
-ICONIC_SPECIES = {
-    "lily": ["lily", "lilies"],
-    "rose": ["rose", "roses"],
-    "orchid": ["orchid", "orchids"]
-}
+def _is_false_friend(text: str, false_friends: list) -> bool:
+    # A simple check for words that might mislead the emotion detector
+    return any(ff.lower() in text.lower() for ff in false_friends)
 
-ONLY_ICONIC_RE = re.compile(r"\bonly\s+(lil(?:y|ies)|roses?|orchids?)\b", re.I)
-
-VAGUE_TERMS = {"nice", "beautiful", "pretty", "some", "any", "simple", "best", "good", "flowers", "flower"}
-GRAND_INTENT = {"grand","bigger","large","lavish","extravagant","50+","hundred","massive","most beautiful"}
-
-def normalize(s: str) -> str:
-    s = (s or "").strip().lower()
-    s = re.sub(r"\s+", " ", s)
-    return s[:500]
-
-def _tokenize(s: str) -> List[str]:
-    return re.findall(r"[a-z]+", normalize(s))
-
-def _any_match(text: str, phrases: List[str]) -> bool:
-    t = normalize(text)
-    for p in phrases:
-        if p and normalize(p) in t:
-            return True
-    return False
-
-def _intent_clarity(prompt: str, matched_keywords: int) -> float:
-    """Return 0.0 when prompt is very generic/unclear; else 1.0."""
-    p = normalize(prompt)
-    words = re.findall(r"[a-z]+", p)
-    if matched_keywords == 0 and (len(words) <= 4 or all(w in VAGUE_TERMS for w in words)):
-        return 0.0
-    return 1.0
-
-def _has_grand_intent(prompt: str) -> bool:
-    p = normalize(prompt)
-    return any(w in p for w in GRAND_INTENT)
-
-def _add_unclear_mix_note(triad: list) -> None:
-    """Attach a single gentle clarifying note to the first MIX card, if none already."""
-    for it in triad:
-        if not it.get("mono") and not it.get("note"):
-            it["note"] = "Versatile picks while you decide — tell us the occasion for a more personal curation."
-            break
-
-def _contains_any(text: str, terms: list[str]) -> bool:
-    t = text.lower()
-    return any((term or "").lower() in t for term in (terms or []))
-
-def _matches_regex_list(text: str, patterns: list[str]) -> bool:
-    if not patterns: return False
-    for pat in patterns:
+def _matches_regex_list(text: str, regex_list: list) -> bool:
+    import re
+    for pattern in regex_list:
         try:
-            if re.search(pat, text, flags=re.I):
+            if re.search(pattern, text, flags=re.I):
                 return True
         except re.error:
             continue
     return False
 
-def _has_proximity(text: str, a: str, b: str, window: int) -> bool:
-    if not a or not b or window <= 0: return False
-    tokens = re.findall(r"\w+", text.lower())
-    pos_a = [i for i,w in enumerate(tokens) if w == a.lower()]
-    pos_b = [i for i,w in enumerate(tokens) if w == b.lower()]
-    return any(abs(i-j) <= window for i in pos_a for j in pos_b)
-
-def _is_false_friend(text: str, phrases: list[str]) -> bool:
-    return _contains_any(text, phrases or [])
-
-def _stable_hash_u32(s: str) -> int:
-    h = hashlib.sha256((s or "").encode("utf-8")).hexdigest()
-    return int(h[:8], 16)
-
-def _rotation_index(seed: str, k: int) -> int:
-    if k <= 1: return 0
-    return _stable_hash_u32(seed) % k
+def _has_proximity(hay: str, a: str, b: str, window: int = 2) -> bool:
+    # Naive proximity: ensure a and b exist and are within N tokens
+    if not a or not b:
+        return False
+    toks = hay.split()
+    try:
+        idxs_a = [i for i, t in enumerate(toks) if a in t]
+        idxs_b = [i for i, t in enumerate(toks) if b in t]
+    except Exception:
+        return False
+    for ia in idxs_a:
+        for ib in idxs_b:
+            if abs(ia - ib) <= window:
+                return True
+    return False
 
 def detect_edge_register_from_emotion_keywords(
     prompt_norm: str,
@@ -224,7 +171,7 @@ def detect_emotion(prompt: str, context: dict | None) -> Tuple[str, Optional[str
     if edge_type:
         # Return early with the canonical edge_type; anchor will be resolved later from edge_registers.
         return ("__EDGE__", edge_type, {})
-    
+
     # 1) Safe context hint (only accept known anchors)
     anchors: List[str] = EMOTION_KEYWORDS.get("anchors", []) or []
     hint = (context or {}).get("emotion_hint", "") or ""
@@ -270,12 +217,11 @@ def detect_emotion(prompt: str, context: dict | None) -> Tuple[str, Optional[str
         for spec in enr.get("regex", []):
             if _matches_regex_list(p, [spec.get("pattern","")]):
                 return spec.get("anchor"), None, {}
-
         # proximity pairs
         for spec in enr.get("proximity_pairs", []):
             if _has_proximity(p, spec.get("a",""), spec.get("b",""), window=int(spec.get("window",2))):
                 return spec.get("anchor"), None, {}
-        
+
     # 6) Buckets: score by keyword hits; tie-break by anchors[] order
     scores = {a: 0 for a in anchors}
     for a, words in (buckets or {}).items():
@@ -293,153 +239,82 @@ def detect_emotion(prompt: str, context: dict | None) -> Tuple[str, Optional[str
     
     return "general", None, {}
 
-
-def find_items_by_species(species_name: str, min_rating: int = 0) -> List[Dict[str, Any]]:
-    return [it for it in CATALOG if species_name.lower() in it.get("species_raw", "").lower() and it.get("rating", 0) >= min_rating]
-
-def find_items_by_emotion(emotion: str, min_rating: int = 0) -> List[Dict[str, Any]]:
-    return [it for it in CATALOG if emotion.lower() in (it.get("emotions") or "").lower() and it.get("rating", 0) >= min_rating]
-
-def find_iconic_species(prompt: str) -> Optional[str]:
-    """Finds a species mention in a prompt, e.g., 'rose', 'lily'."""
-    p = normalize(prompt)
-    for species, aliases in ICONIC_SPECIES.items():
-        if any(a in p for a in aliases):
-            return species
-    return None
-
-def filter_by_availability(items: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-    return [it for it in items if it.get("is_active", False) and it.get("is_available", False)]
-
-def assign_tiers(items: List[Dict[str, Any]], context: Dict[str, Any]) -> List[Dict[str, Any]]:
-    """Assigns Classic/Signature/Luxury tiers based on a deterministic hash."""
-    seed = (context.get("prompt_hash", "0") or "")
-    tier_counts = {"Classic": 1, "Signature": 1, "Luxury": 1}
-    # If there's grand intent, shift one from classic to luxury
-    if _has_grand_intent(context.get("prompt", "")):
-        tier_counts["Classic"] = 0
-        tier_counts["Luxury"] = 2
+def _filter_by_emotion_policy(items: list, emotion: Optional[str]) -> list:
+    if not emotion:
+        return items
     
-    result = []
+    blocked_items = TIER_POLICY.get("emotion_block_list", {}).get(emotion, [])
     
-    for tier in TIER_ORDER:
-        filtered = [it for it in items if it.get("tier", "").lower() == tier.lower()]
-        if not filtered:
-            continue
+    return [i for i in items if i.get("id") not in blocked_items]
 
-        for _ in range(tier_counts.get(tier, 0)):
-            idx = _rotation_index(seed + str(len(result)), len(filtered))
-            result.append(filtered[idx])
-
-    return result
-
-def curate(prompt: str, context: Dict[str, Any] | None = None) -> List[Dict[str, Any]]:
-    """Main entry point for external systems; includes all logic."""
-    context = context or {}
-    context["prompt"] = prompt
-    return selection_engine(prompt, context)
-
-def selection_engine(prompt: str, context: Dict[str, Any] | None = None) -> List[Dict[str, Any]]:
-    """
-    Core function for item selection based on emotion, species, and tiering logic.
-    Returns exactly 3 items (2 MIX, 1 MONO) with all stamping and notes applied.
-    """
-    context = context or {}
-    prompt_norm = normalize(prompt)
-    context["prompt_hash"] = hashlib.sha256(prompt_norm.encode()).hexdigest()
-
-    # Determine emotion, species, and intent
-    resolved_anchor, edge_type, _scores = detect_emotion(prompt, context or {})
-
-    # If edge short-circuited, derive anchor from edge_registers
-    if resolved_anchor == "__EDGE__":
-        edge_rules = EDGE_REGISTERS.get(edge_type, {})
-        resolved_anchor = edge_rules.get("emotion_anchor") or resolved_anchor  # fall back if misconfigured
-        is_edge = True
-    else:
-        is_edge = False
+def _filter_by_tier_rules(items: list, tier_rules: dict, selected_emotion: Optional[str]) -> list:
+    if not tier_rules:
+        return items
     
-    selected_species = find_iconic_species(prompt_norm)
-
-    # LG Policy check: block list
-    blocked = TIER_POLICY.get("luxury_grand", {}).get("blocked_emotions", [])
-    if _has_grand_intent(prompt_norm) and resolved_anchor in blocked:
-        # Fallback to general, as per LG policy
-        resolved_anchor = "general"
-
-    # Fetch items and apply filters
-    pool = filter_by_availability(CATALOG)
+    filtered = []
     
-    # Tier-based item selection (always try to return 3 items)
+    # Apply species avoid rules
+    species_avoid = tier_rules.get("species_avoid", [])
+    if species_avoid:
+        items = [i for i in items if not any(s in i.get("title", "").lower() for s in species_avoid)]
     
-    selected_items = []
+    # Apply palette avoid rules
+    palette_avoid = tier_rules.get("palette_avoid", [])
+    if palette_avoid:
+        items = [i for i in items if not any(p in i.get("palette", []) for p in palette_avoid)]
+        
+    return items
+
+def _score_and_select(items: list, tier_rules: dict) -> list:
+    scored_items = []
     
-    # 1. Species first (Mono)
-    if selected_species:
-        species_pool = find_items_by_species(selected_species, min_rating=4) # only high-rated mono
-        species_pool = filter_by_availability(species_pool)
-        if species_pool:
-            selected_items.append(species_pool[_rotation_index(context["prompt_hash"] + "_mono", len(species_pool))])
+    for item in items:
+        score = 1.0
+        
+        # Apply palette boosts
+        palette_targets = tier_rules.get("palette_targets", [])
+        palette_target_boost = tier_rules.get("palette_target_boost", 1.0)
+        
+        for p_target in palette_targets:
+            if p_target in item.get("palette", []):
+                score *= palette_target_boost
+        
+        # Apply palette penalties
+        palette_avoid = tier_rules.get("palette_avoid", [])
+        palette_avoid_penalty = tier_rules.get("palette_avoid_penalty", 1.0)
+        
+        for p_avoid in palette_avoid:
+            if p_avoid in item.get("palette", []):
+                score *= palette_avoid_penalty
+        
+        # Apply species boosts
+        species_prefer = tier_rules.get("species_prefer", [])
+        species_prefer_boost = tier_rules.get("species_prefer_boost", 1.0)
+        
+        for s_prefer in species_prefer:
+            if s_prefer in item.get("species_list", []):
+                score *= species_prefer_boost
+                
+        # Apply species penalties
+        species_avoid = tier_rules.get("species_avoid", [])
+        species_avoid_penalty = tier_rules.get("species_avoid_penalty", 1.0)
 
-    # 2. Emotion-based items (MIX)
-    emotion_pool = find_items_by_emotion(resolved_anchor, min_rating=0)
-    emotion_pool = filter_by_availability(emotion_pool)
+        for s_avoid in species_avoid:
+            if s_avoid in item.get("species_list", []):
+                score *= species_avoid_penalty
+
+        # Apply LG multiplier
+        lg_weight_multiplier = tier_rules.get("lg_weight_multiplier", 1.0)
+        if item.get("luxury_grand"):
+            score *= lg_weight_multiplier
+        
+        item["score"] = score
+        scored_items.append(item)
     
-    # Ensure we have at least 2 items for the MIX and fill up if needed
-    mix_items = []
-    if emotion_pool:
-        # Get up to two items from the emotion pool
-        idx1 = _rotation_index(context["prompt_hash"] + "_mix1", len(emotion_pool))
-        mix_items.append(emotion_pool[idx1])
-        if len(emotion_pool) > 1:
-            idx2 = _rotation_index(context["prompt_hash"] + "_mix2", len(emotion_pool))
-            if idx1 == idx2: # simple collision avoidance
-                idx2 = (idx2 + 1) % len(emotion_pool)
-            mix_items.append(emotion_pool[idx2])
-
-    # If not enough items, fill with classic
-    while len(mix_items) < 2:
-        classic_pool = find_items_by_emotion("general", min_rating=0) # or any other default
-        if classic_pool:
-            mix_items.append(classic_pool[_rotation_index(context["prompt_hash"] + f"_fill{len(mix_items)}", len(classic_pool))])
-        else:
-            break
-            
-    selected_items.extend(mix_items)
-
-    # 3. Handle total item count
-    if len(selected_items) < 3:
-        # Fallback to general if we're still short
-        general_pool = find_items_by_emotion("general", min_rating=0)
-        while len(selected_items) < 3 and general_pool:
-            selected_items.append(general_pool[_rotation_index(context["prompt_hash"] + f"_final_fill{len(selected_items)}", len(general_pool))])
-
-    # Assign tiers
-    final_triad = assign_tiers(selected_items, context)
+    # Sort by score in descending order
+    scored_items.sort(key=lambda x: x["score"], reverse=True)
     
-    # Add notes to items if needed
-    find_and_assign_note(final_triad, selected_species, resolved_anchor)
-
-    # Final stamping (exactly once)
-    for it in final_triad:
-        it["emotion"]  = resolved_anchor
-        it["edge_case"] = is_edge
-        it["edge_type"] = edge_type if is_edge else None
-        # Copy cap only when edge is active and rules specify a cap
-        it["desc"] = _enforce_copy_limit(it.get("desc",""), edge_type if is_edge else None)
-    
-    return final_triad
-
-def find_and_assign_note(triad: list, selected_species: Optional[str], selected_emotion: Optional[str]) -> None:
-    """Attaches a substitution note if a requested species wasn't found."""
-    found_species = any(it.get("species_raw", "").lower() == selected_species for it in triad) if selected_species else False
-    
-    if selected_species and not found_species:
-        substitution_note = SUB_NOTES.get("species_not_found", "We couldn't find a {species} bouquet at the moment; offering a similar style.")
-        substitution_note = substitution_note.replace("{species}", selected_species)
-        triad[0]["note"] = substitution_note
-    elif _intent_clarity(triad[0].get("prompt",""), 1) == 0:
-        _add_unclear_mix_note(triad)
+    return scored_items
 
 def _enforce_copy_limit(text: str, edge_type: Optional[str]) -> str:
     """
@@ -457,6 +332,71 @@ def _enforce_copy_limit(text: str, edge_type: Optional[str]) -> str:
     if len(words) <= max_words:
         return text or ""
     return " ".join(words[:max_words]).rstrip() + "…"
+
+
+def selection_engine(prompt: str, context: dict) -> list:
+    resolved_anchor, edge_type, _scores = detect_emotion(prompt, context or {})
+
+    # If edge short-circuited, derive anchor from edge_registers
+    if resolved_anchor == "__EDGE__":
+        edge_rules = EDGE_REGISTERS.get(edge_type, {})
+        resolved_anchor = edge_rules.get("emotion_anchor") or resolved_anchor  # fall back if misconfigured
+        is_edge = True
+    else:
+        is_edge = False
+    
+    all_items = PRODUCT_CATALOG[:]
+    
+    # Filter items based on emotion blocklist
+    items_filtered = _filter_by_emotion_policy(all_items, resolved_anchor)
+
+    # Filter items based on tier rules
+    if is_edge:
+        edge_rules = EDGE_REGISTERS.get(edge_type, {})
+        items_filtered = _filter_by_tier_rules(items_filtered, edge_rules, resolved_anchor)
+    
+    # Score items
+    scored_items = _score_and_select(items_filtered, EDGE_REGISTERS.get(edge_type, {}))
+
+    selected_items = []
+    
+    # Select 2 MIX and 1 MONO
+    mix_items = [i for i in scored_items if not i.get("mono")]
+    mono_items = [i for i in scored_items if i.get("mono")]
+
+    # Enforce mono_must_include for edge cases
+    if is_edge:
+        edge_rules = EDGE_REGISTERS.get(edge_type, {})
+        mono_must_include_species = edge_rules.get("mono_must_include", [])
+        if mono_must_include_species:
+            mono_items = [i for i in mono_items if any(s in i.get("species_list", []) for s in mono_must_include_species)]
+    
+    if mix_items:
+        selected_items.extend(mix_items[:2])
+    if mono_items:
+        selected_items.extend(mono_items[:1])
+    
+    if len(selected_items) < 3:
+        # Fallback to general selection if not enough items
+        fallback_items = [i for i in PRODUCT_CATALOG if not i.get("mono")]
+        fallback_items.sort(key=lambda x: x.get("score", 0), reverse=True)
+        mix_count = min(2, len(fallback_items))
+        selected_items.extend(fallback_items[:mix_count])
+        
+        fallback_mono = [i for i in PRODUCT_CATALOG if i.get("mono")]
+        fallback_mono.sort(key=lambda x: x.get("score", 0), reverse=True)
+        mono_count = min(1, len(fallback_mono))
+        selected_items.extend(fallback_mono[:mono_count])
+    
+    # Final stamping (exactly once)
+    for it in selected_items:
+        it["emotion"] = resolved_anchor
+        it["edge_case"] = is_edge
+        it["edge_type"] = edge_type if is_edge else None
+        # Copy cap only when edge is active and rules specify a cap
+        it["desc"] = _enforce_copy_limit(it.get("desc", ""), edge_type if is_edge else None)
+        
+    return selected_items
 
 # FastAPI endpoints
 app = FastAPI()
