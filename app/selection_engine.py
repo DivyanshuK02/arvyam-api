@@ -184,7 +184,8 @@ def detect_edge_register(prompt: str) -> Optional[str]:
 def detect_emotion(prompt: str, context: dict | None) -> Tuple[str, Optional[str], Dict[str, float]]:
     p = normalize(prompt)
 
-    # Edge registers short-circuit routing; item stamping uses this edge_type exactly once. Canary tests (CI): one exact/regex/proximity sample per register; fail CI if any canary stops matching.
+    # Edge registers short-circuit routing; item stamping uses this edge_type exactly once.
+    # Canary tests (CI): one exact/regex/proximity sample per register; fail CI if any canary stops matching.
     edge_type = detect_edge_register(p)
     if edge_type:
         resolved_anchor = EDGE_REGISTERS.get(edge_type, {}).get("emotion_anchor", None)
@@ -295,8 +296,9 @@ def _truncate_words(text: str, max_words: int) -> str:
 
 def _enforce_copy_limit(desc: str, edge_type: Optional[str]) -> str:
     """
-    If edge_type is one of {sympathy, apology, farewell, valentine},
-    clamp desc to that register's copy_max_words; otherwise return as-is.
+    Truncates `text` to the copy_max_words for the given edge_type.
+    Pass the register key (e.g., "sympathy", "apology", "farewell", "valentine") or None.
+    Caps to Phase-1 hard fence (≤20 words). Called only when an edge case is active.
     """
     if not edge_type:
         return desc
@@ -648,7 +650,7 @@ def selection_engine(prompt: str, context: Optional[Dict[str, Any]] = None) -> L
                 tiers_present.add(tier)
 
     # Ensure we have exactly one per tier (drop extras if any weirdness)
-    triad = _order_by_tier({t: max([i for i in triad if i.get("tier")==t], key=lambda x: x.get("_score", 0.0)) for t in TIER_ORDER if any(i.get("tier")==t for i in triad)}.values())  # type: ignore
+    triad = list({t: max([i for i in triad if i.get("tier")==t], key=lambda x: x.get("_score", 0.0)) for t in TIER_ORDER if any(i.get("tier")==t for i in triad)}.values())  # type: ignore
 
     # Strong iconic override: try to replace the mono slot with the iconic species mono when present
     if iconic_intent:
