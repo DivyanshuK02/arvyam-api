@@ -1,8 +1,8 @@
 # app/selection_engine.py
-# Ultra-beginner-safe Selection Engine — Phase 1.2 + 1.3 (Edge-Case Playbooks)
-# - Deterministic, rules-first; strict tier scaffold (Classic → Signature → Luxury).
+# Ultra-beginner-safe Selection Engine â€" Phase 1.2 + 1.3 (Edge-Case Playbooks)
+# - Deterministic, rules-first; strict tier scaffold (Classic â†' Signature â†' Luxury).
 # - Always returns exactly 3 items (2 MIX + 1 MONO) with palette[].
-# - Edge registers (sympathy/apology/farewell/valentine): tone/palette/species rules and copy ≤ N words.
+# - Edge registers (sympathy/apology/farewell/valentine): tone/palette/species rules and copy â‰¤ N words.
 # - LG policy: emotion block-list from rules/tier_policy.json and soft multipliers in registers (intent-only; no numeric budgets in code).
 # - External contract: export curate(), selection_engine(), normalize(), detect_emotion().
 #
@@ -101,7 +101,7 @@ def _add_unclear_mix_note(triad: list) -> None:
     """Attach a single gentle clarifying note to the first MIX card, if none already."""
     for it in triad:
         if not it.get("mono") and not it.get("note"):
-            it["note"] = "Versatile picks while you decide — tell us the occasion for a more personal curation."
+            it["note"] = "Versatile picks while you decide â€" tell us the occasion for a more personal curation."
             break
 
 def _contains_any(text: str, terms: list[str]) -> bool:
@@ -140,39 +140,13 @@ def _truncate_words(text: str, max_words: int) -> str:
     words = [w for w in (text or "").split()]
     if len(words) <= max_words:
         return text or ""
-    return " ".join(words[:max_words]).rstrip() + "…"
+    return " ".join(words[:max_words]).rstrip() + "â€¦"
 
-
-def detect_edge_register(prompt: str) -> str | None:
-    p = normalize(prompt)
-    if not p: return None
-    order = ["sympathy","apology","farewell","valentine"]
-    for key in order:
-        enr = EDGES.get(key, {}) or {}
-
-        # False friends gate
-        if _is_false_friend(p, enr.get("false_friends")):
-            continue
-
-        # Exact phrases
-        exact = enr.get("exact", [])
-        if exact and _contains_any(p, exact):
-            return key
-
-        # contains_any
-        if enr.get("contains_any") and _contains_any(p, enr["contains_any"]):
-            return key
-
-        # regex
-        if enr.get("regex") and _matches_regex_list(p, enr["regex"]):
-            return key
-
-        # proximity pairs
-        prox = enr.get("proximity_pairs") or []
-        for pair in prox:
-            if _has_proximity(p, pair.get("a",""), pair.get("b",""), int(pair.get("window",2))):
-                return key
-    return None
+def _suppress_recent(items: list[dict], recent_set: set[str]) -> list[dict]:
+    if not recent_set:
+        return items
+    # Keep order, drop anything recently shown
+    return [it for it in items if str(it.get("id", "")) not in recent_set]
 
 def detect_emotion(prompt: str, context: dict | None) -> Tuple[str, Optional[str], Dict[str, float]]:
     """
@@ -246,7 +220,7 @@ def detect_emotion(prompt: str, context: dict | None) -> Tuple[str, Optional[str
         if terms and all(t in p for t in terms):
             return combo.get("anchor"), None, {}
 
-    # 5) Enriched (optional) — regex & proximity_pairs
+    # 5) Enriched (optional) â€" regex & proximity_pairs
     enr = EMOTION_KEYWORDS.get("enriched", {}) or {}
     if enr.get("false_friends") and _is_false_friend(p, enr["false_friends"]): # fall through to buckets without enriched scoring
         pass
@@ -279,21 +253,6 @@ def detect_emotion(prompt: str, context: dict | None) -> Tuple[str, Optional[str
     return "general", None, {}
 
 
-def find_items_by_species(species_name: str, min_rating: int = 0) -> List[Dict[str, Any]]:
-    """Match against the catalog's `flowers` list, case-insensitive."""
-    q = (species_name or "").strip().lower()
-    res = []
-    for it in CATALOG:
-        for f in it.get("flowers", []):
-            if q == str(f).lower():
-                if it.get("rating", 0) >= min_rating:
-                    res.append(it)
-                break
-    return res
-
-def find_items_by_emotion(emotion: str, min_rating: int = 0) -> List[Dict[str, Any]]:
-    return [it for it in CATALOG if emotion.lower() in (it.get("emotions") or "").lower() and it.get("rating", 0) >= min_rating]
-
 def find_iconic_species(prompt: str) -> Optional[str]:
     """Finds a species mention in a prompt, e.g., 'rose', 'lily'."""
     p = normalize(prompt)
@@ -303,66 +262,50 @@ def find_iconic_species(prompt: str) -> Optional[str]:
     return None
 
 def filter_by_availability(items: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-    """Return only items considered selectable. If the catalog doesn't carry
-    availability flags, default to True (back-compat)."""
-    if not items:
-        return []
-    out = []
-    for it in items:
-        active = it.get("is_active", True)
-        avail  = it.get("is_available", True)
-        if active and avail:
-            out.append(it)
-    return out
+    """
+    Missing flags are treated as available (True) so legacy catalog entries are not filtered out.
+    """
+    return [it for it in items if it.get("is_active", True) and it.get("is_available", True)]
 
 def assign_tiers(items: List[Dict[str, Any]], context: Dict[str, Any]) -> List[Dict[str, Any]]:
-    """Assigns Classic/Signature/Luxury tiers deterministically; pads to 3 items."""
+    """
+    Deterministic tier pick with duplicate-avoidance and padding to exactly 3 cards.
+    """
     seed = (context.get("prompt_hash", "0") or "")
     tier_counts = {"Classic": 1, "Signature": 1, "Luxury": 1}
     if _has_grand_intent(context.get("prompt", "")):
         tier_counts["Classic"] = 0
-        tier_counts["Luxury"]  = 2
+        tier_counts["Luxury"] = 2
 
     result: List[Dict[str, Any]] = []
-    used_ids: set[str] = set()
+    seen_ids = set()
 
-    # pick per tier, clamped
+    # primary selection by tier
     for tier in TIER_ORDER:
-        bucket = [it for it in items if str(it.get("tier", "")).lower() == tier.lower()]
-        if not bucket:
-            continue
+        bucket = [it for it in items if (it.get("tier", "") or "").lower() == tier.lower()]
         take = min(tier_counts.get(tier, 0), len(bucket))
-        if take <= 0:
-            continue
-        # deterministic picks with simple duplicate avoidance
-        cursor_seed = seed + f"::{tier}::"
-        cursor = 0
-        for _ in range(take):
-            idx = _rotation_index(cursor_seed + str(cursor), len(bucket))
+        for i in range(take):
+            idx = _rotation_index(f"{seed}:{tier}:{i}", len(bucket))
             pick = bucket[idx]
-            # nudge if duplicate id
-            nudge = 0
-            while pick.get("id") in used_ids and nudge < len(bucket):
+            # simple de-dupe by object id()
+            safety = 0
+            while id(pick) in seen_ids and safety < len(bucket):
                 idx = (idx + 1) % len(bucket)
                 pick = bucket[idx]
-                nudge += 1
+                safety += 1
+            if id(pick) in seen_ids:
+                continue
+            seen_ids.add(id(pick))
             result.append(pick)
-            used_ids.add(pick.get("id"))
-            cursor += 1
 
-    # pad to 3 if still short (use any remaining items)
+    # pad to exactly 3 using any remaining items
     if len(result) < 3:
-        remainder = [it for it in items if it.get("id") not in used_ids]
-        cursor = 0
-        while len(result) < 3 and remainder:
-            idx = _rotation_index(seed + f"::pad::{cursor}", len(remainder))
-            pick = remainder.pop(idx)
-            if pick.get("id") not in used_ids:
-                result.append(pick)
-                used_ids.add(pick.get("id"))
-            cursor += 1
+        pool = [it for it in items if id(it) not in seen_ids]
+        while len(result) < 3 and pool:
+            idx = _rotation_index(f"{seed}:pad:{len(result)}", len(pool))
+            result.append(pool.pop(idx))
 
-    return result
+    return result[:3]
 
 def curate(prompt: str, context: Dict[str, Any] | None = None) -> List[Dict[str, Any]]:
     """Main entry point for external systems; includes all logic."""
@@ -379,6 +322,11 @@ def selection_engine(prompt: str, context: Dict[str, Any] | None = None) -> List
     prompt_norm = normalize(prompt)
     context["prompt_hash"] = hashlib.sha256(prompt_norm.encode()).hexdigest()
 
+    # Suppress recent items at the top of pipeline
+    recent_ids = (context or {}).get("recent_ids") or []
+    recent_set = {rid for rid in recent_ids if isinstance(rid, str)}
+    catalog = _suppress_recent(list(CATALOG), recent_set)
+
     # Determine emotion, species, and intent
     resolved_anchor, edge_type, _scores = detect_emotion(prompt, context or {})
     is_edge = edge_type is not None
@@ -391,8 +339,8 @@ def selection_engine(prompt: str, context: Dict[str, Any] | None = None) -> List
         # Fallback to general, as per LG policy
         resolved_anchor = "general"
 
-    # Fetch items and apply filters
-    pool = filter_by_availability(CATALOG)
+    # Fetch items and apply filters (using suppressed catalog)
+    pool = filter_by_availability(catalog)
     
     # Tier-based item selection (always try to return 3 items)
     
@@ -400,13 +348,13 @@ def selection_engine(prompt: str, context: Dict[str, Any] | None = None) -> List
     
     # 1. Species first (Mono)
     if selected_species:
-        species_pool = find_items_by_species(selected_species, min_rating=4) # only high-rated mono
+        species_pool = [it for it in catalog if _has_species_match(it, selected_species) and it.get("rating", 0) >= 4]
         species_pool = filter_by_availability(species_pool)
         if species_pool:
             selected_items.append(species_pool[_rotation_index(context["prompt_hash"] + "_mono", len(species_pool))])
 
     # 2. Emotion-based items (MIX)
-    emotion_pool = find_items_by_emotion(resolved_anchor, min_rating=0)
+    emotion_pool = [it for it in catalog if _has_emotion_match(it, resolved_anchor)]
     emotion_pool = filter_by_availability(emotion_pool)
     
     # Ensure we have at least 2 items for the MIX and fill up if needed
@@ -423,7 +371,7 @@ def selection_engine(prompt: str, context: Dict[str, Any] | None = None) -> List
 
     # If not enough items, fill with classic
     while len(mix_items) < 2:
-        classic_pool = find_items_by_emotion("general", min_rating=0) # or any other default
+        classic_pool = [it for it in catalog if _has_emotion_match(it, "general")]
         if classic_pool:
             mix_items.append(classic_pool[_rotation_index(context["prompt_hash"] + f"_fill{len(mix_items)}", len(classic_pool))])
         else:
@@ -434,9 +382,16 @@ def selection_engine(prompt: str, context: Dict[str, Any] | None = None) -> List
     # 3. Handle total item count
     if len(selected_items) < 3:
         # Fallback to general if we're still short
-        general_pool = find_items_by_emotion("general", min_rating=0)
+        general_pool = [it for it in catalog if _has_emotion_match(it, "general")]
         while len(selected_items) < 3 and general_pool:
             selected_items.append(general_pool[_rotation_index(context["prompt_hash"] + f"_final_fill{len(selected_items)}", len(general_pool))])
+
+    # Final fallback: pad with any available items if still < 3
+    if len(selected_items) < 3:
+        fallback_pool = filter_by_availability(catalog)
+        while len(selected_items) < 3 and fallback_pool:
+            idx = _rotation_index(context["prompt_hash"] + f"_any{len(selected_items)}", len(fallback_pool))
+            selected_items.append(fallback_pool.pop(idx))
 
     # Assign tiers
     final_triad = assign_tiers(selected_items, context)
@@ -454,6 +409,28 @@ def selection_engine(prompt: str, context: Dict[str, Any] | None = None) -> List
     
     return final_triad
 
+def _has_species_match(item: Dict[str, Any], species_name: str) -> bool:
+    s = (species_name or "").lower()
+    # primary: catalog["flowers"] is a list
+    for f in item.get("flowers", []) or []:
+        if (f or "").lower() == s:
+            return True
+    # fallback: legacy text field
+    raw = (item.get("species_raw") or "").lower()
+    return s in raw if raw else False
+
+def _has_emotion_match(item: Dict[str, Any], emotion: str) -> bool:
+    target = (emotion or "").lower()
+    v = item.get("emotion")
+    if isinstance(v, str) and target in v.lower():
+        return True
+    v = item.get("emotions")
+    if isinstance(v, str) and target in v.lower():
+        return True
+    if isinstance(v, list) and any(target == (x or "").lower() for x in v):
+        return True
+    return False
+
 def find_and_assign_note(triad: list, selected_species: Optional[str], selected_emotion: Optional[str]) -> None:
     """Attaches a substitution note if a requested species wasn't found."""
     found_species = any(selected_species in it.get("flowers", []) for it in triad) if selected_species else False
@@ -469,7 +446,7 @@ def _enforce_copy_limit(text: str, edge_type: Optional[str]) -> str:
     """
     Truncates `text` to the copy_max_words for the given edge_type.
     Pass the register key (e.g., "sympathy", "apology", "farewell", "valentine") or None.
-    Caps to Phase-1 hard fence (≤20 words). Called only when an edge case is active.
+    Caps to Phase-1 hard fence (â‰¤20 words). Called only when an edge case is active.
     """
     max_words = 20  # hard fence
     if edge_type:
@@ -480,7 +457,7 @@ def _enforce_copy_limit(text: str, edge_type: Optional[str]) -> str:
     words = [w for w in (text or "").split()]
     if len(words) <= max_words:
         return text or ""
-    return " ".join(words[:max_words]).rstrip() + "…"
+    return " ".join(words[:max_words]).rstrip() + "â€¦"
 
 # FastAPI endpoints
 app = FastAPI()
