@@ -295,31 +295,60 @@ def detect_emotion(prompt: str, context: dict | None) -> Tuple[str, Optional[str
 
 
 def find_items_by_species(species_name: str, min_rating: int = 0) -> List[Dict[str, Any]]:
-    # ... (rest of the code below this line is truncated for brevity)
-    pass
+    return [it for it in CATALOG if species_name.lower() in it.get("species_raw", "").lower() and it.get("rating", 0) >= min_rating]
 
 def find_items_by_emotion(emotion: str, min_rating: int = 0) -> List[Dict[str, Any]]:
-    # ...
-    pass
+    return [it for it in CATALOG if emotion.lower() in (it.get("emotions") or "").lower() and it.get("rating", 0) >= min_rating]
 
 def find_iconic_species(prompt: str) -> Optional[str]:
-    # ...
-    pass
+    """Finds a species mention in a prompt, e.g., 'rose', 'lily'."""
+    p = normalize(prompt)
+    for species, aliases in ICONIC_SPECIES.items():
+        if any(a in p for a in aliases):
+            return species
+    return None
 
 def filter_by_availability(items: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-    # ...
-    pass
+    return [it for it in items if it.get("is_active", False) and it.get("is_available", False)]
 
 def assign_tiers(items: List[Dict[str, Any]], context: Dict[str, Any]) -> List[Dict[str, Any]]:
-    # ...
-    pass
+    """Assigns Classic/Signature/Luxury tiers based on a deterministic hash."""
+    seed = (context.get("prompt_hash", "0") or "")
+    tier_counts = {"Classic": 1, "Signature": 1, "Luxury": 1}
+    # If there's grand intent, shift one from classic to luxury
+    if _has_grand_intent(context.get("prompt", "")):
+        tier_counts["Classic"] = 0
+        tier_counts["Luxury"] = 2
+    
+    result = []
+    
+    for tier in TIER_ORDER:
+        filtered = [it for it in items if it.get("tier", "").lower() == tier.lower()]
+        if not filtered:
+            continue
+
+        for _ in range(tier_counts.get(tier, 0)):
+            idx = _rotation_index(seed + str(len(result)), len(filtered))
+            result.append(filtered[idx])
+
+    return result
 
 def curate(prompt: str, context: Dict[str, Any] | None = None) -> List[Dict[str, Any]]:
-    # ...
-    pass
+    """Main entry point for external systems; includes all logic."""
+    context = context or {}
+    context["prompt"] = prompt
+    return selection_engine(prompt, context)
 
 def selection_engine(prompt: str, context: Dict[str, Any] | None = None) -> List[Dict[str, Any]]:
-    # ...
+    """
+    Core function for item selection based on emotion, species, and tiering logic.
+    Returns exactly 3 items (2 MIX, 1 MONO) with all stamping and notes applied.
+    """
+    context = context or {}
+    prompt_norm = normalize(prompt)
+    context["prompt_hash"] = hashlib.sha256(prompt_norm.encode()).hexdigest()
+
+    # Determine emotion, species, and intent
     resolved_anchor, edge_type, _scores = detect_emotion(prompt, context or {})
 
     # If edge short-circuited, derive anchor from edge_registers
@@ -330,22 +359,87 @@ def selection_engine(prompt: str, context: Dict[str, Any] | None = None) -> List
     else:
         is_edge = False
     
-    # ... your scoring/selection happens here, yielding selected_items (2 MIX + 1 MONO)
+    selected_species = find_iconic_species(prompt_norm)
+
+    # LG Policy check: block list
+    blocked = TIER_POLICY.get("luxury_grand", {}).get("blocked_emotions", [])
+    if _has_grand_intent(prompt_norm) and resolved_anchor in blocked:
+        # Fallback to general, as per LG policy
+        resolved_anchor = "general"
+
+    # Fetch items and apply filters
+    pool = filter_by_availability(CATALOG)
+    
+    # Tier-based item selection (always try to return 3 items)
+    
     selected_items = []
+    
+    # 1. Species first (Mono)
+    if selected_species:
+        species_pool = find_items_by_species(selected_species, min_rating=4) # only high-rated mono
+        species_pool = filter_by_availability(species_pool)
+        if species_pool:
+            selected_items.append(species_pool[_rotation_index(context["prompt_hash"] + "_mono", len(species_pool))])
+
+    # 2. Emotion-based items (MIX)
+    emotion_pool = find_items_by_emotion(resolved_anchor, min_rating=0)
+    emotion_pool = filter_by_availability(emotion_pool)
+    
+    # Ensure we have at least 2 items for the MIX and fill up if needed
+    mix_items = []
+    if emotion_pool:
+        # Get up to two items from the emotion pool
+        idx1 = _rotation_index(context["prompt_hash"] + "_mix1", len(emotion_pool))
+        mix_items.append(emotion_pool[idx1])
+        if len(emotion_pool) > 1:
+            idx2 = _rotation_index(context["prompt_hash"] + "_mix2", len(emotion_pool))
+            if idx1 == idx2: # simple collision avoidance
+                idx2 = (idx2 + 1) % len(emotion_pool)
+            mix_items.append(emotion_pool[idx2])
+
+    # If not enough items, fill with classic
+    while len(mix_items) < 2:
+        classic_pool = find_items_by_emotion("general", min_rating=0) # or any other default
+        if classic_pool:
+            mix_items.append(classic_pool[_rotation_index(context["prompt_hash"] + f"_fill{len(mix_items)}", len(classic_pool))])
+        else:
+            break
+            
+    selected_items.extend(mix_items)
+
+    # 3. Handle total item count
+    if len(selected_items) < 3:
+        # Fallback to general if we're still short
+        general_pool = find_items_by_emotion("general", min_rating=0)
+        while len(selected_items) < 3 and general_pool:
+            selected_items.append(general_pool[_rotation_index(context["prompt_hash"] + f"_final_fill{len(selected_items)}", len(general_pool))])
+
+    # Assign tiers
+    final_triad = assign_tiers(selected_items, context)
+    
+    # Add notes to items if needed
+    find_and_assign_note(final_triad, selected_species, resolved_anchor)
 
     # Final stamping (exactly once)
-    for it in selected_items:
+    for it in final_triad:
         it["emotion"]  = resolved_anchor
         it["edge_case"] = is_edge
         it["edge_type"] = edge_type if is_edge else None
         # Copy cap only when edge is active and rules specify a cap
         it["desc"] = _enforce_copy_limit(it.get("desc",""), edge_type if is_edge else None)
     
-    return selected_items
+    return final_triad
 
 def find_and_assign_note(triad: list, selected_species: Optional[str], selected_emotion: Optional[str]) -> None:
-    # ...
-    pass
+    """Attaches a substitution note if a requested species wasn't found."""
+    found_species = any(it.get("species_raw", "").lower() == selected_species for it in triad) if selected_species else False
+    
+    if selected_species and not found_species:
+        substitution_note = SUB_NOTES.get("species_not_found", "We couldn't find a {species} bouquet at the moment; offering a similar style.")
+        substitution_note = substitution_note.replace("{species}", selected_species)
+        triad[0]["note"] = substitution_note
+    elif _intent_clarity(triad[0].get("prompt",""), 1) == 0:
+        _add_unclear_mix_note(triad)
 
 def _enforce_copy_limit(text: str, edge_type: Optional[str]) -> str:
     """
