@@ -34,6 +34,108 @@
     "Selflessness/Generosity": 20,
     "Fun/Humor": 10
   },
+  "edges": {
+    "sympathy": {
+      "false_friends": [
+        "sorry I’m late",
+        "sorry not sorry"
+      ],
+      "exact": [
+        "sorry for your loss",
+        "my condolences"
+      ],
+      "contains_any": [
+        "condolences",
+        "loss of",
+        "passed away",
+        "bereavement"
+      ],
+      "regex": [
+        "\\bsympath(y|ies)\\b"
+      ],
+      "proximity_pairs": [
+        {
+          "a": "sorry",
+          "b": "loss",
+          "window": 3
+        }
+      ]
+    },
+    "apology": {
+      "false_friends": [
+        "apology tour"
+      ],
+      "exact": [
+        "I sincerely apologize",
+        "please forgive me"
+      ],
+      "contains_any": [
+        "apologize",
+        "apologies",
+        "my fault",
+        "I’m sorry"
+      ],
+      "regex": [
+        "\\bapolog(y|ise|ize)(s|d)?\\b"
+      ],
+      "proximity_pairs": [
+        {
+          "a": "truly",
+          "b": "sorry",
+          "window": 3
+        }
+      ]
+    },
+    "farewell": {
+      "false_friends": [
+        "farewell sale"
+      ],
+      "exact": [
+        "goodbye and good luck",
+        "we’ll miss you"
+      ],
+      "contains_any": [
+        "farewell",
+        "goodbye",
+        "sendoff",
+        "offboarding"
+      ],
+      "regex": [
+        "\\b(farewell|good\\s*bye)\\b"
+      ],
+      "proximity_pairs": [
+        {
+          "a": "goodbye",
+          "b": "team",
+          "window": 4
+        }
+      ]
+    },
+    "valentine": {
+      "false_friends": [
+        "valentine offer",
+        "valentine sale"
+      ],
+      "exact": [
+        "be my valentine"
+      ],
+      "contains_any": [
+        "valentine",
+        "sweetheart",
+        "my valentine"
+      ],
+      "regex": [
+        "\\bvalentine'?s?\\b"
+      ],
+      "proximity_pairs": [
+        {
+          "a": "love",
+          "b": "valentine",
+          "window": 4
+        }
+      ]
+    }
+  },
   "exact": {
     "romantic bouquet": "Affection/Support",
     "romantic anniversary": "Affection/Support",
@@ -487,102 +589,5 @@
         "anchor": "Encouragement/Positivity"
       }
     ]
-  },
-  "edges": {
-    "sympathy": {
-      "exact": [
-        "i'm so sorry for your loss",
-        "sorry for your loss",
-        "condolences",
-        "my deepest sympathies"
-      ],
-      "contains_any": [
-        "bereavement",
-        "condolence",
-        "grieving",
-        "passed away"
-      ],
-      "regex": [
-        {
-          "pattern": "\\b(sorry|condolence[s]?)\\b.*\\bloss\\b"
-        }
-      ],
-      "proximity_pairs": [
-        {
-          "a": "sorry",
-          "b": "loss",
-          "window": 4
-        }
-      ]
-    },
-    "apology": {
-      "exact": [
-        "i’m sorry",
-        "i am sorry"
-      ],
-      "contains_any": [
-        "apologize",
-        "my fault",
-        "forgive me"
-      ],
-      "regex": [
-        {
-          "pattern": "\\b(apolog(y|ise|ize))\\b"
-        }
-      ],
-      "proximity_pairs": [
-        {
-          "a": "sorry",
-          "b": "behavior",
-          "window": 5
-        }
-      ]
-    },
-    "farewell": {
-      "exact": [
-        "goodbye",
-        "farewell"
-      ],
-      "contains_any": [
-        "miss you",
-        "take care",
-        "moving away"
-      ],
-      "regex": [
-        {
-          "pattern": "\\b(farewell|good\\s*bye)\\b"
-        }
-      ],
-      "proximity_pairs": [
-        {
-          "a": "goodbye",
-          "b": "friend",
-          "window": 4
-        }
-      ]
-    },
-    "valentine": {
-      "exact": [
-        "be my valentine",
-        "happy valentine's day"
-      ],
-      "contains_any": [
-        "valentine",
-        "sweetheart",
-        "my love"
-      ],
-      "regex": [
-        {
-          "pattern": "\\bvalentine'?s?\\b"
-        }
-      ],
-      "proximity_pairs": [
-        {
-          "a": "love",
-          "b": "valentine",
-          "window": 5
-        }
-      ]
-    }
   }
 }
