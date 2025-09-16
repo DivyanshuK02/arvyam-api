@@ -147,34 +147,41 @@ def detect_edge_register(prompt: str) -> Optional[str]:
     if not p:
         return None
 
-    # Priority order
-    for key in ("sympathy", "apology", "farewell", "valentine"):
-        enr = EDGE_KEYWORDS.get(f"{key}_enriched") or {}
+    # Priority order from JSON (sympathy > apology > farewell > valentine)
+    # The keys in `EDGE_KEYWORDS` have the `-enriched` suffix
+    priority_keys = EDGE_KEYWORDS.get("priority", {})
+    sorted_keys = sorted(priority_keys.keys(), key=lambda k: priority_keys[k], reverse=True)
 
-        # Block false-friends first
+    for key in sorted_keys:
+        enr_key = f"{key}_enriched"
+        enr = EDGE_KEYWORDS.get(enr_key) or {}
+
+        # 0) Block false-friends first
         if _is_false_friend(p, enr.get("false_friends")):
             continue
 
-        # Enriched: exact
+        # 1) Exact match (highest precision)
         if _contains_any(p, enr.get("exact") or []):
             return key
 
-        # Enriched: contains_any
+        # 2) Contains any
         if _contains_any(p, enr.get("contains_any") or []):
             return key
 
-        # Enriched: regex
+        # 3) Regex match
         if _matches_regex_list(p, enr.get("regex") or []):
             return key
 
-        # Enriched: proximity
-        prox = enr.get("proximity") or {}
-        a, b = prox.get("a"), prox.get("b")
-        window = int(prox.get("window", 0) or 0)
-        if a and b and window and _has_proximity(p, a, b, window):
-            return key
+        # 4) Proximity match
+        prox = enr.get("proximity_pairs")
+        if isinstance(prox, list):
+            for pair in prox:
+                a, b = pair.get("a"), pair.get("b")
+                window = int(pair.get("window", 0) or 0)
+                if a and b and window and _has_proximity(p, a, b, window):
+                    return key
 
-        # Legacy fallback (simple array kept for backward-compat)
+        # 5) Legacy fallback
         base = EDGE_KEYWORDS.get(key)
         if isinstance(base, list) and base and _contains_any(p, base):
             return key
