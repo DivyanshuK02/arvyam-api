@@ -39,8 +39,6 @@
     "romantic anniversary": "Affection/Support",
     "wedding anniversary": "Affection/Support",
     "she is feeling lovely": "Affection/Support",
-    "feeling lovely": "Affection/Support",
-    "be my valentine": "Affection/Support",
     "date night": "Affection/Support",
     "work anniversary": "Loyalty/Dependability",
     "years of service": "Loyalty/Dependability",
@@ -53,7 +51,6 @@
     "get well soon": "Encouragement/Positivity",
     "stay strong": "Strength/Resilience",
     "wishing you recovery": "Strength/Resilience",
-    "speedy recovery": "Strength/Resilience",
     "after surgery": "Strength/Resilience",
     "teacher appreciation": "Intellect/Wisdom",
     "congrats on your thesis": "Intellect/Wisdom",
@@ -68,16 +65,13 @@
     "deepest thanks": "Selflessness/Generosity",
     "truly appreciate it": "Selflessness/Generosity",
     "fun birthday": "Fun/Humor",
-    "birthday fun": "Fun/Humor",
     "party vibes": "Fun/Humor",
     "make it fun": "Fun/Humor",
     "surprise me": "Fun/Humor",
     "she had a tough week": "Encouragement/Positivity",
-    "i am sorry for his loss": "Strength/Resilience",
     "make her smile": "Fun/Humor",
     "cheer her up": "Encouragement/Positivity",
-    "message of courage": "Strength/Resilience",
-    "a quiet thank you for my mentor": "Intellect/Wisdom"
+    "message of courage": "Strength/Resilience"
   },
   "combos": [
     {
@@ -110,13 +104,6 @@
     },
     {
       "all": [
-        "speedy",
-        "recovery"
-      ],
-      "anchor": "Strength/Resilience"
-    },
-    {
-      "all": [
         "after",
         "surgery"
       ],
@@ -145,24 +132,10 @@
     },
     {
       "all": [
-        "birthday",
-        "fun"
-      ],
-      "anchor": "Fun/Humor"
-    },
-    {
-      "all": [
         "team",
         "support"
       ],
       "anchor": "Loyalty/Dependability"
-    },
-    {
-      "all": [
-        "feeling",
-        "lovely"
-      ],
-      "anchor": "Affection/Support"
     },
     {
       "all": [
@@ -473,11 +446,22 @@
     "false_friends": [
       "love this product",
       "funeral party",
-      "sorry not sorry"
+      "sorry not sorry",
+      "goodbye 2024",
+      "goodbye summer",
+      "farewell tour",
+      "farewell sale"
     ],
     "sympathy": {
-      "exact": ["sorry for your loss", "my condolences", "our deepest sympathy"],
-      "contains_any": ["sorry for your loss", "my condolences"],
+      "exact": [
+        "sorry for your loss",
+        "my condolences",
+        "our deepest sympathy"
+      ],
+      "contains_any": [
+        "sorry for your loss",
+        "my condolences"
+      ],
       "regex": [
         "\\bpassed away\\b",
         "\\brest in peace\\b",
@@ -497,16 +481,37 @@
       ]
     },
     "apology": {
-      "exact": ["i'm so sorry"],
-      "contains_any": ["i'm sorry", "apologize", "forgive me", "my bad"]
+      "exact": [
+        "i'm so sorry"
+      ],
+      "contains_any": [
+        "i'm sorry",
+        "apologize",
+        "forgive me",
+        "my bad"
+      ]
     },
     "farewell": {
-      "exact": ["goodbye", "farewell"],
-      "contains_any": ["goodbye", "farewell", "moving away"]
+      "exact": [
+        "goodbye",
+        "farewell"
+      ],
+      "contains_any": [
+        "goodbye",
+        "farewell",
+        "moving away"
+      ]
     },
     "valentine": {
-      "exact": ["be my valentine"],
-      "contains_any": ["valentine", "sweetheart", "be mine", "valentine's"],
+      "exact": [
+        "be my valentine"
+      ],
+      "contains_any": [
+        "valentine",
+        "sweetheart",
+        "be mine",
+        "valentine's"
+      ],
       "regex": [
         "\\bmy valentine\\b"
       ],
@@ -555,5 +560,191 @@
         "anchor": "Adventurous/Creativity"
       }
     ]
+  },
+  "edges": {
+    "sympathy": {
+      "exact": [
+        "sorry for your loss",
+        "my condolences",
+        "our condolences",
+        "deepest condolences",
+        "heartfelt condolences",
+        "with sympathy",
+        "rest in peace",
+        "gone too soon"
+      ],
+      "contains_any": [
+        "condolence",
+        "condolences",
+        "bereavement",
+        "mourning",
+        "grieving",
+        "passed away",
+        "has passed",
+        "passing",
+        "tragic loss",
+        "demise",
+        "funeral",
+        "wake"
+      ],
+      "regex": [
+        "\\bloss of\\s+(?:my|your|his|her|their)\\b",
+        "\\brest\\s+in\\s+peace\\b",
+        "\\bpassed\\s+(?:away|on)\\b",
+        "\\brip\\b"
+      ],
+      "proximity_pairs": [
+        {
+          "a": "sorry",
+          "b": "loss",
+          "window": 4
+        },
+        {
+          "a": "deepest",
+          "b": "condolences",
+          "window": 3
+        }
+      ],
+      "false_friends": [
+        "sorry i am late",
+        "sorry i'm late",
+        "sorry to bother",
+        "sorry for the inconvenience",
+        "sorry not sorry"
+      ]
+    },
+    "apology": {
+      "exact": [
+        "i am sorry",
+        "i'm sorry",
+        "i apologize",
+        "my apologies",
+        "please forgive me",
+        "accept my apology",
+        "let me make it up to you"
+      ],
+      "contains_any": [
+        "remorse",
+        "regret",
+        "apology",
+        "apologise",
+        "apologize",
+        "my fault",
+        "my mistake",
+        "i was wrong",
+        "messed up",
+        "screwed up",
+        "amends"
+      ],
+      "regex": [
+        "\\b(i\\s*am|i'?m)\\s+sorry\\b",
+        "\\bplease\\s+forgive\\s+me\\b",
+        "\\bmy\\s+(?:fault|mistake)\\b"
+      ],
+      "proximity_pairs": [
+        {
+          "a": "sorry",
+          "b": "again",
+          "window": 3
+        },
+        {
+          "a": "make",
+          "b": "amends",
+          "window": 2
+        }
+      ],
+      "false_friends": [
+        "sorry not sorry"
+      ]
+    },
+    "farewell": {
+      "exact": [
+        "farewell",
+        "goodbye",
+        "good bye",
+        "bon voyage",
+        "adieu",
+        "last working day",
+        "we will miss you",
+        "farewell party"
+      ],
+      "contains_any": [
+        "moving on",
+        "moving to",
+        "new chapter",
+        "next chapter",
+        "retiring",
+        "retirement",
+        "resigning",
+        "transfer",
+        "handover",
+        "promotion",
+        "send-off",
+        "send off",
+        "parting"
+      ],
+      "regex": [
+        "\\blast\\s+(?:day|working\\s+day)\\b",
+        "\\bcongrats?\\s+on\\s+the\\s+new\\s+role\\b",
+        "\\bmoving\\s+(?:on|to)\\b"
+      ],
+      "proximity_pairs": [
+        {
+          "a": "best",
+          "b": "luck",
+          "window": 2
+        },
+        {
+          "a": "all",
+          "b": "best",
+          "window": 2
+        }
+      ],
+      "false_friends": [
+        "goodbye 2024",
+        "goodbye summer",
+        "farewell tour",
+        "farewell sale"
+      ]
+    },
+    "valentine": {
+      "exact": [
+        "valentine",
+        "valentines",
+        "valentine's",
+        "valentine's day",
+        "be my valentine",
+        "v-day",
+        "vday"
+      ],
+      "contains_any": [
+        "cupid",
+        "be mine",
+        "sweetheart",
+        "my love",
+        "romantic date",
+        "date night"
+      ],
+      "regex": [
+        "\\bfeb(?:\\.|ruary)?\\s*14\\b",
+        "\\b14\\s*(?:/|\\s)\\s*2\\b"
+      ],
+      "proximity_pairs": [
+        {
+          "a": "be",
+          "b": "valentine",
+          "window": 2
+        },
+        {
+          "a": "date",
+          "b": "night",
+          "window": 2
+        }
+      ],
+      "false_friends": [
+        "love the color",
+        "love this product"
+      ]
+    }
   }
 }
