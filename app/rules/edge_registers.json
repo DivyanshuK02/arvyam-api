@@ -1,11 +1,12 @@
 {
   "copy_max_words": 20,
+
   "sympathy": {
     "edge_case": true,
     "emotion_anchor": "Strength/Resilience",
     "copy_max_words": 18,
     "tone": "muted",
-    "palette_targets": ["white", "cream", "soft-green", "eucalyptus", "ivory"],
+    "palette_targets": ["white", "cream", "ivory", "soft-green", "eucalyptus"],
     "palette_avoid": ["neon", "neon-mixed", "electric", "bright-yellow"],
     "palette_target_boost": 1.15,
     "palette_avoid_penalty": 0.90,
@@ -16,14 +17,15 @@
     "lg_weight_multiplier": 0.0,
     "allow_lg_in_mix": false,
     "allow_lg_in_mono": false,
-    "exclude_title_keywords": ["birthday", "celebrate", "party"]
+    "exclude_title_keywords": ["birthday", "celebrate", "party", "valentine"]
   },
+
   "apology": {
     "edge_case": true,
     "emotion_anchor": "Encouragement/Positivity",
     "copy_max_words": 20,
     "tone": "gentle",
-    "palette_targets": ["white", "soft-purple", "lavender", "blush", "soft-green"],
+    "palette_targets": ["white", "lavender", "soft-purple", "blush", "soft-green"],
     "palette_avoid": ["neon", "neon-mixed", "electric"],
     "palette_target_boost": 1.10,
     "palette_avoid_penalty": 0.92,
@@ -36,12 +38,13 @@
     "allow_lg_in_mono": false,
     "exclude_title_keywords": ["birthday", "party", "congrats", "festival"]
   },
+
   "farewell": {
     "edge_case": true,
     "emotion_anchor": "Strength/Resilience",
     "copy_max_words": 18,
     "tone": "warm-somber",
-    "palette_targets": ["white", "cream", "eucalyptus", "soft-green", "ivory"],
+    "palette_targets": ["white", "cream", "ivory", "eucalyptus", "soft-green"],
     "palette_avoid": ["neon", "neon-mixed", "electric"],
     "palette_target_boost": 1.12,
     "palette_avoid_penalty": 0.90,
@@ -54,6 +57,7 @@
     "allow_lg_in_mono": false,
     "exclude_title_keywords": ["birthday", "celebrate", "party"]
   },
+
   "valentine": {
     "edge_case": true,
     "emotion_anchor": "Affection/Support",
@@ -70,6 +74,6 @@
     "lg_weight_multiplier": 1.00,
     "allow_lg_in_mix": true,
     "allow_lg_in_mono": true,
-    "exclude_title_keywords": ["get-well", "recovery", "farewell", "sorry for your loss"]
+    "exclude_title_keywords": ["get-well", "recovery", "farewell", "sorry for your loss", "sympathy"]
   }
 }
