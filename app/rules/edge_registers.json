@@ -1,6 +1,5 @@
 {
   "copy_max_words": 20,
-
   "sympathy": {
     "edge_case": true,
     "emotion_anchor": "Strength/Resilience",
@@ -19,7 +18,6 @@
     "allow_lg_in_mono": false,
     "exclude_title_keywords": ["birthday", "celebrate", "party", "valentine"]
   },
-
   "apology": {
     "edge_case": true,
     "emotion_anchor": "Encouragement/Positivity",
@@ -38,10 +36,9 @@
     "allow_lg_in_mono": false,
     "exclude_title_keywords": ["birthday", "party", "congrats", "festival"]
   },
-
   "farewell": {
     "edge_case": true,
-    "emotion_anchor": "Strength/Resilience",
+    "emotion_anchor": "Loyalty/Dependability",
     "copy_max_words": 18,
     "tone": "warm-somber",
     "palette_targets": ["white", "cream", "ivory", "eucalyptus", "soft-green"],
@@ -57,7 +54,6 @@
     "allow_lg_in_mono": false,
     "exclude_title_keywords": ["birthday", "celebrate", "party"]
   },
-
   "valentine": {
     "edge_case": true,
     "emotion_anchor": "Affection/Support",
