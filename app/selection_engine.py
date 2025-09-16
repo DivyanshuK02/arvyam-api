@@ -157,13 +157,12 @@ def detect_emotion(prompt: str, context: dict | None) -> Tuple[str, Optional[str
     for edge_type, rules in (EDGES or {}).items():
         # exact
         for phrase in rules.get("exact", []) or []:
-            if phrase and phrase in p:
+            if phrase and phrase.lower() in p:
                 return EDGE_REGISTERS.get(edge_type, {}).get("emotion_anchor"), edge_type, {}
 
         # contains_any
-        for token in rules.get("contains_any", []) or []:
-            if token and token in p:
-                return EDGE_REGISTERS.get(edge_type, {}).get("emotion_anchor"), edge_type, {}
+        if any(token and token.lower() in p for token in rules.get("contains_any", []) or []):
+            return EDGE_REGISTERS.get(edge_type, {}).get("emotion_anchor"), edge_type, {}
 
         # regex (list of pattern strings OR {"pattern": ...})
         regex_list = rules.get("regex", []) or []
@@ -249,7 +248,16 @@ def detect_emotion(prompt: str, context: dict | None) -> Tuple[str, Optional[str
 
 
 def find_items_by_species(species_name: str, min_rating: int = 0) -> List[Dict[str, Any]]:
-    return [it for it in CATALOG if species_name.lower() in it.get("species_raw", "").lower() and it.get("rating", 0) >= min_rating]
+    """Match against the catalog's `flowers` list, case-insensitive."""
+    q = (species_name or "").strip().lower()
+    res = []
+    for it in CATALOG:
+        for f in it.get("flowers", []):
+            if q == str(f).lower():
+                if it.get("rating", 0) >= min_rating:
+                    res.append(it)
+                break
+    return res
 
 def find_items_by_emotion(emotion: str, min_rating: int = 0) -> List[Dict[str, Any]]:
     return [it for it in CATALOG if emotion.lower() in (it.get("emotions") or "").lower() and it.get("rating", 0) >= min_rating]
@@ -263,27 +271,64 @@ def find_iconic_species(prompt: str) -> Optional[str]:
     return None
 
 def filter_by_availability(items: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-    return [it for it in items if it.get("is_active", False) and it.get("is_available", False)]
+    """Return only items considered selectable. If the catalog doesn't carry
+    availability flags, default to True (back-compat)."""
+    if not items:
+        return []
+    out = []
+    for it in items:
+        active = it.get("is_active", True)
+        avail  = it.get("is_available", True)
+        if active and avail:
+            out.append(it)
+    return out
 
 def assign_tiers(items: List[Dict[str, Any]], context: Dict[str, Any]) -> List[Dict[str, Any]]:
-    """Assigns Classic/Signature/Luxury tiers based on a deterministic hash."""
+    """Assigns Classic/Signature/Luxury tiers deterministically; pads to 3 items."""
     seed = (context.get("prompt_hash", "0") or "")
     tier_counts = {"Classic": 1, "Signature": 1, "Luxury": 1}
-    # If there's grand intent, shift one from classic to luxury
     if _has_grand_intent(context.get("prompt", "")):
         tier_counts["Classic"] = 0
-        tier_counts["Luxury"] = 2
-    
-    result = []
-    
-    for tier in TIER_ORDER:
-        filtered = [it for it in items if it.get("tier", "").lower() == tier.lower()]
-        if not filtered:
-            continue
+        tier_counts["Luxury"]  = 2
 
-        for _ in range(tier_counts.get(tier, 0)):
-            idx = _rotation_index(seed + str(len(result)), len(filtered))
-            result.append(filtered[idx])
+    result: List[Dict[str, Any]] = []
+    used_ids: set[str] = set()
+
+    # pick per tier, clamped
+    for tier in TIER_ORDER:
+        bucket = [it for it in items if str(it.get("tier", "")).lower() == tier.lower()]
+        if not bucket:
+            continue
+        take = min(tier_counts.get(tier, 0), len(bucket))
+        if take <= 0:
+            continue
+        # deterministic picks with simple duplicate avoidance
+        cursor_seed = seed + f"::{tier}::"
+        cursor = 0
+        for _ in range(take):
+            idx = _rotation_index(cursor_seed + str(cursor), len(bucket))
+            pick = bucket[idx]
+            # nudge if duplicate id
+            nudge = 0
+            while pick.get("id") in used_ids and nudge < len(bucket):
+                idx = (idx + 1) % len(bucket)
+                pick = bucket[idx]
+                nudge += 1
+            result.append(pick)
+            used_ids.add(pick.get("id"))
+            cursor += 1
+
+    # pad to 3 if still short (use any remaining items)
+    if len(result) < 3:
+        remainder = [it for it in items if it.get("id") not in used_ids]
+        cursor = 0
+        while len(result) < 3 and remainder:
+            idx = _rotation_index(seed + f"::pad::{cursor}", len(remainder))
+            pick = remainder.pop(idx)
+            if pick.get("id") not in used_ids:
+                result.append(pick)
+                used_ids.add(pick.get("id"))
+            cursor += 1
 
     return result
 
@@ -379,7 +424,7 @@ def selection_engine(prompt: str, context: Dict[str, Any] | None = None) -> List
 
 def find_and_assign_note(triad: list, selected_species: Optional[str], selected_emotion: Optional[str]) -> None:
     """Attaches a substitution note if a requested species wasn't found."""
-    found_species = any(it.get("species_raw", "").lower() == selected_species for it in triad) if selected_species else False
+    found_species = any(selected_species in it.get("flowers", []) for it in triad) if selected_species else False
     
     if selected_species and not found_species:
         substitution_note = SUB_NOTES.get("species_not_found", "We couldn't find a {species} bouquet at the moment; offering a similar style.")
