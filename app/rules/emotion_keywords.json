@@ -470,6 +470,59 @@
     }
   ],
   "enriched": {
+    "false_friends": [
+      "love this product",
+      "funeral party",
+      "sorry not sorry"
+    ],
+    "sympathy": {
+      "exact": ["sorry for your loss", "my condolences", "our deepest sympathy"],
+      "contains_any": ["sorry for your loss", "my condolences"],
+      "regex": [
+        "\\bpassed away\\b",
+        "\\brest in peace\\b",
+        "\\bour thoughts are with you\\b"
+      ],
+      "proximity_pairs": [
+        {
+          "a": "sorry",
+          "b": "loss",
+          "window": 3
+        },
+        {
+          "a": "deepest",
+          "b": "sympathy",
+          "window": 2
+        }
+      ]
+    },
+    "apology": {
+      "exact": ["i'm so sorry"],
+      "contains_any": ["i'm sorry", "apologize", "forgive me", "my bad"]
+    },
+    "farewell": {
+      "exact": ["goodbye", "farewell"],
+      "contains_any": ["goodbye", "farewell", "moving away"]
+    },
+    "valentine": {
+      "exact": ["be my valentine"],
+      "contains_any": ["valentine", "sweetheart", "be mine", "valentine's"],
+      "regex": [
+        "\\bmy valentine\\b"
+      ],
+      "proximity_pairs": [
+        {
+          "a": "happy",
+          "b": "valentine",
+          "window": 2
+        },
+        {
+          "a": "my",
+          "b": "love",
+          "window": 3
+        }
+      ]
+    },
     "regex": [
       {
         "pattern": "\\bdate\\s*night\\b",
@@ -501,11 +554,6 @@
         "window": 3,
         "anchor": "Adventurous/Creativity"
       }
-    ],
-    "false_friends": [
-      "love this product",
-      "funeral party",
-      "sorry not sorry"
     ]
   }
 }
