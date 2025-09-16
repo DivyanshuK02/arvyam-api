@@ -450,7 +450,7 @@ def selection_engine(prompt: str, context: Dict[str, Any] | None = None) -> List
         it["edge_case"] = is_edge
         it["edge_type"] = edge_type if is_edge else None
         # Copy cap only when edge is active and rules specify a cap
-        it["desc"] = _enforce_copy_limit(it.get("desc",""), edge_type if is_edge else None)
+        it["desc"] = _enforce_copy_limit(it.get("desc",""), edge_type)
     
     return final_triad
 
