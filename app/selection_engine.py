@@ -225,6 +225,15 @@ def _pick_mono_slot(available: list[dict], selected_species: str|None, edge_type
     if selected_species:
         sp = [it for it in pool if _has_species_match(it, selected_species)]
         if sp: pool = sp
+
+    # Respect LG policy for mono under the active edge (minimal: allow/deny)
+    if edge_type:
+        regs = EDGE_REGISTERS.get(edge_type, {}) or {}
+        lg_policy = regs.get("lg_policy", "allow")
+        allow_lg_mono = bool(regs.get("allow_lg_in_mono", True))
+        if lg_policy == "block" or not allow_lg_mono:
+            pool = [it for it in pool if not it.get("luxury_grand")]
+
     if not pool: return None
     idx = _rotation_index("mono:"+_stable_id(pool[0]), len(pool))
     mono_item = pool[idx]
@@ -359,10 +368,9 @@ def detect_emotion(prompt: str, context: dict | None) -> Tuple[str, Optional[str
     if resolved_anchor == "general" and len(sorted_scores) > 1:
         resolved_anchor = sorted_scores[1][0]
 
-    # Enforce LG block list policy
+    # Enforce LG block list policy (only when grand intent is present)
     blocked = TIER_POLICY.get("luxury_grand", {}).get("blocked_emotions", [])
-
-    if resolved_anchor in blocked:
+    if _has_grand_intent(prompt) and resolved_anchor in blocked:
         resolved_anchor = next((a for a,_ in sorted_scores if a not in blocked), "general")
 
     # Ambiguity safety net
@@ -386,10 +394,17 @@ def assign_tiers(triad: List[Dict[str, Any]], context: Dict[str, Any]) -> List[D
     final_triad = []
     
     mono_item = next((it for it in triad if it.get("mono")), None)
-    if mono_item:
-        mono_item["tier"] = "Signature"
-        final_triad.append(mono_item)
-        
+    if not mono_item:
+        # Defensive: assign Signature to first, Classic/Luxury to rest deterministically
+        triad = list(triad)
+        if len(triad) >= 1: triad[0]["tier"] = "Signature"
+        if len(triad) >= 2: triad[1]["tier"] = "Classic"
+        if len(triad) >= 3: triad[2]["tier"] = "Luxury"
+        return sorted(triad[:3], key=lambda x: TIER_RANK.get(x.get("tier"), 99))
+    
+    mono_item["tier"] = "Signature"
+    final_triad.append(mono_item)
+    
     mix_items = [it for it in triad if not it.get("mono")]
     
     if len(mix_items) == 2:
@@ -464,6 +479,9 @@ def selection_engine(prompt: str, context: Dict[str, Any]) -> List[Dict[str, Any
     is_edge = edge_type is not None
     selected_species = find_iconic_species(prompt_norm)
     
+    # Persist resolved anchor in context for downstream use
+    context["resolved_anchor"] = resolved_anchor
+
     # Fixed: Use defensive context access to prevent KeyError
     ph = (context or {}).get("prompt_hash", "")
     seed = ph or "seed"
@@ -510,10 +528,26 @@ def selection_engine(prompt: str, context: Dict[str, Any]) -> List[Dict[str, Any
 
     # B) Handle substitutions & notes (copy, not price)
     find_and_assign_note(final_triad, selected_species, resolved_anchor, prompt_text=context.get("prompt",""))
+    if not _intent_clarity(prompt, len(_scores)):
+        _add_unclear_mix_note(final_triad)
 
     # 4. Filter by suppress list
     if context.get("recent_ids"):
         final_triad = _suppress_recent(final_triad, set(context["recent_ids"]))
+        if len(final_triad) < 3:
+            # Backfill deterministically from emotion/general/any
+            seen = {str(it.get("id","")) for it in final_triad}
+            seed = (context or {}).get("prompt_hash","") or "seed"
+            # Try same-anchor pool first
+            refill_pool = [it for it in CATALOG if _has_emotion_match(it, context.get("resolved_anchor","general"))]
+            final_triad.extend(_pick_mix_slots(refill_pool, 3 - len(final_triad), seed, seen))
+            if len(final_triad) < 3:
+                general_pool = [it for it in CATALOG if _has_emotion_match(it, "general")]
+                final_triad.extend(_pick_mix_slots(general_pool, 3 - len(final_triad), seed, seen))
+            if len(final_triad) < 3:
+                final_triad.extend(_pick_mix_slots(CATALOG, 3 - len(final_triad), seed, seen))
+            _ensure_triad_or_500(final_triad)
+
 
     # 5. Add meta info + logging
     # ---- Phase-1.4a meta + logs (flag-gated) ----
@@ -531,8 +565,12 @@ def selection_engine(prompt: str, context: Dict[str, Any]) -> List[Dict[str, Any
             "edges": {"case": is_edge, "type": edge_type},
             "near_tie": near_tie_compact
         }
-        # NOTE: send to your existing logger or append to a file; keep ≤300 bytes for 'near_tie'
-        print(json.dumps(log_record, ensure_ascii=False))  # example sink
+        log.info(json.dumps(log_record, ensure_ascii=False))  # example sink
+
+    # Guarantee emotion on each card for API schema; fallback to detected anchor
+    for it in final_triad:
+        if not it.get("emotion"):
+            it["emotion"] = context.get("resolved_anchor", "general")
 
     # 6. Transform and return
     # No transform here, handled by the calling endpoint to make the endpoint logic more clear
