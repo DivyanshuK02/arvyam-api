@@ -33,7 +33,7 @@ def _load_json(path: str, default: Any) -> Any:
     try:
         with open(path, "r", encoding="utf-8") as f:
             return json.load(f)
-    except (FileNotFoundnoError, json.JSONDecodeError):
+    except (FileNotFoundError, json.JSONDecodeError):
         return default
 
 # ------------------------------------------------------------
@@ -458,7 +458,7 @@ def selection_engine(prompt: str, context: Dict[str, Any]) -> List[Dict[str, Any
             "near_tie": near_tie_compact
         }
         # NOTE: send to your existing logger or append to a file; keep ≤300 bytes for 'near_tie'
-        # print(json.dumps(log_record, ensure_ascii=False))  # example sink
+        print(json.dumps(log_record, ensure_ascii=False))  # example sink
 
     # 6. Transform and return
     payload = _transform_for_api(final_triad)
@@ -477,9 +477,32 @@ async def curate_post(q: Optional[str] = Query(None), prompt: Optional[str] = Qu
     text = (q or prompt or "").strip()
     if not text:
         raise HTTPException(status_code=400, detail="Invalid input")
-    context = {"recent_ids": recent_ids}
+    
+    # Generate a stable hash for the prompt
+    prompt_hash = hashlib.sha256(text.encode("utf-8")).hexdigest()
+
+    context = {
+        "recent_ids": recent_ids,
+        "prompt": text,
+        "prompt_hash": prompt_hash,
+        "ts": None, # or a timestamp if you have one
+        "request_id": None # or a request id if you have one
+    }
+    
     items = selection_engine(text, context)
-    return {"items": items, "edge_case": any(i.get("edge_case") for i in items)}
+    
+    resp = {"items": items, "edge_case": any(i.get("edge_case") for i in items)}
+    cfg = (ANCHOR_THRESHOLDS.get("multi_anchor_logging") or {})
+    if FEATURE_MULTI_ANCHOR_LOGGING and cfg.get("emit_header", False):
+        meta = context.get("__meta_detected_emotions") or []
+        if meta:
+            # e.g., "Fun/Humor:0.68,Affection/Support:0.56"
+            header_val = ",".join(f"{m['anchor']}:{m['score']}" for m in meta[:2])
+            from fastapi import Response
+            resp_obj = Response(content=json.dumps(resp))
+            resp_obj.headers["X-Detected-Emotions"] = header_val
+            return resp_obj
+    return resp
 
 # Alias the existing endpoints to also work with the /api prefix
 @app.post("/api/curate", tags=["public"])
@@ -489,12 +512,22 @@ async def curate_post_api(q: Optional[str] = Query(None), prompt: Optional[str] 
 @app.get("/curate", tags=["public"])
 async def curate_get(q: Optional[str] = Query(None), prompt: Optional[str] = Query(None), recent_ids: Optional[List[str]] = Query(None)):
     text = (q or prompt or "").strip()
+    if not text:
+        raise HTTPException(status_code=400, detail="Invalid input")
 
-    # The following code block is for the FastAPI endpoints as requested by the user.
-    # It assumes the existence of the `selection_engine` function and other modules
-    # and should be placed in the main FastAPI application file.
+    # Generate a stable hash for the prompt
+    prompt_hash = hashlib.sha256(text.encode("utf-8")).hexdigest()
 
-    # 4) Endpoint header (QA-only) — inside your FastAPI endpoints
+    context = {
+        "recent_ids": recent_ids,
+        "prompt": text,
+        "prompt_hash": prompt_hash,
+        "ts": None, # or a timestamp if you have one
+        "request_id": None # or a request id if you have one
+    }
+    
+    items = selection_engine(text, context)
+    
     resp = {"items": items, "edge_case": any(i.get("edge_case") for i in items)}
     cfg = (ANCHOR_THRESHOLDS.get("multi_anchor_logging") or {})
     if FEATURE_MULTI_ANCHOR_LOGGING and cfg.get("emit_header", False):
