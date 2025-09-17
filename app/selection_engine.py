@@ -400,49 +400,58 @@ def assign_tiers(triad: List[Dict[str, Any]], context: Dict[str, Any]) -> List[D
     final_triad.sort(key=lambda x: TIER_RANK.get(x.get("tier"), 99))
     return final_triad
 
-def find_and_assign_note(triad: list, selected_species: Optional[str], selected_emotion: Optional[str], prompt_text: str = "") -> None:
+def find_and_assign_note(triad: list, selected_species: Optional[str],
+                         selected_emotion: Optional[str], prompt_text: str = "") -> None:
+    # Only handles "species not found" for now
     found_species = any(selected_species in it.get("flowers", []) for it in triad) if selected_species else False
     if selected_species and not found_species:
-        substitution_note = SUB_NOTES.get("species_not_found", "We couldn't find a {species} bouquet at the moment; offering a similar style.")
-        triad[0]["note"] = substitution_note.replace("{species}", selected_species)
+        note = SUB_NOTES.get(
+            "species_not_found",
+            "We couldn't find a {species} bouquet at the moment; offering a similar style."
+        ).replace("{species}", selected_species)
 
-def _transform_for_api(items: List[dict]) -> List[dict]:
-    """Map catalog fields to public API schema. No behavior change to selection."""
-    out = []
-    for it in items:
-        # image: always use image_url if image missing
+        # Prefer attaching to a MIX (non-mono) card; fall back to Classic → Luxury → any
+        target = next((it for it in triad if not it.get("mono")), None)
+        if target is None:
+            # all mono? unlikely, but be safe
+            target = triad[0] if triad else None
+
+        if target is not None:
+            target["note"] = note
+
+
+def _transform_for_api(items: list[dict], resolved_anchor: str | None = None) -> list[dict]:
+    out: list[dict] = []
+    for it in items or []:
         image = it.get("image") or it.get("image_url")
-        # price: prefer price_inr (catalog), fall back to price if present
         price = it.get("price_inr") if it.get("price_inr") is not None else it.get("price")
-        # currency: default to INR when price is present and currency is absent
         currency = it.get("currency") or ("INR" if price is not None else None)
 
-        mapped = {
-            "id": it.get("id"),
-            "title": it.get("title"),
-            "desc": it.get("desc"),
-            "image": image,
-            "price": price,
-            "currency": currency,
-            "emotion": it.get("emotion"),
-            "tier": it.get("tier"),
-            "packaging": it.get("packaging"),
-            "mono": bool(it.get("mono", False)),
-            "palette": it.get("palette") or [],
-            "luxury_grand": bool(it.get("luxury_grand", False)),
-            "seasonal": bool(it.get("seasonal", False)),
-            "flowers": it.get("flowers") or [],
-            "weight": it.get("weight"),
-            "edge_case": bool(it.get("edge_case", False)),
-        }
+        if not image or price is None or not currency:
+            print(f"[ERROR] schema map fail id={it.get('id')} image={bool(image)} price={price} currency={currency}")
+            continue
 
-        # Minimal self-check to fail fast during QA:
-        if not mapped["image"] or mapped["price"] is None or not mapped["currency"]:
-            # Log concrete details server-side for debugging
-            print(f"[ERROR] Schema mapping failed for item {mapped.get('id')}: image={bool(mapped['image'])}, price={mapped['price']}, currency={mapped['currency']}")
-            raise HTTPException(status_code=500, detail="Internal catalog data error")
-        out.append(mapped)
-    return out
+        it_out = dict(it)
+        it_out["image"] = image
+        it_out["price"] = price
+        it_out["currency"] = currency
+        
+        # ensure an 'emotion' field per item (fallback to resolved anchor on the item if absent)
+        em = it_out.get("emotion") or it_out.get("emotions")
+        if isinstance(em, list) and em:
+            it_out["emotion"] = em[0]
+        elif isinstance(em, str) and em.strip():
+            it_out["emotion"] = em.strip()
+        else:
+            it_out["emotion"] = resolved_anchor
+
+        out.append(it_out)
+
+    # Self-heal to 3 items; if impossible, fail fast with 500
+    if len(out) >= 3:
+        return out[:3]
+    log.error(f"[ERROR] transform produced only {len(out)} items")
+    raise HTTPException(status_code=500, detail="Internal catalog data error")
 
 
 def selection_engine(prompt: str, context: Dict[str, Any]) -> List[Dict[str, Any]]:
@@ -493,7 +502,13 @@ def selection_engine(prompt: str, context: Dict[str, Any]) -> List[Dict[str, Any
 
     final_triad = assign_tiers(triad, context)  # preserves 3 cards; keep 'mono' flags on items
 
-    # 3. Handle substitutions & notes (copy, not price)
+    # A) Stamp edge metadata on items
+    if is_edge:
+        for it in final_triad:
+            it["edge_case"] = True
+            it["edge_type"] = edge_type
+
+    # B) Handle substitutions & notes (copy, not price)
     find_and_assign_note(final_triad, selected_species, resolved_anchor, prompt_text=context.get("prompt",""))
 
     # 4. Filter by suppress list
@@ -557,7 +572,7 @@ async def curate_post(req: CurateRequest):
     }
 
     triad = selection_engine(prompt, context)
-    items = _transform_for_api(triad)  # <-- canonical field mapping
+    items = _transform_for_api(triad, resolved_anchor=context.get("resolved_anchor"))  # Pass resolved_anchor
 
     payload = {
         "items": items,
