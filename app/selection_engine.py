@@ -324,7 +324,7 @@ def detect_emotion(prompt: str, context: dict | None) -> Tuple[str, Optional[str
         # exact
         for phrase in (rules.get("exact") or []):
             if phrase and phrase.lower() in p:
-                anchor = (EDGE_REGISTERS.get(edge_type, {}) or {}).get("emotion_anchor", "general")
+                anchor = (EDGE_REGISTers.get(edge_type, {}) or {}).get("emotion_anchor", "general")
                 return anchor, edge_type, {}
         # contains_any
         if any(tok and tok.lower() in p for tok in (rules.get("contains_any") or [])):
@@ -361,12 +361,14 @@ def detect_emotion(prompt: str, context: dict | None) -> Tuple[str, Optional[str
     if _has_grand_intent(prompt):
         scores["luxury_grand"] = scores.get("luxury_grand", 0.0) + 1.0
 
-    log.info(f"Detected scores: {scores}, blocked applied: {_has_grand_intent(prompt)}")
+    log.info(f"Pre-block scores: {scores}")
     
     # Scope LG block list policy (only when grand intent is present)
     blocked = (TIER_POLICY.get("luxury_grand", {}) or {}).get("blocked_emotions") or []
     if _has_grand_intent(prompt) and blocked:
         scores = {k: v for k, v in scores.items() if k not in blocked}
+
+    log.info(f"Post-block scores: {scores}, grand_intent: {_has_grand_intent(prompt)}")
     
     sorted_scores = sorted(scores.items(), key=lambda kv: kv[1], reverse=True)
     resolved_anchor = sorted_scores[0][0] if sorted_scores else "general"
@@ -427,22 +429,30 @@ def find_and_assign_note(triad: list, selected_species: Optional[str],
             target["note"] = note
 
 def _transform_for_api(items: List[Dict], resolved_anchor: Optional[str]) -> List[Dict]:
-    out = []
+    out: List[Dict] = []
     for it in items or []:
+        # Map fields with fallbacks
         image = it.get("image") or it.get("image_url") or ""
-        price = it.get("price") if it.get("price") is not None else it.get("price_inr", 0)
-        currency = it.get("currency") or ("INR" if price != 0 else None)
-        if not image or price == 0 or not currency:
-            log.warning(f"Invalid item: {it.get('id')}")
+        price = it.get("price") if it.get("price") is not None else it.get("price_inr")
+        currency = it.get("currency") or ("INR" if price is not None else None)
+        if not image or price is None or not currency:
+            # Log error, skip to avoid invalid item
+            log.warning(f"Invalid item in triad: {it.get('id')}")
             continue
         item = dict(it)
         item["image"] = image
         item["price"] = price
         item["currency"] = currency
         item["emotion"] = item.get("emotion") or (resolved_anchor or "general")
+        # Preserve edge stamps
+        if "edge_case" in it:
+            item["edge_case"] = it["edge_case"]
+            item["edge_type"] = it["edge_type"]
+        if "note" in it:
+            item["note"] = it["note"]
         out.append(item)
     if len(out) != 3:
-        raise HTTPException(500, "Invalid triad length")
+        raise HTTPException(status_code=500, detail="Internal catalog data error")
     return out
 
 def _take_n_wrapped(sorted_pool: list[dict], start_idx: int, n: int) -> list[dict]:
@@ -650,9 +660,8 @@ async def curate_post(req: CurateRequest):
         "request_id": str(uuid.uuid4()),
     }
     
-    log.info(f"Triad: {triad}")
-
     triad = selection_engine(prompt, context)
+    log.info(f"Triad: {triad}")
     payload_items = _transform_for_api(triad, context.get("resolved_anchor"))
 
     payload = {
