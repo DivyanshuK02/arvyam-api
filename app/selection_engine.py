@@ -353,7 +353,7 @@ def detect_emotion(prompt: str, context: dict | None) -> Tuple[str, Optional[str
     # Scope LG block list policy (only when grand intent is present)
     blocked = (TIER_POLICY.get("luxury_grand", {}) or {}).get("blocked_emotions") or []
     if _has_grand_intent(prompt) and blocked:
-        buckets = {k: v for k, v in buckets.items() if k not in blocked}
+        scores = {k: v for k, v in scores.items() if k not in blocked}
     
     for anchor, words in buckets.items():          # <-- iterate buckets, not anchors[]
         hits = 0
@@ -386,31 +386,32 @@ def find_iconic_species(prompt_norm: str) -> Optional[str]:
                 return species
     return None
 
-def assign_tiers(triad: List[Dict[str, Any]], context: Dict[str, Any]) -> List[Dict[str, Any]]:
-    """Assigns tiers based on the current rules, attempting to provide a balanced triad."""
-    final_triad = []
-    
-    mono_item = next((it for it in triad if it.get("mono")), None)
-    if not mono_item:
-        # Defensive: assign Signature to first, Classic/Luxury to rest deterministically
-        triad = list(triad)
-        if len(triad) >= 1: triad[0]["tier"] = "Signature"
-        if len(triad) >= 2: triad[1]["tier"] = "Classic"
-        if len(triad) >= 3: triad[2]["tier"] = "Luxury"
-        return sorted(triad[:3], key=lambda x: TIER_RANK.get(x.get("tier"), 99))
-    
-    mono_item["tier"] = "Signature"
-    final_triad.append(mono_item)
-    
-    mix_items = [it for it in triad if not it.get("mono")]
-    
-    if len(mix_items) == 2:
-        mix_items[0]["tier"] = "Classic"
-        mix_items[1]["tier"] = "Luxury"
-        final_triad.extend(mix_items)
-    
-    final_triad.sort(key=lambda x: TIER_RANK.get(x.get("tier"), 99))
-    return final_triad
+def assign_tiers(triad: List[Dict], context: Dict) -> List[Dict]:
+    # Count monos (should be 1, but handle 0/3 for robustness)
+    monos = [it for it in triad if it.get("mono")]
+    mixes = [it for it in triad if not it.get("mono")]
+    mono_count = len(monos)
+    if mono_count == 0:
+        # All mix; assign sequentially
+        tiers = ["Classic", "Signature", "Luxury"]
+        for i, it in enumerate(triad):
+            it["tier"] = tiers[i % 3]
+        return triad
+    elif mono_count == 1:
+        # Standard: Classic/Signature to mixes, Luxury to mono (if grand)
+        mixes[0]["tier"] = "Classic"
+        mixes[1]["tier"] = "Signature"
+        if context.get("resolved_anchor") == "luxury_grand" or _has_grand_intent(context["prompt"]):
+            monos[0]["tier"] = "Luxury"
+        else:
+            monos[0]["tier"] = "Luxury"  # Or Signature if non-grand
+        return triad
+    else:
+        # Invalid; fallback sequential
+        tiers = ["Classic", "Signature", "Luxury"]
+        for i, it in enumerate(triad):
+            it["tier"] = tiers[i % 3]
+        return triad
 
 def find_and_assign_note(triad: list, selected_species: Optional[str],
                          selected_emotion: Optional[str], prompt_text: str = "") -> None:
@@ -431,25 +432,29 @@ def find_and_assign_note(triad: list, selected_species: Optional[str],
         if target is not None:
             target["note"] = note
 
-def _transform_for_api(items: list[dict], resolved_anchor: str | None = None) -> list[dict]:
-    out: list[dict] = []
+def _transform_for_api(items: List[Dict], resolved_anchor: Optional[str]) -> List[Dict]:
+    out: List[Dict] = []
     for it in items or []:
-        image = it.get("image") or it.get("image_url")
-        # prefer price already mapped; if not, use INR
+        # Map fields with fallbacks
+        image = it.get("image") or it.get("image_url") or ""
         price = it.get("price") if it.get("price") is not None else it.get("price_inr")
         currency = it.get("currency") or ("INR" if price is not None else None)
-
         if not image or price is None or not currency:
-            # keep details server-side; client sees generic 500 via guard
+            # Log error, skip to avoid invalid item
+            log.warning(f"Invalid item in triad: {it.get('id')}")
             continue
-
         item = dict(it)
         item["image"] = image
         item["price"] = price
         item["currency"] = currency
         item["emotion"] = item.get("emotion") or (resolved_anchor or "general")
+        # Preserve edge stamps
+        if "edge_case" in it:
+            item["edge_case"] = it["edge_case"]
+            item["edge_type"] = it["edge_type"]
+        if "note" in it:
+            item["note"] = it["note"]
         out.append(item)
-
     if len(out) != 3:
         raise HTTPException(status_code=500, detail="Internal catalog data error")
     return out
