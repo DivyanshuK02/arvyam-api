@@ -349,6 +349,12 @@ def detect_emotion(prompt: str, context: dict | None) -> Tuple[str, Optional[str
     tokens = _tokenize(prompt)
     # Buckets are per-anchor keyword lists in JSON
     buckets = EMOTION_KEYWORDS.get("keywords", {}) or {}
+    
+    # Scope LG block list policy (only when grand intent is present)
+    blocked = (TIER_POLICY.get("luxury_grand", {}) or {}).get("blocked_emotions") or []
+    if _has_grand_intent(prompt) and blocked:
+        buckets = {k: v for k, v in buckets.items() if k not in blocked}
+    
     for anchor, words in buckets.items():          # <-- iterate buckets, not anchors[]
         hits = 0
         for w in (words or []):
@@ -367,15 +373,6 @@ def detect_emotion(prompt: str, context: dict | None) -> Tuple[str, Optional[str
     # If 'general' but there is another scored anchor, prefer that next best
     if resolved_anchor == "general" and len(sorted_scores) > 1:
         resolved_anchor = sorted_scores[1][0]
-
-    # Enforce LG block list policy (only when grand intent is present)
-    blocked = TIER_POLICY.get("luxury_grand", {}).get("blocked_emotions", [])
-    if _has_grand_intent(prompt) and resolved_anchor in blocked:
-        resolved_anchor = next((a for a,_ in sorted_scores if a not in blocked), "general")
-
-    # Ambiguity safety net
-    if not _intent_clarity(prompt, len(scores)):
-        resolved_anchor = "general"
 
     # At this point no edge was triggered, so edge_type stays None
     edge_type = None
@@ -434,39 +431,97 @@ def find_and_assign_note(triad: list, selected_species: Optional[str],
         if target is not None:
             target["note"] = note
 
-
 def _transform_for_api(items: list[dict], resolved_anchor: str | None = None) -> list[dict]:
     out: list[dict] = []
     for it in items or []:
         image = it.get("image") or it.get("image_url")
-        price = it.get("price_inr") if it.get("price_inr") is not None else it.get("price")
+        # prefer price already mapped; if not, use INR
+        price = it.get("price") if it.get("price") is not None else it.get("price_inr")
         currency = it.get("currency") or ("INR" if price is not None else None)
 
         if not image or price is None or not currency:
-            print(f"[ERROR] schema map fail id={it.get('id')} image={bool(image)} price={price} currency={currency}")
+            # keep details server-side; client sees generic 500 via guard
             continue
 
-        it_out = dict(it)
-        it_out["image"] = image
-        it_out["price"] = price
-        it_out["currency"] = currency
-        
-        # ensure an 'emotion' field per item (fallback to resolved anchor on the item if absent)
-        em = it_out.get("emotion") or it_out.get("emotions")
-        if isinstance(em, list) and em:
-            it_out["emotion"] = em[0]
-        elif isinstance(em, str) and em.strip():
-            it_out["emotion"] = em.strip()
-        else:
-            it_out["emotion"] = resolved_anchor
+        item = dict(it)
+        item["image"] = image
+        item["price"] = price
+        item["currency"] = currency
+        item["emotion"] = item.get("emotion") or (resolved_anchor or "general")
+        out.append(item)
 
-        out.append(it_out)
+    if len(out) != 3:
+        raise HTTPException(status_code=500, detail="Internal catalog data error")
+    return out
 
-    # Self-heal to 3 items; if impossible, fail fast with 500
-    if len(out) >= 3:
-        return out[:3]
-    log.error(f"[ERROR] transform produced only {len(out)} items")
-    raise HTTPException(status_code=500, detail="Internal catalog data error")
+def _take_n_wrapped(sorted_pool: list[dict], start_idx: int, n: int) -> list[dict]:
+    L = len(sorted_pool)
+    if L == 0:
+        return []
+    return [sorted_pool[(start_idx + i) % L] for i in range(min(n, L))]
+    
+def _backfill_to_three(items: list[dict], catalog: list[dict], context: dict) -> list[dict]:
+    """Backfills the triad to exactly 3 items after suppression."""
+    current_ids = {_stable_id(it) for it in items}
+    fill_needed = 3 - len(items)
+    
+    if fill_needed <= 0:
+        return items
+    
+    # Emotion pool refill
+    emotion_pool = [it for it in catalog if _has_emotion_match(it, context.get("resolved_anchor", "general")) and _stable_id(it) not in current_ids]
+    emotion_fill = _pick_mix_slots(emotion_pool, fill_needed, context.get("prompt_hash", "seed") + ":backfill_emotion", current_ids)
+    items.extend(emotion_fill)
+    current_ids.update({_stable_id(it) for it in emotion_fill})
+    fill_needed = 3 - len(items)
+    
+    if fill_needed <= 0:
+        return items
+
+    # General pool refill
+    general_pool = [it for it in catalog if _has_emotion_match(it, "general") and _stable_id(it) not in current_ids]
+    general_fill = _pick_mix_slots(general_pool, fill_needed, context.get("prompt_hash", "seed") + ":backfill_general", current_ids)
+    items.extend(general_fill)
+    current_ids.update({_stable_id(it) for it in general_fill})
+    fill_needed = 3 - len(items)
+    
+    if fill_needed <= 0:
+        return items
+
+    # Any pool refill
+    any_pool = [it for it in catalog if _stable_id(it) not in current_ids]
+    any_fill = _pick_mix_slots(any_pool, fill_needed, context.get("prompt_hash", "seed") + ":backfill_any", current_ids)
+    items.extend(any_fill)
+    
+    return items
+
+
+def _pick_mono(catalog: list[dict], context: dict) -> dict | None:
+    """Helper for picking the mono item with edge-case filters."""
+    edge_type = context.get("edge_type")
+    
+    pool = list(catalog)
+    if edge_type:
+        pool = _apply_edge_register_filters(pool, edge_type)
+
+    must = set(context.get("edge_must_include_species", []))
+    if must:
+        pool = [x for x in pool if any(sp in must for sp in (x.get("flowers") or []))]
+    
+    # Apply LG mono policy from edge registers
+    if edge_type:
+        regs = EDGE_REGISTERS.get(edge_type, {}) or {}
+        lg_policy = regs.get("lg_policy", "allow")
+        allow_lg_mono = bool(regs.get("allow_lg_in_mono", True))
+        if lg_policy == "block" or not allow_lg_mono:
+            pool = [it for it in pool if not it.get("luxury_grand")]
+
+    if not pool: return None
+    
+    idx = _rotation_index("mono:" + context.get("prompt_hash", "seed"), len(pool))
+    mono_item = pool[idx]
+    mono_item = dict(mono_item); mono_item["mono"] = True
+    return mono_item
 
 
 def selection_engine(prompt: str, context: Dict[str, Any]) -> List[Dict[str, Any]]:
@@ -479,10 +534,10 @@ def selection_engine(prompt: str, context: Dict[str, Any]) -> List[Dict[str, Any
     is_edge = edge_type is not None
     selected_species = find_iconic_species(prompt_norm)
     
-    # Persist resolved anchor in context for downstream use
+    # Carry the resolved anchor
     context["resolved_anchor"] = resolved_anchor
-
-    # Fixed: Use defensive context access to prevent KeyError
+    context["edge_type"] = edge_type
+    
     ph = (context or {}).get("prompt_hash", "")
     seed = ph or "seed"
 
@@ -504,17 +559,20 @@ def selection_engine(prompt: str, context: Dict[str, Any]) -> List[Dict[str, Any
 
     # MIX slots from emotion_pool (fall back to 'general' if needed)
     mix_needed = 2
-    mix_filled = _pick_mix_slots(emotion_pool, mix_needed, seed, seen)
+    mix_filled = _take_n_wrapped(emotion_pool, _rotation_index(seed, len(emotion_pool)), mix_needed)
     triad.extend(mix_filled)
+    seen.update({_stable_id(it) for it in mix_filled})
 
     # Backfill if still short
     if len(triad) < 3:
-        general_pool = [it for it in available_catalog if _has_emotion_match(it, "general")]
-        triad.extend(_pick_mix_slots(general_pool, 3 - len(triad), seed, seen))
+        general_pool = [it for it in available_catalog if _has_emotion_match(it, "general") and _stable_id(it) not in seen]
+        triad.extend(_take_n_wrapped(general_pool, _rotation_index(seed + ":general", len(general_pool)), 3 - len(triad)))
 
     # Final safety: if still short, pad from any available
     if len(triad) < 3:
-        triad.extend(_pick_mix_slots(available_catalog, 3 - len(triad), seed, seen))
+        any_pool = [it for it in available_catalog if _stable_id(it) not in seen]
+        triad.extend(_take_n_wrapped(any_pool, _rotation_index(seed + ":any", len(any_pool)), 3 - len(triad)))
+
 
     _ensure_triad_or_500(triad)
 
@@ -535,19 +593,9 @@ def selection_engine(prompt: str, context: Dict[str, Any]) -> List[Dict[str, Any
     if context.get("recent_ids"):
         final_triad = _suppress_recent(final_triad, set(context["recent_ids"]))
         if len(final_triad) < 3:
-            # Backfill deterministically from emotion/general/any
-            seen = {str(it.get("id","")) for it in final_triad}
-            seed = (context or {}).get("prompt_hash","") or "seed"
-            # Try same-anchor pool first
-            refill_pool = [it for it in CATALOG if _has_emotion_match(it, context.get("resolved_anchor","general"))]
-            final_triad.extend(_pick_mix_slots(refill_pool, 3 - len(final_triad), seed, seen))
-            if len(final_triad) < 3:
-                general_pool = [it for it in CATALOG if _has_emotion_match(it, "general")]
-                final_triad.extend(_pick_mix_slots(general_pool, 3 - len(final_triad), seed, seen))
-            if len(final_triad) < 3:
-                final_triad.extend(_pick_mix_slots(CATALOG, 3 - len(final_triad), seed, seen))
-            _ensure_triad_or_500(final_triad)
+            final_triad = _backfill_to_three(final_triad, CATALOG, context)
 
+    _ensure_triad_or_500(final_triad)
 
     # 5. Add meta info + logging
     # ---- Phase-1.4a meta + logs (flag-gated) ----
@@ -568,10 +616,9 @@ def selection_engine(prompt: str, context: Dict[str, Any]) -> List[Dict[str, Any
         log.info(json.dumps(log_record, ensure_ascii=False))  # example sink
 
     # Guarantee emotion on each card for API schema; fallback to detected anchor
-    for it in final_triad:
-        if not it.get("emotion"):
-            it["emotion"] = context.get("resolved_anchor", "general")
-
+    for c in final_triad:
+        c["emotion"] = c.get("emotion") or context.get("resolved_anchor") or "general"
+        
     # 6. Transform and return
     # No transform here, handled by the calling endpoint to make the endpoint logic more clear
     if FEATURE_MULTI_ANCHOR_LOGGING and meta_detected:
@@ -610,11 +657,11 @@ async def curate_post(req: CurateRequest):
     }
 
     triad = selection_engine(prompt, context)
-    items = _transform_for_api(triad, resolved_anchor=context.get("resolved_anchor"))  # Pass resolved_anchor
+    payload_items = _transform_for_api(triad, context.get("resolved_anchor"))
 
     payload = {
-        "items": items,
-        "edge_case": any(i.get("edge_case") for i in items),
+        "items": payload_items,
+        "edge_case": any(i.get("edge_case") for i in triad),
     }
 
     resp = Response(content=json.dumps(payload), media_type="application/json")
