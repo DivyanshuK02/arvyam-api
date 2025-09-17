@@ -39,7 +39,8 @@ def _load_json(path: str, default: Any) -> Any:
     try:
         with open(path, "r", encoding="utf-8") as f:
             return json.load(f)
-    except (FileNotFoundError, json.JSONDecodeError):
+    except (FileNotFoundError, json.JSONDecodeError) as e:
+        log.warning(f"Failed to load {path}: {e}")
         return default
 
 # ------------------------------------------------------------
@@ -58,6 +59,42 @@ ANCHOR_THRESHOLDS = _load_json(os.path.join(RULES_DIR, "anchor_thresholds.json")
 # Edge register keys (strict): only these four are considered "edge cases".
 EDGE_CASE_KEYS = {"sympathy", "apology", "farewell", "valentine"}
 FEATURE_MULTI_ANCHOR_LOGGING = os.getenv("FEATURE_MULTI_ANCHOR_LOGGING", "0") == "1" # Off by default
+
+def _validate_catalog_on_startup():
+    """Validate catalog data at startup to prevent runtime failures"""
+    if not CATALOG:
+        log.critical("CATALOG is empty - service cannot start")
+        raise RuntimeError("Invalid catalog configuration")
+    
+    if not isinstance(CATALOG, list):
+        log.critical("CATALOG must be a list")
+        raise RuntimeError("Invalid catalog format")
+    
+    # Sample validation on first few items
+    required_fields_check = ["id"]
+    for i, item in enumerate(CATALOG[:min(10, len(CATALOG))]):
+        if not isinstance(item, dict):
+            log.critical(f"Catalog item {i} is not a dictionary")
+            raise RuntimeError("Invalid catalog item format")
+        
+        # Check for essential fields (with fallback support)
+        has_image = bool(item.get("image") or item.get("image_url"))
+        has_price = bool(item.get("price") is not None or item.get("price_inr") is not None)
+        
+        if not item.get("id"):
+            log.critical(f"Catalog item {i} missing 'id' field")
+            raise RuntimeError("Invalid catalog schema: missing id")
+            
+        if not has_image:
+            log.warning(f"Catalog item {item.get('id')} missing image field")
+            
+        if not has_price:
+            log.warning(f"Catalog item {item.get('id')} missing price field")
+    
+    log.info(f"Catalog validation passed: {len(CATALOG)} items loaded")
+
+# Validate on module import
+_validate_catalog_on_startup()
 
 # ------------------------------------------------------------
 # Utilities
@@ -108,7 +145,7 @@ def _add_unclear_mix_note(triad: list) -> None:
     """Attach a single gentle clarifying note to the first MIX card, if none already."""
     for it in triad:
         if not it.get("mono") and not it.get("note"):
-            it["note"] = "Versatile picks while you decide – tell us the occasion for a more personal curation."
+            it["note"] = "Versatile picks while you decide - tell us the occasion for a more personal curation."
             break
 
 def _contains_any(text: str, terms: list[str]) -> bool:
@@ -173,6 +210,9 @@ def _has_emotion_match(item: Dict[str, Any], emotion: str) -> bool:
 
 def _match_edge(text: str, rules: dict) -> bool:
     """Check if text matches any edge rule pattern."""
+    if not rules:
+        return False
+        
     # exact
     for phrase in (rules.get("exact") or []):
         if phrase and phrase.lower() in text:
@@ -195,11 +235,14 @@ def _match_edge(text: str, rules: dict) -> bool:
 
 # ---------------- Phase-1.4a helpers (drop-in) ----------------
 def _stable_id(it: dict) -> str:
-    return str(it.get("id", ""))
+    return str(it.get("id", "unknown"))
 
 def _apply_edge_register_filters(pool: list[dict], edge_type: str) -> list[dict]:
     """Score+filter pool by edge register (palette/species/LG). Non-destructive."""
-    regs = EDGE_REGISTERS.get(edge_type, {}) or {}
+    regs = EDGE_REGISTERS.get(edge_type) or {}
+    if not regs:
+        return pool
+        
     # 1) Block LG where required
     lg_policy = regs.get("lg_policy", "allow")
     allow_lg_mix = bool(regs.get("allow_lg_in_mix", True))
@@ -234,7 +277,8 @@ def _pick_mono_slot(available: list[dict], selected_species: str|None, edge_type
     pool = list(available)
     # Edge mono_must_include steering
     if edge_type:
-        must = set(EDGE_REGISTERS.get(edge_type, {}).get("mono_must_include", []) or [])
+        edge_config = EDGE_REGISTERS.get(edge_type) or {}
+        must = set(edge_config.get("mono_must_include", []) or [])
         if must:
             pool = [it for it in pool if set(it.get("flowers") or []) & must] or pool
     # Requested species
@@ -244,16 +288,26 @@ def _pick_mono_slot(available: list[dict], selected_species: str|None, edge_type
 
     # Respect LG policy for mono under the active edge (minimal: allow/deny)
     if edge_type:
-        regs = EDGE_REGISTERS.get(edge_type, {}) or {}
+        regs = EDGE_REGISTERS.get(edge_type) or {}
         lg_policy = regs.get("lg_policy", "allow")
         allow_lg_mono = bool(regs.get("allow_lg_in_mono", True))
         if lg_policy == "block" or not allow_lg_mono:
             pool = [it for it in pool if not it.get("luxury_grand")]
 
     if not pool: return None
-    idx = _rotation_index("mono:"+_stable_id(pool[0]), len(pool))
-    mono_item = pool[idx]
-    mono_item = dict(mono_item); mono_item["mono"] = True
+    
+    # Use stable seed that doesn't depend on item data
+    seed_components = []
+    if edge_type:
+        seed_components.append(f"edge:{edge_type}")
+    if selected_species:
+        seed_components.append(f"species:{selected_species}")
+    seed_components.append("mono")
+    
+    stable_seed = ":".join(seed_components)
+    idx = _rotation_index(stable_seed, len(pool))
+    mono_item = dict(pool[idx])
+    mono_item["mono"] = True
     return mono_item
 
 def _pick_mix_slots(available: list[dict], need: int, seed: str, seen: set[str]) -> list[dict]:
@@ -283,7 +337,7 @@ def _ensure_triad_or_500(items: list[dict]) -> None:
         "[TRIAD_CONTRACT] invalid triad: len=%s mono_count=%s ids=%s",
         (len(items) if isinstance(items, list) else None),
         mono_count,
-        [getattr(it, "get", lambda *_: None)("id") for it in (items or [])],
+        [_stable_id(it) for it in (items or [])],
     )
     # Keep external message generic (no schema internals)
     raise HTTPException(status_code=500, detail="Internal catalog data error")
@@ -338,7 +392,8 @@ def detect_emotion(prompt: str, context: dict | None) -> Tuple[str, Optional[str
     for edge, rules in (EDGES or {}).items():
         if _match_edge(p, rules):
             edge_type = edge
-            resolved_anchor = (EDGE_REGISTERS.get(edge, {}) or {}).get("emotion_anchor", "general")
+            edge_config = EDGE_REGISTERS.get(edge) or {}
+            resolved_anchor = edge_config.get("emotion_anchor") or "general"
             log.info(f"Edge case detected: {edge_type} -> {resolved_anchor}")
             return resolved_anchor, edge_type, scores
 
@@ -358,14 +413,14 @@ def detect_emotion(prompt: str, context: dict | None) -> Tuple[str, Optional[str
     if _has_grand_intent(prompt):
         scores["luxury_grand"] = (scores.get("luxury_grand", 0.0) + 20.0) * 1.1
 
-    # Debug log
-    log.info(f"Detected scores: {scores}, grand_intent: {_has_grand_intent(prompt)}")
+    # Debug log (production: consider reducing verbosity)
+    log.debug(f"Detected scores: {scores}, grand_intent: {_has_grand_intent(prompt)}")
 
     # Apply blocked emotions ONLY when grand intent is present (FIXED)
     blocked = (TIER_POLICY.get("luxury_grand", {}) or {}).get("blocked_emotions") or []
     if _has_grand_intent(prompt) and blocked:
         scores = {k: v for k, v in scores.items() if k not in blocked}
-        log.info(f"Applied LG blocking, remaining scores: {scores}")
+        log.debug(f"Applied LG blocking, remaining scores: {scores}")
 
     if not scores:
         return "general", None, {}
@@ -438,22 +493,30 @@ def find_and_assign_note(triad: list, selected_species: Optional[str],
             target["note"] = note
 
 def _transform_for_api(items: List[Dict], resolved_anchor: Optional[str]) -> List[Dict]:
-    """FIXED: Proper field mapping and validation"""
-    out: List[Dict] = []
-    for it in items or []:
-        # Map fields with fallbacks
-        image = it.get("image") or it.get("image_url") or ""
-        price = it.get("price") if it.get("price") is not None else it.get("price_inr", 0)
-        currency = it.get("currency") or ("INR" if price != 0 else None)
+    """FIXED: Proper field mapping and validation with contract enforcement"""
+    if len(items) != 3:
+        log.error(f"Invalid triad length before transformation: {len(items)}")
+        raise HTTPException(status_code=500, detail="Internal catalog data error")
         
-        if not image or price == 0 or not currency:
-            # Log error, skip to avoid invalid item
-            log.warning(f"Invalid item in triad: {it.get('id')}")
-            continue
+    out: List[Dict] = []
+    for it in items:
+        # Map fields with robust fallbacks
+        image = it.get("image") or it.get("image_url") or ""
+        price = it.get("price") if it.get("price") is not None else it.get("price_inr")
+        currency = it.get("currency") or "INR"
+        
+        # Apply fallbacks for missing critical fields (instead of skipping)
+        if not image:
+            image = "/static/default-flower.jpg"  # fallback image
+            log.warning(f"Using fallback image for item: {it.get('id')}")
+            
+        if price is None or price == 0:
+            price = 1000  # fallback price in INR
+            log.warning(f"Using fallback price for item: {it.get('id')}")
             
         item = dict(it)
         item["image"] = image
-        item["price"] = price
+        item["price"] = int(price)
         item["currency"] = currency
         item["emotion"] = item.get("emotion") or (resolved_anchor or "general")
         
@@ -465,7 +528,9 @@ def _transform_for_api(items: List[Dict], resolved_anchor: Optional[str]) -> Lis
             item["note"] = it["note"]
         out.append(item)
         
+    # Final contract enforcement
     if len(out) != 3:
+        log.error(f"Triad contract violated after transformation: {len(out)} items")
         raise HTTPException(status_code=500, detail="Internal catalog data error")
     return out
 
@@ -481,17 +546,18 @@ def _backfill_to_three(items: list[dict], catalog: list[dict], context: dict) ->
     fill_needed = 3 - len(items)
     
     if fill_needed <= 0:
-        return items
+        return items[:3]  # Ensure exactly 3
     
     # Emotion pool refill
-    emotion_pool = [it for it in catalog if _has_emotion_match(it, context.get("resolved_anchor", "general")) and _stable_id(it) not in current_ids]
+    resolved_anchor = context.get("resolved_anchor", "general")
+    emotion_pool = [it for it in catalog if _has_emotion_match(it, resolved_anchor) and _stable_id(it) not in current_ids]
     emotion_fill = _pick_mix_slots(emotion_pool, fill_needed, context.get("prompt_hash", "seed") + ":backfill_emotion", current_ids)
     items.extend(emotion_fill)
     current_ids.update({_stable_id(it) for it in emotion_fill})
     fill_needed = 3 - len(items)
     
     if fill_needed <= 0:
-        return items
+        return items[:3]
 
     # General pool refill
     general_pool = [it for it in catalog if _has_emotion_match(it, "general") and _stable_id(it) not in current_ids]
@@ -501,14 +567,14 @@ def _backfill_to_three(items: list[dict], catalog: list[dict], context: dict) ->
     fill_needed = 3 - len(items)
     
     if fill_needed <= 0:
-        return items
+        return items[:3]
 
-    # Any pool refill
+    # Any pool refill (last resort)
     any_pool = [it for it in catalog if _stable_id(it) not in current_ids]
     any_fill = _pick_mix_slots(any_pool, fill_needed, context.get("prompt_hash", "seed") + ":backfill_any", current_ids)
     items.extend(any_fill)
     
-    return items
+    return items[:3]  # Always return exactly 3
 
 def _pick_mono(catalog: list[dict], context: dict) -> dict | None:
     """Helper for picking the mono item with edge-case filters."""
@@ -524,17 +590,20 @@ def _pick_mono(catalog: list[dict], context: dict) -> dict | None:
     
     # Apply LG mono policy from edge registers
     if edge_type:
-        regs = EDGE_REGISTERS.get(edge_type, {}) or {}
+        regs = EDGE_REGISTERS.get(edge_type) or {}
         lg_policy = regs.get("lg_policy", "allow")
         allow_lg_mono = bool(regs.get("allow_lg_in_mono", True))
         if lg_policy == "block" or not allow_lg_mono:
             pool = [it for it in pool if not it.get("luxury_grand")]
 
-    if not pool: return None
+    if not pool: 
+        return None
     
-    idx = _rotation_index("mono:" + context.get("prompt_hash", "seed"), len(pool))
-    mono_item = pool[idx]
-    mono_item = dict(mono_item); mono_item["mono"] = True
+    # Use stable seed
+    seed_base = f"mono:{edge_type}" if edge_type else "mono:default"
+    idx = _rotation_index(seed_base, len(pool))
+    mono_item = dict(pool[idx])
+    mono_item["mono"] = True
     return mono_item
 
 def selection_engine(prompt: str, context: Dict[str, Any]) -> List[Dict[str, Any]]:
@@ -542,6 +611,9 @@ def selection_engine(prompt: str, context: Dict[str, Any]) -> List[Dict[str, Any
     Main function for selecting a curated triad of items.
     FIXED: Added anchor carry and empty pool guards
     """
+    if not CATALOG:
+        raise HTTPException(status_code=503, detail="Service temporarily unavailable")
+        
     available_catalog = list(CATALOG)
     prompt_norm = normalize(prompt)
     resolved_anchor, edge_type, _scores = detect_emotion(prompt, context or {})
@@ -561,13 +633,17 @@ def selection_engine(prompt: str, context: Dict[str, Any]) -> List[Dict[str, Any
         # steer by palette/species/LG from registers
         emotion_pool = _apply_edge_register_filters(emotion_pool, edge_type)
 
-    # FIXED: Empty pool guard
+    # FIXED: Empty pool guard with fallback
     if not emotion_pool:
         log.warning(f"No items match the detected emotion: {resolved_anchor}")
         # Fallback to general emotion pool
         emotion_pool = [it for it in available_catalog if _has_emotion_match(it, "general")]
         if not emotion_pool:
-            raise HTTPException(status_code=400, detail="No items match the detected emotion")
+            # Last resort: use all available items
+            log.error("No items match 'general' emotion, using all available")
+            emotion_pool = available_catalog
+            if not emotion_pool:
+                raise HTTPException(status_code=503, detail="No items available")
 
     # 2. Build the triad as 1 MONO + 2 MIX (deterministic)
     triad: list[dict] = []
@@ -577,27 +653,42 @@ def selection_engine(prompt: str, context: Dict[str, Any]) -> List[Dict[str, Any
     mono_item = _pick_mono_slot(available_catalog, selected_species, edge_type)
 
     if mono_item:
-        triad.append(mono_item); seen.add(_stable_id(mono_item))
+        triad.append(mono_item)
+        seen.add(_stable_id(mono_item))
 
-    # MIX slots from emotion_pool (fall back to 'general' if needed)
+    # MIX slots from emotion_pool
     mix_needed = 2
-    mix_filled = _take_n_wrapped(emotion_pool, _rotation_index(seed, len(emotion_pool)), mix_needed)
-    triad.extend(mix_filled)
-    seen.update({_stable_id(it) for it in mix_filled})
+    if len(emotion_pool) > 0:
+        mix_filled = _take_n_wrapped(emotion_pool, _rotation_index(seed, len(emotion_pool)), mix_needed)
+        for item in mix_filled:
+            if _stable_id(item) not in seen:
+                triad.append(item)
+                seen.add(_stable_id(item))
 
     # Backfill if still short
     if len(triad) < 3:
         general_pool = [it for it in available_catalog if _has_emotion_match(it, "general") and _stable_id(it) not in seen]
-        triad.extend(_take_n_wrapped(general_pool, _rotation_index(seed + ":general", len(general_pool)), 3 - len(triad)))
+        if general_pool:
+            backfill = _take_n_wrapped(general_pool, _rotation_index(seed + ":general", len(general_pool)), 3 - len(triad))
+            triad.extend(backfill[:3 - len(triad)])
 
     # Final safety: if still short, pad from any available
     if len(triad) < 3:
         any_pool = [it for it in available_catalog if _stable_id(it) not in seen]
-        triad.extend(_take_n_wrapped(any_pool, _rotation_index(seed + ":any", len(any_pool)), 3 - len(triad)))
+        if any_pool:
+            final_fill = _take_n_wrapped(any_pool, _rotation_index(seed + ":any", len(any_pool)), 3 - len(triad))
+            triad.extend(final_fill[:3 - len(triad)])
 
+    # Ensure we have exactly 3 items
+    if len(triad) < 3:
+        # Emergency fallback: duplicate items if necessary
+        while len(triad) < 3 and available_catalog:
+            triad.append(dict(available_catalog[len(triad) % len(available_catalog)]))
+
+    triad = triad[:3]  # Ensure exactly 3
     _ensure_triad_or_500(triad)
 
-    final_triad = assign_tiers(triad, context)  # preserves 3 cards; keep 'mono' flags on items
+    final_triad = assign_tiers(triad, context)
 
     # A) Stamp edge metadata on items
     if is_edge:
@@ -605,7 +696,7 @@ def selection_engine(prompt: str, context: Dict[str, Any]) -> List[Dict[str, Any
             it["edge_case"] = True
             it["edge_type"] = edge_type
 
-    # B) Handle substitutions & notes (copy, not price)
+    # B) Handle substitutions & notes
     find_and_assign_note(final_triad, selected_species, resolved_anchor, prompt_text=context.get("prompt",""))
     if not _intent_clarity(prompt, len(_scores)):
         _add_unclear_mix_note(final_triad)
@@ -619,7 +710,6 @@ def selection_engine(prompt: str, context: Dict[str, Any]) -> List[Dict[str, Any
     _ensure_triad_or_500(final_triad)
 
     # 5. Add meta info + logging
-    # ---- Phase-1.4a meta + logs (flag-gated) ----
     meta_detected = []
     if FEATURE_MULTI_ANCHOR_LOGGING:
         meta_detected = _compute_detected_emotions(_scores or {})
@@ -634,16 +724,14 @@ def selection_engine(prompt: str, context: Dict[str, Any]) -> List[Dict[str, Any
             "edges": {"case": is_edge, "type": edge_type},
             "near_tie": near_tie_compact
         }
-        log.info(json.dumps(log_record, ensure_ascii=False))  # example sink
+        log.info(json.dumps(log_record, ensure_ascii=False))
 
-    # Guarantee emotion on each card for API schema; fallback to detected anchor
+    # Guarantee emotion on each card for API schema
     for c in final_triad:
         c["emotion"] = c.get("emotion") or context.get("resolved_anchor") or "general"
         
-    # 6. Transform and return
-    # No transform here, handled by the calling endpoint to make the endpoint logic more clear
+    # 6. Attach metadata for endpoint
     if FEATURE_MULTI_ANCHOR_LOGGING and meta_detected:
-        # attach via context for the endpoint to place into response/headers
         context["__meta_detected_emotions"] = meta_detected
 
     return final_triad
@@ -671,31 +759,38 @@ async def curate_post(req: CurateRequest):
     context = {
         "prompt": prompt,
         "prompt_hash": prompt_hash,
-        "recent_ids": req.recent_ids,
+        "recent_ids": req.recent_ids or [],
         "run_count": req.run_count or 0,
         "ts": datetime.now(timezone.utc).isoformat(),
         "request_id": str(uuid.uuid4()),
     }
 
-    triad = selection_engine(prompt, context)
-    payload_items = _transform_for_api(triad, context.get("resolved_anchor"))
+    try:
+        triad = selection_engine(prompt, context)
+        payload_items = _transform_for_api(triad, context.get("resolved_anchor"))
 
-    payload = {
-        "items": payload_items,
-        "edge_case": any(i.get("edge_case") for i in triad),
-    }
+        payload = {
+            "items": payload_items,
+            "edge_case": any(i.get("edge_case") for i in triad),
+        }
 
-    resp = Response(content=json.dumps(payload), media_type="application/json")
+        resp = Response(content=json.dumps(payload), media_type="application/json")
 
-    # Optional QA-only header (feature-flag + config-gated)
-    cfg = (ANCHOR_THRESHOLDS.get("multi_anchor_logging") or {})
-    if FEATURE_MULTI_ANCHOR_LOGGING and cfg.get("emit_header", False):
-        meta = context.get("__meta_detected_emotions") or []
-        if meta:
-            resp.headers["X-Detected-Emotions"] = ",".join(
-                f"{m['anchor']}:{m['score']}" for m in meta[:2]
-            )
-    return resp
+        # Optional QA-only header (feature-flag + config-gated)
+        cfg = (ANCHOR_THRESHOLDS.get("multi_anchor_logging") or {})
+        if FEATURE_MULTI_ANCHOR_LOGGING and cfg.get("emit_header", False):
+            meta = context.get("__meta_detected_emotions") or []
+            if meta:
+                resp.headers["X-Detected-Emotions"] = ",".join(
+                    f"{m['anchor']}:{m['score']}" for m in meta[:2]
+                )
+        return resp
+        
+    except HTTPException:
+        raise  # Re-raise HTTP exceptions as-is
+    except Exception as e:
+        log.error(f"Unexpected error in curate_post: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 @app.post("/api/curate", tags=["public"])
 async def curate_post_api(q: Optional[str] = Query(None),
@@ -708,6 +803,16 @@ async def curate_get(q: Optional[str] = Query(None),
                      prompt: Optional[str] = Query(None),
                      recent_ids: Optional[List[str]] = Query(None)):
     return await curate_post(CurateRequest(q=q, prompt=prompt, recent_ids=recent_ids))
+
+# Health check endpoint
+@app.get("/health", tags=["system"])
+async def health_check():
+    """Health check endpoint for load balancers and monitoring"""
+    return {
+        "status": "healthy",
+        "catalog_items": len(CATALOG),
+        "timestamp": datetime.now(timezone.utc).isoformat()
+    }
 
 # For backward compatibility
 def curate(*args, **kwargs):
