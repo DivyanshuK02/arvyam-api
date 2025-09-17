@@ -349,13 +349,7 @@ def detect_emotion(prompt: str, context: dict | None) -> Tuple[str, Optional[str
     tokens = _tokenize(prompt)
     # Buckets are per-anchor keyword lists in JSON
     buckets = EMOTION_KEYWORDS.get("keywords", {}) or {}
-    
-    # Scope LG block list policy (only when grand intent is present)
-    blocked = (TIER_POLICY.get("luxury_grand", {}) or {}).get("blocked_emotions") or []
-    if _has_grand_intent(prompt) and blocked:
-        scores = {k: v for k, v in scores.items() if k not in blocked}
-    
-    for anchor, words in buckets.items():          # <-- iterate buckets, not anchors[]
+    for anchor, words in buckets.items():
         hits = 0
         for w in (words or []):
             if (w or "").lower() in p:
@@ -367,6 +361,13 @@ def detect_emotion(prompt: str, context: dict | None) -> Tuple[str, Optional[str
     if _has_grand_intent(prompt):
         scores["luxury_grand"] = scores.get("luxury_grand", 0.0) + 1.0
 
+    log.info(f"Detected scores: {scores}, blocked applied: {_has_grand_intent(prompt)}")
+    
+    # Scope LG block list policy (only when grand intent is present)
+    blocked = (TIER_POLICY.get("luxury_grand", {}) or {}).get("blocked_emotions") or []
+    if _has_grand_intent(prompt) and blocked:
+        scores = {k: v for k, v in scores.items() if k not in blocked}
+    
     sorted_scores = sorted(scores.items(), key=lambda kv: kv[1], reverse=True)
     resolved_anchor = sorted_scores[0][0] if sorted_scores else "general"
 
@@ -387,31 +388,24 @@ def find_iconic_species(prompt_norm: str) -> Optional[str]:
     return None
 
 def assign_tiers(triad: List[Dict], context: Dict) -> List[Dict]:
-    # Count monos (should be 1, but handle 0/3 for robustness)
     monos = [it for it in triad if it.get("mono")]
     mixes = [it for it in triad if not it.get("mono")]
-    mono_count = len(monos)
-    if mono_count == 0:
-        # All mix; assign sequentially
-        tiers = ["Classic", "Signature", "Luxury"]
-        for i, it in enumerate(triad):
-            it["tier"] = tiers[i % 3]
-        return triad
-    elif mono_count == 1:
-        # Standard: Classic/Signature to mixes, Luxury to mono (if grand)
-        mixes[0]["tier"] = "Classic"
-        mixes[1]["tier"] = "Signature"
-        if context.get("resolved_anchor") == "luxury_grand" or _has_grand_intent(context["prompt"]):
-            monos[0]["tier"] = "Luxury"
-        else:
-            monos[0]["tier"] = "Luxury"  # Or Signature if non-grand
-        return triad
+    if not monos:
+        # Backfill case: All mix, assign sequentially
+        if mixes:
+            mixes[0]["tier"] = "Classic"
+            if len(mixes) > 1:
+                mixes[1]["tier"] = "Signature"
+            if len(mixes) > 2:
+                mixes[2]["tier"] = "Luxury"
     else:
-        # Invalid; fallback sequential
-        tiers = ["Classic", "Signature", "Luxury"]
-        for i, it in enumerate(triad):
-            it["tier"] = tiers[i % 3]
-        return triad
+        # Standard
+        if mixes:
+            mixes[0]["tier"] = "Classic"
+            if len(mixes) > 1:
+                mixes[1]["tier"] = "Signature"
+        monos[0]["tier"] = "Luxury" if _has_grand_intent(context["prompt"]) else "Signature"
+    return triad
 
 def find_and_assign_note(triad: list, selected_species: Optional[str],
                          selected_emotion: Optional[str], prompt_text: str = "") -> None:
@@ -433,30 +427,22 @@ def find_and_assign_note(triad: list, selected_species: Optional[str],
             target["note"] = note
 
 def _transform_for_api(items: List[Dict], resolved_anchor: Optional[str]) -> List[Dict]:
-    out: List[Dict] = []
+    out = []
     for it in items or []:
-        # Map fields with fallbacks
         image = it.get("image") or it.get("image_url") or ""
-        price = it.get("price") if it.get("price") is not None else it.get("price_inr")
-        currency = it.get("currency") or ("INR" if price is not None else None)
-        if not image or price is None or not currency:
-            # Log error, skip to avoid invalid item
-            log.warning(f"Invalid item in triad: {it.get('id')}")
+        price = it.get("price") if it.get("price") is not None else it.get("price_inr", 0)
+        currency = it.get("currency") or ("INR" if price != 0 else None)
+        if not image or price == 0 or not currency:
+            log.warning(f"Invalid item: {it.get('id')}")
             continue
         item = dict(it)
         item["image"] = image
         item["price"] = price
         item["currency"] = currency
         item["emotion"] = item.get("emotion") or (resolved_anchor or "general")
-        # Preserve edge stamps
-        if "edge_case" in it:
-            item["edge_case"] = it["edge_case"]
-            item["edge_type"] = it["edge_type"]
-        if "note" in it:
-            item["note"] = it["note"]
         out.append(item)
     if len(out) != 3:
-        raise HTTPException(status_code=500, detail="Internal catalog data error")
+        raise HTTPException(500, "Invalid triad length")
     return out
 
 def _take_n_wrapped(sorted_pool: list[dict], start_idx: int, n: int) -> list[dict]:
@@ -536,10 +522,13 @@ def selection_engine(prompt: str, context: Dict[str, Any]) -> List[Dict[str, Any
     available_catalog = list(CATALOG)
     prompt_norm = normalize(prompt)
     resolved_anchor, edge_type, _scores = detect_emotion(prompt, context or {})
+    
+    # Carry the resolved anchor
+    context["resolved_anchor"] = resolved_anchor
+    
     is_edge = edge_type is not None
     selected_species = find_iconic_species(prompt_norm)
     
-    # Carry the resolved anchor
     context["resolved_anchor"] = resolved_anchor
     context["edge_type"] = edge_type
     
@@ -660,6 +649,8 @@ async def curate_post(req: CurateRequest):
         "ts": datetime.now(timezone.utc).isoformat(),
         "request_id": str(uuid.uuid4()),
     }
+    
+    log.info(f"Triad: {triad}")
 
     triad = selection_engine(prompt, context)
     payload_items = _transform_for_api(triad, context.get("resolved_anchor"))
