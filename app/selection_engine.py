@@ -410,17 +410,19 @@ def detect_emotion(prompt: str, context: dict | None) -> Tuple[str, Optional[str
             scores[anchor] = float(hits)
 
     # Grand intent boost
-    if _has_grand_intent(prompt):
+    has_grand = _has_grand_intent(prompt)
+    if has_grand:
         scores["luxury_grand"] = (scores.get("luxury_grand", 0.0) + 20.0) * 1.1
 
-    # Debug log (production: consider reducing verbosity)
-    log.debug(f"Detected scores: {scores}, grand_intent: {_has_grand_intent(prompt)}")
+    # Debug log - show state before blocking
+    log.debug(f"Detected scores: {scores}, grand_intent: {has_grand}")
 
     # Apply blocked emotions ONLY when grand intent is present (FIXED)
     blocked = (TIER_POLICY.get("luxury_grand", {}) or {}).get("blocked_emotions") or []
-    if _has_grand_intent(prompt) and blocked:
+    if has_grand and blocked:
+        original_scores = dict(scores)
         scores = {k: v for k, v in scores.items() if k not in blocked}
-        log.debug(f"Applied LG blocking, remaining scores: {scores}")
+        log.debug(f"Applied LG blocking for grand intent. Original: {original_scores}, After: {scores}")
 
     if not scores:
         return "general", None, {}
@@ -500,18 +502,15 @@ def _transform_for_api(items: List[Dict], resolved_anchor: Optional[str]) -> Lis
         
     out: List[Dict] = []
     for it in items:
-        # Map fields with robust fallbacks
-        image = it.get("image") or it.get("image_url") or ""
-        price = it.get("price") if it.get("price") is not None else it.get("price_inr")
+        # Map fields with fallbacks - NEVER skip items to preserve triad contract
+        image = it.get("image") or it.get("image_url") or "/static/default-flower.jpg"
+        price = it.get("price") if it.get("price") is not None else it.get("price_inr", 1000)
         currency = it.get("currency") or "INR"
         
-        # Apply fallbacks for missing critical fields (instead of skipping)
-        if not image:
-            image = "/static/default-flower.jpg"  # fallback image
+        # Log warnings but don't skip - use fallbacks to maintain contract
+        if not it.get("image") and not it.get("image_url"):
             log.warning(f"Using fallback image for item: {it.get('id')}")
-            
-        if price is None or price == 0:
-            price = 1000  # fallback price in INR
+        if it.get("price") is None and it.get("price_inr") is None:
             log.warning(f"Using fallback price for item: {it.get('id')}")
             
         item = dict(it)
@@ -528,9 +527,9 @@ def _transform_for_api(items: List[Dict], resolved_anchor: Optional[str]) -> Lis
             item["note"] = it["note"]
         out.append(item)
         
-    # Final contract enforcement
+    # Contract should always be satisfied now
     if len(out) != 3:
-        log.error(f"Triad contract violated after transformation: {len(out)} items")
+        log.critical(f"Triad contract violated: {len(out)} items after transformation")
         raise HTTPException(status_code=500, detail="Internal catalog data error")
     return out
 
@@ -620,7 +619,7 @@ def selection_engine(prompt: str, context: Dict[str, Any]) -> List[Dict[str, Any
     is_edge = edge_type is not None
     selected_species = find_iconic_species(prompt_norm)
     
-    # FIXED: Carry the resolved anchor
+    # CRITICAL FIX: Carry the resolved anchor in context
     context["resolved_anchor"] = resolved_anchor
     context["edge_type"] = edge_type
     
@@ -633,7 +632,7 @@ def selection_engine(prompt: str, context: Dict[str, Any]) -> List[Dict[str, Any
         # steer by palette/species/LG from registers
         emotion_pool = _apply_edge_register_filters(emotion_pool, edge_type)
 
-    # FIXED: Empty pool guard with fallback
+    # CRITICAL FIX: Empty pool guard with proper error handling
     if not emotion_pool:
         log.warning(f"No items match the detected emotion: {resolved_anchor}")
         # Fallback to general emotion pool
@@ -643,7 +642,7 @@ def selection_engine(prompt: str, context: Dict[str, Any]) -> List[Dict[str, Any
             log.error("No items match 'general' emotion, using all available")
             emotion_pool = available_catalog
             if not emotion_pool:
-                raise HTTPException(status_code=503, detail="No items available")
+                raise HTTPException(status_code=400, detail="No items match the detected emotion")
 
     # 2. Build the triad as 1 MONO + 2 MIX (deterministic)
     triad: list[dict] = []
