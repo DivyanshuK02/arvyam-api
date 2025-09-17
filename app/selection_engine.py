@@ -371,39 +371,29 @@ def find_and_assign_note(triad: list, selected_species: Optional[str], selected_
         substitution_note = SUB_NOTES.get("species_not_found", "We couldn't find a {species} bouquet at the moment; offering a similar style.")
         triad[0]["note"] = substitution_note.replace("{species}", selected_species)
 
-def _transform_for_api(items: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+def _transform_for_api(triad: list[dict]) -> list[dict]:
     """
     Transforms the internal item representation to the final API payload format.
     Adds unique IDs, tier names, and price/currency fields.
     """
     out = []
-    for it in items:
-        api_item = dict(it) # Create a mutable copy
-
-        # Backwards compatibility for price
-        if "price_inr" in api_item:
-            api_item["price"] = api_item.pop("price_inr")
-            api_item["currency"] = "INR"  # Add required currency field
-
-        # New: map image_url to image, with fallbacks
-        image_url = api_item.pop("image_url", None)
-        api_item["image"] = api_item.get("image") or image_url or ""
-        
-        # New: create a new dictionary to control final output keys and their order
+    for it in triad:
         o = {
-            "id": str(api_item.get("id", "")),
-            "title": api_item.get("title", ""),
-            "desc": api_item.get("desc", ""),
-            "image": api_item["image"],
-            "tier": api_item.get("tier", ""),
-            "palette": list(api_item.get("palette") or []),
-            "mono": bool(api_item.get("mono", False)),
-            "luxury_grand": bool(api_item.get("luxury_grand", False)),
-            "price": api_item.get("price"),
-            "currency": api_item.get("currency"),
-            "edge_case": bool(api_item.get("edge_case", False)),
-            "edge_type": api_item.get("edge_type"),
-            "note": api_item.get("note")
+            "id": str(it.get("id", "")),
+            "title": it.get("title", ""),
+            "desc": it.get("desc", ""),
+            # response model needs 'image', not 'image_url'
+            "image": it.get("image") or it.get("image_url") or "",
+            "tier": it.get("tier", ""),
+            "palette": list(it.get("palette") or []),
+            "mono": bool(it.get("mono", False)),
+            "luxury_grand": bool(it.get("luxury_grand", False)),
+            "price": it.get("price") or it.get("price_inr"),
+            "currency": it.get("currency") or ("INR" if it.get("price_inr") else None),
+            # pass-through (optional)
+            "edge_case": bool(it.get("edge_case", False)),
+            "edge_type": it.get("edge_type"),
+            "note": it.get("note"),
         }
         out.append(o)
     return out
