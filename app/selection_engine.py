@@ -471,12 +471,12 @@ def selection_engine(prompt: str, context: Dict[str, Any]) -> List[Dict[str, Any
         print(json.dumps(log_record, ensure_ascii=False))  # example sink
 
     # 6. Transform and return
-    payload = _transform_for_api(final_triad)
+    # No transform here, handled by the calling endpoint to make the endpoint logic more clear
     if FEATURE_MULTI_ANCHOR_LOGGING and meta_detected:
         # attach via context for the endpoint to place into response/headers
         context["__meta_detected_emotions"] = meta_detected
 
-    return payload
+    return final_triad
 
 
 # FastAPI endpoints
@@ -495,10 +495,10 @@ async def curate_post(req: CurateRequest):
     if not text:
         raise HTTPException(status_code=400, detail="Invalid input")
 
-    # Generate a stable hash for the prompt
+    # Always compute a stable hash (used for rotation/logs)
     norm = normalize(text)
     prompt_hash = sha256(norm.encode("utf-8")).hexdigest()
-    
+
     context = {
         "recent_ids": req.recent_ids,
         "prompt": text,
@@ -508,56 +508,35 @@ async def curate_post(req: CurateRequest):
         "run_count": req.run_count or 0,
     }
     
-    items_tri = selection_engine(text, context)
-    items = _transform_for_api(items_tri)
+    triad = selection_engine(text, context)
+    items = _transform_for_api(triad)
     
-    resp = {"items": items, "edge_case": any(i.get("edge_case") for i in items)}
+    resp_payload = {
+        "items": items,
+        "edge_case": any(i.get("edge_case") for i in items),
+    }
+
+    resp_obj = Response(content=json.dumps(resp_payload), media_type="application/json")
+    
     cfg = (ANCHOR_THRESHOLDS.get("multi_anchor_logging") or {})
     if FEATURE_MULTI_ANCHOR_LOGGING and cfg.get("emit_header", False):
         meta = context.get("__meta_detected_emotions") or []
         if meta:
-            # e.g., "Fun/Humor:0.68,Affection/Support:0.56"
             header_val = ",".join(f"{m['anchor']}:{m['score']}" for m in meta[:2])
-            resp_obj = Response(content=json.dumps(resp))
             resp_obj.headers["X-Detected-Emotions"] = header_val
-            return resp_obj
-    return resp
+            
+    return resp_obj
 
-# Alias the existing endpoints to also work with the /api prefix
 @app.post("/api/curate", tags=["public"])
-async def curate_post_api(q: Optional[str] = Query(None), prompt: Optional[str] = Query(None), recent_ids: Optional[List[str]] = Query(None)):
+async def curate_post_api(q: Optional[str] = Query(None),
+                          prompt: Optional[str] = Query(None),
+                          recent_ids: Optional[List[str]] = Query(None)):
     req = CurateRequest(q=q, prompt=prompt, recent_ids=recent_ids)
     return await curate_post(req)
 
 @app.get("/curate", tags=["public"])
-async def curate_get(q: Optional[str] = Query(None), prompt: Optional[str] = Query(None), recent_ids: Optional[List[str]] = Query(None)):
-    text = (q or prompt or "").strip()
-    if not text:
-        raise HTTPException(status_code=400, detail="Invalid input")
-
-    # Generate a stable hash for the prompt
-    norm = normalize(text)
-    prompt_hash = sha256(norm.encode("utf-8")).hexdigest()
-
-    context = {
-        "recent_ids": recent_ids,
-        "prompt": text,
-        "prompt_hash": prompt_hash,
-        "ts": datetime.now(timezone.utc).isoformat(),
-        "request_id": str(uuid.uuid4())
-    }
-    
-    items_tri = selection_engine(text, context)
-    items = _transform_for_api(items_tri)
-    
-    resp = {"items": items, "edge_case": any(i.get("edge_case") for i in items)}
-    cfg = (ANCHOR_THRESHOLDS.get("multi_anchor_logging") or {})
-    if FEATURE_MULTI_ANCHOR_LOGGING and cfg.get("emit_header", False):
-        meta = context.get("__meta_detected_emotions") or []
-        if meta:
-            # e.g., "Fun/Humor:0.68,Affection/Support:0.56"
-            header_val = ",".join(f"{m['anchor']}:{m['score']}" for m in meta[:2])
-            resp_obj = Response(content=json.dumps(resp))
-            resp_obj.headers["X-Detected-Emotions"] = header_val
-            return resp_obj
-    return resp
+async def curate_get(q: Optional[str] = Query(None),
+                     prompt: Optional[str] = Query(None),
+                     recent_ids: Optional[List[str]] = Query(None)):
+    req = CurateRequest(q=q, prompt=prompt, recent_ids=recent_ids)
+    return await curate_post(req)
