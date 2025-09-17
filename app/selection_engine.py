@@ -182,7 +182,7 @@ def _stable_id(it: dict) -> str:
 
 def _apply_edge_register_filters(pool: list[dict], edge_type: str) -> list[dict]:
     """Score+filter pool by edge register (palette/species/LG). Non-destructive."""
-    regs = EDGE_REGISTERS.get(edge_type, {}) or {}
+    regs = EDGE_REGISTERS.get(edge_type, {}) or regs
     # 1) Block LG where required
     lg_policy = regs.get("lg_policy", "allow")
     allow_lg_mix = bool(regs.get("allow_lg_in_mix", True))
@@ -376,7 +376,7 @@ def _transform_for_api(items: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     Transforms the internal item representation to the final API payload format.
     Adds unique IDs, tier names, and price/currency fields.
     """
-    transformed = []
+    out = []
     for it in items:
         api_item = dict(it) # Create a mutable copy
 
@@ -385,9 +385,28 @@ def _transform_for_api(items: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
             api_item["price"] = api_item.pop("price_inr")
             api_item["currency"] = "INR"  # Add required currency field
 
-        transformed.append(api_item)
-
-    return transformed
+        # New: map image_url to image, with fallbacks
+        image_url = api_item.pop("image_url", None)
+        api_item["image"] = api_item.get("image") or image_url or ""
+        
+        # New: create a new dictionary to control final output keys and their order
+        o = {
+            "id": str(api_item.get("id", "")),
+            "title": api_item.get("title", ""),
+            "desc": api_item.get("desc", ""),
+            "image": api_item["image"],
+            "tier": api_item.get("tier", ""),
+            "palette": list(api_item.get("palette") or []),
+            "mono": bool(api_item.get("mono", False)),
+            "luxury_grand": bool(api_item.get("luxury_grand", False)),
+            "price": api_item.get("price"),
+            "currency": api_item.get("currency"),
+            "edge_case": bool(api_item.get("edge_case", False)),
+            "edge_type": api_item.get("edge_type"),
+            "note": api_item.get("note")
+        }
+        out.append(o)
+    return out
 
 
 def selection_engine(prompt: str, context: Dict[str, Any]) -> List[Dict[str, Any]]:
@@ -499,7 +518,8 @@ async def curate_post(req: CurateRequest):
         "run_count": req.run_count or 0,
     }
     
-    items = selection_engine(text, context)
+    items_tri = selection_engine(text, context)
+    items = _transform_for_api(items_tri)
     
     resp = {"items": items, "edge_case": any(i.get("edge_case") for i in items)}
     cfg = (ANCHOR_THRESHOLDS.get("multi_anchor_logging") or {})
@@ -537,7 +557,8 @@ async def curate_get(q: Optional[str] = Query(None), prompt: Optional[str] = Que
         "request_id": str(uuid.uuid4())
     }
     
-    items = selection_engine(text, context)
+    items_tri = selection_engine(text, context)
+    items = _transform_for_api(items_tri)
     
     resp = {"items": items, "edge_case": any(i.get("edge_case") for i in items)}
     cfg = (ANCHOR_THRESHOLDS.get("multi_anchor_logging") or {})
