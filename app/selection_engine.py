@@ -143,12 +143,6 @@ def _rotation_index(seed: str, k: int) -> int:
     if k <= 1: return 0
     return _stable_hash_u32(seed) % k
 
-def _truncate_words(text: str, max_words: int) -> str:
-    words = [w for w in (text or "").split()]
-    if len(words) <= max_words:
-        return text or ""
-    return " ".join(words[:max_words]).rstrip() + "…"
-
 def _suppress_recent(items: list[dict], recent_set: set[str]) -> list[dict]:
     if not recent_set:
         return items
@@ -177,13 +171,35 @@ def _has_emotion_match(item: Dict[str, Any], emotion: str) -> bool:
         return True
     return False
 
+def _match_edge(text: str, rules: dict) -> bool:
+    """Check if text matches any edge rule pattern."""
+    # exact
+    for phrase in (rules.get("exact") or []):
+        if phrase and phrase.lower() in text:
+            return True
+    # contains_any
+    if any(tok and tok.lower() in text for tok in (rules.get("contains_any") or [])):
+        return True
+    # regex
+    patterns = []
+    for r in (rules.get("regex") or []):
+        patterns.append(r if isinstance(r, str) else r.get("pattern", ""))
+    if patterns and _matches_regex_list(text, patterns):
+        return True
+    # proximity_pairs
+    for spec in (rules.get("proximity_pairs") or []):
+        a = spec.get("a",""); b = spec.get("b",""); w = int(spec.get("window",2))
+        if a and b and _has_proximity(text, a, b, window=w):
+            return True
+    return False
+
 # ---------------- Phase-1.4a helpers (drop-in) ----------------
 def _stable_id(it: dict) -> str:
     return str(it.get("id", ""))
 
 def _apply_edge_register_filters(pool: list[dict], edge_type: str) -> list[dict]:
     """Score+filter pool by edge register (palette/species/LG). Non-destructive."""
-    regs = EDGE_REGISTERS.get(edge_type, {}) or {}  # Fixed: was missing {}
+    regs = EDGE_REGISTERS.get(edge_type, {}) or {}
     # 1) Block LG where required
     lg_policy = regs.get("lg_policy", "allow")
     allow_lg_mix = bool(regs.get("allow_lg_in_mix", True))
@@ -312,43 +328,24 @@ def _compute_detected_emotions(scores: dict[str,float]) -> list[dict]:
 def detect_emotion(prompt: str, context: dict | None) -> Tuple[str, Optional[str], Dict[str, float]]:
     """
     Core emotion and intent detection logic. Returns (resolved_anchor, edge_type, scores)
+    FIXED: Proper edge detection and guarded LG policy application
     """
     p = normalize(prompt)
-
-    # Edge registers short-circuit routing; item stamping uses this edge_type exactly once.
-    # Canary tests (CI): one exact/regex/proximity sample per register; fail CI if any canary stops matching.
-    # 0) Edge case check (highest priority) from emotion_keywords["edges"]
-    # Check for canonical edge cases first (highest priority)
-    for edge_type, rules in (EDGES or {}).items():
-        p = p  # already normalized above
-        # exact
-        for phrase in (rules.get("exact") or []):
-            if phrase and phrase.lower() in p:
-                anchor = (EDGE_REGISTers.get(edge_type, {}) or {}).get("emotion_anchor", "general")
-                return anchor, edge_type, {}
-        # contains_any
-        if any(tok and tok.lower() in p for tok in (rules.get("contains_any") or [])):
-            anchor = (EDGE_REGISTERS.get(edge_type, {}) or {}).get("emotion_anchor", "general")
-            return anchor, edge_type, {}
-        # regex
-        patterns = []
-        for r in (rules.get("regex") or []):
-            patterns.append(r if isinstance(r, str) else r.get("pattern", ""))
-        if patterns and _matches_regex_list(p, patterns):
-            anchor = (EDGE_REGISTERS.get(edge_type, {}) or {}).get("emotion_anchor", "general")
-            return anchor, edge_type, {}
-        # proximity_pairs
-        for spec in (rules.get("proximity_pairs") or []):
-            a = spec.get("a",""); b = spec.get("b",""); w = int(spec.get("window",2))
-            if a and b and _has_proximity(p, a, b, window=w):
-                anchor = (EDGE_REGISTERS.get(edge_type, {}) or {}).get("emotion_anchor", "general")
-                return anchor, edge_type, {}
-    
-    # --- KEYWORD BUCKET SCORING (fix) ---
     scores: Dict[str, float] = {}
+    edge_type: Optional[str] = None
+
+    # Edge registers first - highest priority
+    for edge, rules in (EDGES or {}).items():
+        if _match_edge(p, rules):
+            edge_type = edge
+            resolved_anchor = (EDGE_REGISTERS.get(edge, {}) or {}).get("emotion_anchor", "general")
+            log.info(f"Edge case detected: {edge_type} -> {resolved_anchor}")
+            return resolved_anchor, edge_type, scores
+
+    # --- KEYWORD BUCKET SCORING (fixed) ---
     tokens = _tokenize(prompt)
-    # Buckets are per-anchor keyword lists in JSON
     buckets = EMOTION_KEYWORDS.get("keywords", {}) or {}
+    
     for anchor, words in buckets.items():
         hits = 0
         for w in (words or []):
@@ -357,19 +354,22 @@ def detect_emotion(prompt: str, context: dict | None) -> Tuple[str, Optional[str
         if hits > 0:
             scores[anchor] = float(hits)
 
-    # Optional LG hint
+    # Grand intent boost
     if _has_grand_intent(prompt):
-        scores["luxury_grand"] = scores.get("luxury_grand", 0.0) + 1.0
+        scores["luxury_grand"] = (scores.get("luxury_grand", 0.0) + 20.0) * 1.1
 
-    log.info(f"Pre-block scores: {scores}")
-    
-    # Scope LG block list policy (only when grand intent is present)
+    # Debug log
+    log.info(f"Detected scores: {scores}, grand_intent: {_has_grand_intent(prompt)}")
+
+    # Apply blocked emotions ONLY when grand intent is present (FIXED)
     blocked = (TIER_POLICY.get("luxury_grand", {}) or {}).get("blocked_emotions") or []
     if _has_grand_intent(prompt) and blocked:
         scores = {k: v for k, v in scores.items() if k not in blocked}
+        log.info(f"Applied LG blocking, remaining scores: {scores}")
 
-    log.info(f"Post-block scores: {scores}, grand_intent: {_has_grand_intent(prompt)}")
-    
+    if not scores:
+        return "general", None, {}
+
     sorted_scores = sorted(scores.items(), key=lambda kv: kv[1], reverse=True)
     resolved_anchor = sorted_scores[0][0] if sorted_scores else "general"
 
@@ -377,8 +377,6 @@ def detect_emotion(prompt: str, context: dict | None) -> Tuple[str, Optional[str
     if resolved_anchor == "general" and len(sorted_scores) > 1:
         resolved_anchor = sorted_scores[1][0]
 
-    # At this point no edge was triggered, so edge_type stays None
-    edge_type = None
     return resolved_anchor, edge_type, scores
 
 def find_iconic_species(prompt_norm: str) -> Optional[str]:
@@ -390,23 +388,34 @@ def find_iconic_species(prompt_norm: str) -> Optional[str]:
     return None
 
 def assign_tiers(triad: List[Dict], context: Dict) -> List[Dict]:
+    """FIXED: Handle backfill scenarios properly"""
     monos = [it for it in triad if it.get("mono")]
     mixes = [it for it in triad if not it.get("mono")]
-    if not monos:
-        # Backfill case: All mix, assign sequentially
-        if mixes:
+    mono_count = len(monos)
+    
+    if mono_count == 0:
+        # Backfill scenario: Sequential tiers, don't escalate inappropriately
+        if len(mixes) >= 1:
             mixes[0]["tier"] = "Classic"
-            if len(mixes) > 1:
-                mixes[1]["tier"] = "Signature"
-            if len(mixes) > 2:
-                mixes[2]["tier"] = "Luxury"
+        if len(mixes) >= 2:
+            mixes[1]["tier"] = "Signature"
+        if len(mixes) >= 3:
+            mixes[2]["tier"] = "Luxury"
+    elif mono_count == 1:
+        # Standard: Classic/Signature to mixes, Luxury to mono (if grand)
+        if len(mixes) >= 1:
+            mixes[0]["tier"] = "Classic"
+        if len(mixes) >= 2:
+            mixes[1]["tier"] = "Signature"
+        if _has_grand_intent(context.get("prompt", "")):
+            monos[0]["tier"] = "Luxury"
+        else:
+            monos[0]["tier"] = "Signature"  # Non-grand mono gets Signature
     else:
-        # Standard
-        if mixes:
-            mixes[0]["tier"] = "Classic"
-            if len(mixes) > 1:
-                mixes[1]["tier"] = "Signature"
-        monos[0]["tier"] = "Luxury" if _has_grand_intent(context["prompt"]) else "Signature"
+        # Invalid; fallback sequential
+        tiers = ["Classic", "Signature", "Luxury"]
+        for i, it in enumerate(triad):
+            it["tier"] = tiers[i % 3]
     return triad
 
 def find_and_assign_note(triad: list, selected_species: Optional[str],
@@ -429,21 +438,25 @@ def find_and_assign_note(triad: list, selected_species: Optional[str],
             target["note"] = note
 
 def _transform_for_api(items: List[Dict], resolved_anchor: Optional[str]) -> List[Dict]:
+    """FIXED: Proper field mapping and validation"""
     out: List[Dict] = []
     for it in items or []:
         # Map fields with fallbacks
         image = it.get("image") or it.get("image_url") or ""
-        price = it.get("price") if it.get("price") is not None else it.get("price_inr")
-        currency = it.get("currency") or ("INR" if price is not None else None)
-        if not image or price is None or not currency:
+        price = it.get("price") if it.get("price") is not None else it.get("price_inr", 0)
+        currency = it.get("currency") or ("INR" if price != 0 else None)
+        
+        if not image or price == 0 or not currency:
             # Log error, skip to avoid invalid item
             log.warning(f"Invalid item in triad: {it.get('id')}")
             continue
+            
         item = dict(it)
         item["image"] = image
         item["price"] = price
         item["currency"] = currency
         item["emotion"] = item.get("emotion") or (resolved_anchor or "general")
+        
         # Preserve edge stamps
         if "edge_case" in it:
             item["edge_case"] = it["edge_case"]
@@ -451,6 +464,7 @@ def _transform_for_api(items: List[Dict], resolved_anchor: Optional[str]) -> Lis
         if "note" in it:
             item["note"] = it["note"]
         out.append(item)
+        
     if len(out) != 3:
         raise HTTPException(status_code=500, detail="Internal catalog data error")
     return out
@@ -496,7 +510,6 @@ def _backfill_to_three(items: list[dict], catalog: list[dict], context: dict) ->
     
     return items
 
-
 def _pick_mono(catalog: list[dict], context: dict) -> dict | None:
     """Helper for picking the mono item with edge-case filters."""
     edge_type = context.get("edge_type")
@@ -524,21 +537,18 @@ def _pick_mono(catalog: list[dict], context: dict) -> dict | None:
     mono_item = dict(mono_item); mono_item["mono"] = True
     return mono_item
 
-
 def selection_engine(prompt: str, context: Dict[str, Any]) -> List[Dict[str, Any]]:
     """
     Main function for selecting a curated triad of items.
+    FIXED: Added anchor carry and empty pool guards
     """
     available_catalog = list(CATALOG)
     prompt_norm = normalize(prompt)
     resolved_anchor, edge_type, _scores = detect_emotion(prompt, context or {})
-    
-    # Carry the resolved anchor
-    context["resolved_anchor"] = resolved_anchor
-    
     is_edge = edge_type is not None
     selected_species = find_iconic_species(prompt_norm)
     
+    # FIXED: Carry the resolved anchor
     context["resolved_anchor"] = resolved_anchor
     context["edge_type"] = edge_type
     
@@ -550,6 +560,14 @@ def selection_engine(prompt: str, context: Dict[str, Any]) -> List[Dict[str, Any
     if is_edge:
         # steer by palette/species/LG from registers
         emotion_pool = _apply_edge_register_filters(emotion_pool, edge_type)
+
+    # FIXED: Empty pool guard
+    if not emotion_pool:
+        log.warning(f"No items match the detected emotion: {resolved_anchor}")
+        # Fallback to general emotion pool
+        emotion_pool = [it for it in available_catalog if _has_emotion_match(it, "general")]
+        if not emotion_pool:
+            raise HTTPException(status_code=400, detail="No items match the detected emotion")
 
     # 2. Build the triad as 1 MONO + 2 MIX (deterministic)
     triad: list[dict] = []
@@ -576,7 +594,6 @@ def selection_engine(prompt: str, context: Dict[str, Any]) -> List[Dict[str, Any
     if len(triad) < 3:
         any_pool = [it for it in available_catalog if _stable_id(it) not in seen]
         triad.extend(_take_n_wrapped(any_pool, _rotation_index(seed + ":any", len(any_pool)), 3 - len(triad)))
-
 
     _ensure_triad_or_500(triad)
 
@@ -659,9 +676,8 @@ async def curate_post(req: CurateRequest):
         "ts": datetime.now(timezone.utc).isoformat(),
         "request_id": str(uuid.uuid4()),
     }
-    
+
     triad = selection_engine(prompt, context)
-    log.info(f"Triad: {triad}")
     payload_items = _transform_for_api(triad, context.get("resolved_anchor"))
 
     payload = {
