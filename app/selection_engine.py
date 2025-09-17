@@ -271,72 +271,66 @@ def detect_emotion(prompt: str, context: dict | None) -> Tuple[str, Optional[str
     # 0) Edge case check (highest priority) from emotion_keywords["edges"]
     # Check for canonical edge cases first (highest priority)
     for edge_type, rules in (EDGES or {}).items():
+        p = p  # already normalized above
         # exact
-        for phrase in rules.get("exact", []):
-            if p == normalize(phrase):
-                return rules.get("anchor"), edge_type, None
+        for phrase in (rules.get("exact") or []):
+            if phrase and phrase.lower() in p:
+                anchor = (EDGE_REGISTERS.get(edge_type, {}) or {}).get("emotion_anchor", "general")
+                return anchor, edge_type, {}
+        # contains_any
+        if any(tok and tok.lower() in p for tok in (rules.get("contains_any") or [])):
+            anchor = (EDGE_REGISTERS.get(edge_type, {}) or {}).get("emotion_anchor", "general")
+            return anchor, edge_type, {}
         # regex
-        if _matches_regex_list(p, rules.get("regex", [])):
-            return rules.get("anchor"), edge_type, None
-        # proximity check
-        prox_rules = rules.get("proximity", {})
-        if prox_rules and _has_proximity(p, prox_rules.get("a"), prox_rules.get("b"), prox_rules.get("window", 0)):
-            return rules.get("anchor"), edge_type, None
-        # false friends
-        if rules.get("false_friend", False) and _is_false_friend(p, rules.get("false_friend_terms", [])):
-            continue
-
-    # 1) Anchors (from keywords)
+        patterns = []
+        for r in (rules.get("regex") or []):
+            patterns.append(r if isinstance(r, str) else r.get("pattern", ""))
+        if patterns and _matches_regex_list(p, patterns):
+            anchor = (EDGE_REGISTERS.get(edge_type, {}) or {}).get("emotion_anchor", "general")
+            return anchor, edge_type, {}
+        # proximity_pairs
+        for spec in (rules.get("proximity_pairs") or []):
+            a = spec.get("a",""); b = spec.get("b",""); w = int(spec.get("window",2))
+            if a and b and _has_proximity(p, a, b, window=w):
+                anchor = (EDGE_REGISTERS.get(edge_type, {}) or {}).get("emotion_anchor", "general")
+                return anchor, edge_type, {}
+    
+    # --- KEYWORD BUCKET SCORING (fix) ---
     scores: Dict[str, float] = {}
     tokens = _tokenize(prompt)
-    for anchor, rules in EMOTION_KEYWORDS.get("anchors", {}).items():
-        score = 0
-        match_count = 0
-        # Check against `tokens`
-        for term in rules.get("keywords", []):
-            if term in tokens:
-                score += rules.get("boost", 1)
-                match_count += 1
-        # Check against normalized `prompt` for phrases
-        for phrase in rules.get("phrases", []):
-            if _any_match(prompt, [phrase]):
-                score += rules.get("boost", 1)
-                match_count += 1
-        if score > 0:
-            scores[anchor] = score
-    
-    # 2) LG intent check (only if no edge case already matched)
+    # Buckets are per-anchor keyword lists in JSON
+    buckets = EMOTION_KEYWORDS.get("keywords", {}) or {}
+    for anchor, words in buckets.items():          # <-- iterate buckets, not anchors[]
+        hits = 0
+        for w in (words or []):
+            if (w or "").lower() in p:
+                hits += 1
+        if hits > 0:
+            scores[anchor] = float(hits)
+
+    # Optional LG hint
     if _has_grand_intent(prompt):
-        scores["luxury_grand"] = scores.get("luxury_grand", 0) + 1.0
-        
-    # 3) Resolve to a single anchor
+        scores["luxury_grand"] = scores.get("luxury_grand", 0.0) + 1.0
+
     sorted_scores = sorted(scores.items(), key=lambda kv: kv[1], reverse=True)
     resolved_anchor = sorted_scores[0][0] if sorted_scores else "general"
-    
-    # 4) If `general` is resolved and there's another score > 0, swap
+
+    # If ‘general’ but there is another scored anchor, prefer that next best
     if resolved_anchor == "general" and len(sorted_scores) > 1:
         resolved_anchor = sorted_scores[1][0]
-    
-    # 5) Apply policy blocks
-    # Block luxury grand if policy requires it
-    blocked_emotions = TIER_POLICY.get("luxury_grand", {}).get("blocked_emotions", [])
-    if resolved_anchor in blocked_emotions:
-        # Default to the most scored non-blocked emotion
-        for anchor, _ in sorted_scores:
-            if anchor not in blocked_emotions:
-                resolved_anchor = anchor
-                break
-        else: # If all are blocked, default to 'general'
-            resolved_anchor = "general"
-            
-    # Check for intent clarity
+
+    # Enforce LG block list policy
+    blocked = TIER_POLICY.get("luxury_grand", {}).get("blocked_emotions", [])
+
+    if resolved_anchor in blocked:
+        resolved_anchor = next((a for a,_ in sorted_scores if a not in blocked), "general")
+
+    # Ambiguity safety net
     if not _intent_clarity(prompt, len(scores)):
         resolved_anchor = "general"
-    
-    edge_type = None # No edge case detected
-    if resolved_anchor in EDGE_CASE_KEYS:
-        edge_type = resolved_anchor
 
+    # At this point no edge was triggered, so edge_type stays None
+    edge_type = None
     return resolved_anchor, edge_type, scores
 
 def find_iconic_species(prompt_norm: str) -> Optional[str]:
