@@ -17,6 +17,11 @@ import json, os, re, hashlib
 from typing import Any, Dict, List, Optional, Tuple
 from fastapi import FastAPI, HTTPException, Query # Added Query import
 from enum import Enum
+from pydantic import BaseModel
+from hashlib import sha256
+from datetime import datetime, timezone
+import uuid
+from fastapi import Response
 
 __all__ = ["curate", "selection_engine", "normalize", "detect_emotion"]
 
@@ -394,6 +399,7 @@ def selection_engine(prompt: str, context: Dict[str, Any]) -> List[Dict[str, Any
     resolved_anchor, edge_type, _scores = detect_emotion(prompt, context or {})
     is_edge = edge_type is not None
     selected_species = find_iconic_species(prompt_norm)
+    seed = (context or {}).get("prompt_hash", "seed")
 
     # 1. Build candidate pools
     emotion_pool = [it for it in available_catalog if _has_emotion_match(it, resolved_anchor)]
@@ -413,17 +419,17 @@ def selection_engine(prompt: str, context: Dict[str, Any]) -> List[Dict[str, Any
 
     # MIX slots from emotion_pool (fall back to 'general' if needed)
     mix_needed = 2
-    mix_filled = _pick_mix_slots(emotion_pool, mix_needed, context["prompt_hash"], seen)
+    mix_filled = _pick_mix_slots(emotion_pool, mix_needed, seed, seen)
     triad.extend(mix_filled)
 
     # Backfill if still short
     if len(triad) < 3:
         general_pool = [it for it in available_catalog if _has_emotion_match(it, "general")]
-        triad.extend(_pick_mix_slots(general_pool, 3 - len(triad), context["prompt_hash"], seen))
+        triad.extend(_pick_mix_slots(general_pool, 3 - len(triad), seed, seen))
 
     # Final safety: if still short, pad from any available
     if len(triad) < 3:
-        triad.extend(_pick_mix_slots(available_catalog, 3 - len(triad), context["prompt_hash"], seen))
+        triad.extend(_pick_mix_slots(available_catalog, 3 - len(triad), seed, seen))
 
     _assert_triad_contract(triad)
 
@@ -443,10 +449,11 @@ def selection_engine(prompt: str, context: Dict[str, Any]) -> List[Dict[str, Any
         meta_detected = _compute_detected_emotions(_scores or {})
         # compact, privacy-safe log
         near_tie_compact = [{"a": m["anchor"], "s": m["score"]} for m in meta_detected][:2]
+        ph = (context or {}).get("prompt_hash", "")
         log_record = {
-            "ts": context.get("ts") or "",
-            "rid": context.get("request_id") or "",
-            "prompt_hash": "sha256:" + context["prompt_hash"][:8],
+            "ts": (context or {}).get("ts",""),
+            "rid": (context or {}).get("request_id",""),
+            "prompt_hash": "sha256:" + (ph[:8] if ph else ""),
             "resolved": resolved_anchor,
             "edges": {"case": is_edge, "type": edge_type},
             "near_tie": near_tie_compact
@@ -466,21 +473,30 @@ def selection_engine(prompt: str, context: Dict[str, Any]) -> List[Dict[str, Any
 # FastAPI endpoints
 app = FastAPI()
 
+class CurateRequest(BaseModel):
+    prompt: Optional[str] = None
+    q: Optional[str] = None
+    recent_ids: Optional[List[str]] = None
+    run_count: Optional[int] = 0
+
 @app.post("/curate", tags=["public"])
-async def curate_post(q: Optional[str] = Query(None), prompt: Optional[str] = Query(None), recent_ids: Optional[List[str]] = Query(None)):
-    text = (q or prompt or "").strip()
+async def curate_post(req: CurateRequest):
+    prompt = req.prompt or req.q or ""
+    text = prompt.strip()
     if not text:
         raise HTTPException(status_code=400, detail="Invalid input")
-    
-    # Generate a stable hash for the prompt
-    prompt_hash = hashlib.sha256(text.encode("utf-8")).hexdigest()
 
+    # Generate a stable hash for the prompt
+    norm = normalize(text)
+    prompt_hash = sha256(norm.encode("utf-8")).hexdigest()
+    
     context = {
-        "recent_ids": recent_ids,
+        "recent_ids": req.recent_ids,
         "prompt": text,
         "prompt_hash": prompt_hash,
-        "ts": None, # or a timestamp if you have one
-        "request_id": None # or a request id if you have one
+        "ts": datetime.now(timezone.utc).isoformat(),
+        "request_id": str(uuid.uuid4()),
+        "run_count": req.run_count or 0,
     }
     
     items = selection_engine(text, context)
@@ -492,7 +508,6 @@ async def curate_post(q: Optional[str] = Query(None), prompt: Optional[str] = Qu
         if meta:
             # e.g., "Fun/Humor:0.68,Affection/Support:0.56"
             header_val = ",".join(f"{m['anchor']}:{m['score']}" for m in meta[:2])
-            from fastapi import Response
             resp_obj = Response(content=json.dumps(resp))
             resp_obj.headers["X-Detected-Emotions"] = header_val
             return resp_obj
@@ -501,7 +516,8 @@ async def curate_post(q: Optional[str] = Query(None), prompt: Optional[str] = Qu
 # Alias the existing endpoints to also work with the /api prefix
 @app.post("/api/curate", tags=["public"])
 async def curate_post_api(q: Optional[str] = Query(None), prompt: Optional[str] = Query(None), recent_ids: Optional[List[str]] = Query(None)):
-    return await curate_post(q, prompt, recent_ids)
+    req = CurateRequest(q=q, prompt=prompt, recent_ids=recent_ids)
+    return await curate_post(req)
 
 @app.get("/curate", tags=["public"])
 async def curate_get(q: Optional[str] = Query(None), prompt: Optional[str] = Query(None), recent_ids: Optional[List[str]] = Query(None)):
@@ -510,14 +526,15 @@ async def curate_get(q: Optional[str] = Query(None), prompt: Optional[str] = Que
         raise HTTPException(status_code=400, detail="Invalid input")
 
     # Generate a stable hash for the prompt
-    prompt_hash = hashlib.sha256(text.encode("utf-8")).hexdigest()
+    norm = normalize(text)
+    prompt_hash = sha256(norm.encode("utf-8")).hexdigest()
 
     context = {
         "recent_ids": recent_ids,
         "prompt": text,
         "prompt_hash": prompt_hash,
-        "ts": None, # or a timestamp if you have one
-        "request_id": None # or a request id if you have one
+        "ts": datetime.now(timezone.utc).isoformat(),
+        "request_id": str(uuid.uuid4())
     }
     
     items = selection_engine(text, context)
@@ -529,7 +546,6 @@ async def curate_get(q: Optional[str] = Query(None), prompt: Optional[str] = Que
         if meta:
             # e.g., "Fun/Humor:0.68,Affection/Support:0.56"
             header_val = ",".join(f"{m['anchor']}:{m['score']}" for m in meta[:2])
-            from fastapi import Response
             resp_obj = Response(content=json.dumps(resp))
             resp_obj.headers["X-Detected-Emotions"] = header_val
             return resp_obj
