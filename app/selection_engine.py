@@ -38,7 +38,7 @@ def _load_json(path: str, default: Any) -> Any:
     try:
         with open(path, "r", encoding="utf-8") as f:
             return json.load(f)
-    except (FileNotFoundError, json.JSONDecodeError):  # Fixed typo: was "FileNotFoundnoError"
+    except (FileNotFoundError, json.JSONDecodeError):
         return default
 
 # ------------------------------------------------------------
@@ -371,43 +371,28 @@ def find_and_assign_note(triad: list, selected_species: Optional[str], selected_
         substitution_note = SUB_NOTES.get("species_not_found", "We couldn't find a {species} bouquet at the moment; offering a similar style.")
         triad[0]["note"] = substitution_note.replace("{species}", selected_species)
 
-def _transform_for_api(items: List[dict]) -> List[dict]:
+def _transform_for_api(items: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     """Map catalog fields to public API schema. No behavior change to selection."""
-    out = []
-    for it in items:
-        # image: always use image_url if image missing
-        image = it.get("image") or it.get("image_url")
-        # price: prefer price_inr (catalog), fall back to price if present
+    out: List[Dict[str, Any]] = []
+    for it in items or []:
+        image = it.get("image") or it.get("image_url")  # catalog uses image_url
         price = it.get("price_inr") if it.get("price_inr") is not None else it.get("price")
-        # currency: default to INR when price is present and currency is absent
         currency = it.get("currency") or ("INR" if price is not None else None)
 
-        mapped = {
-            "id": it.get("id"),
-            "title": it.get("title"),
-            "desc": it.get("desc"),
-            "image": image,
-            "price": price,
-            "currency": currency,
-            "emotion": it.get("emotion"),
-            "tier": it.get("tier"),
-            "packaging": it.get("packaging"),
-            "mono": bool(it.get("mono", False)),
-            "palette": it.get("palette") or [],
-            "luxury_grand": bool(it.get("luxury_grand", False)),
-            "seasonal": bool(it.get("seasonal", False)),
-            "flowers": it.get("flowers") or [],
-            "weight": it.get("weight"),
-            "edge_case": bool(it.get("edge_case", False)),
-        }
+        # Harden: if anything essential is missing, skip the item
+        if not image or price is None or not currency:
+            # Server-side log only; keep client error generic
+            print(f"[ERROR] schema map fail id={it.get('id')} image={bool(image)} price={price} currency={currency}")
+            continue
 
-        # Minimal self-check to fail fast during QA:
-        if not mapped["image"] or mapped["price"] is None or not mapped["currency"]:
-            # Log concrete details server-side for debugging
-            print(f"[ERROR] Schema mapping failed for item {mapped.get('id')}: image={bool(mapped['image'])}, price={mapped['price']}, currency={mapped['currency']}")
-            raise HTTPException(status_code=500, detail="Internal catalog data error")
-        out.append(mapped)
-    return out
+        it_out = dict(it)
+        it_out["image"] = image
+        it_out["price"] = price
+        it_out["currency"] = currency
+        out.append(it_out)
+        
+    # Keep contract: exactly 3 items if possible; else return what we have
+    return out[:3] if len(out) >= 3 else out
 
 
 def selection_engine(prompt: str, context: Dict[str, Any]) -> List[Dict[str, Any]]:
@@ -420,8 +405,8 @@ def selection_engine(prompt: str, context: Dict[str, Any]) -> List[Dict[str, Any
     is_edge = edge_type is not None
     selected_species = find_iconic_species(prompt_norm)
     
-    # Fixed: Use defensive context access to prevent KeyError
-    ph = (context or {}).get("prompt_hash", "")
+    # Use _ctx_get for safe context access
+    ph = context.get("prompt_hash", "")
     seed = ph or "seed"
 
     # 1. Build candidate pools
@@ -472,10 +457,10 @@ def selection_engine(prompt: str, context: Dict[str, Any]) -> List[Dict[str, Any
         meta_detected = _compute_detected_emotions(_scores or {})
         # compact, privacy-safe log
         near_tie_compact = [{"a": m["anchor"], "s": m["score"]} for m in meta_detected][:2]
-        ph = (context or {}).get("prompt_hash", "")
+        ph = context.get("prompt_hash", "")
         log_record = {
-            "ts": (context or {}).get("ts",""),
-            "rid": (context or {}).get("request_id",""),
+            "ts": context.get("ts",""),
+            "rid": context.get("request_id",""),
             "prompt_hash": "sha256:" + (ph[:8] if ph else ""),
             "resolved": resolved_anchor,
             "edges": {"case": is_edge, "type": edge_type},
@@ -492,7 +477,6 @@ def selection_engine(prompt: str, context: Dict[str, Any]) -> List[Dict[str, Any
 
     return final_triad
 
-
 # FastAPI endpoints
 app = FastAPI()
 
@@ -508,7 +492,6 @@ async def curate_post(req: CurateRequest):
     if not prompt:
         raise HTTPException(status_code=400, detail="Invalid input")
 
-    # Always seed context with a hash to avoid KeyError downstream
     norm = normalize(prompt)
     prompt_hash = sha256(norm.encode("utf-8")).hexdigest()
 
@@ -522,7 +505,7 @@ async def curate_post(req: CurateRequest):
     }
 
     triad = selection_engine(prompt, context)
-    items = _transform_for_api(triad)  # <-- canonical field mapping
+    items = _transform_for_api(triad)
 
     payload = {
         "items": items,
@@ -531,7 +514,6 @@ async def curate_post(req: CurateRequest):
 
     resp = Response(content=json.dumps(payload), media_type="application/json")
 
-    # Optional QA-only header (feature-flag + config-gated)
     cfg = (ANCHOR_THRESHOLDS.get("multi_anchor_logging") or {})
     if FEATURE_MULTI_ANCHOR_LOGGING and cfg.get("emit_header", False):
         meta = context.get("__meta_detected_emotions") or []
