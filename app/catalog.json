@@ -2,7 +2,7 @@
   {
     "id": "rom_mix_c1",
     "title": "Blush Harmony • Classic",
-    "desc": "A soft romantic mix with blush notes.",
+    "desc": "A soft romantic mix with blush notes, featuring fresh roses and alstroemeria.",
     "image_url": "https://raw.githubusercontent.com/DivyanshuK02/arvyam-landing/refs/heads/main/assets/card-1.jpg",
     "price_inr": 1599,
     "emotion": "Affection/Support",
@@ -26,7 +26,7 @@
   {
     "id": "rom_mix_s1",
     "title": "Rosy Whisper • Signature",
-    "desc": "Elegant romantic mix with rich reds and blush.",
+    "desc": "An elegant romantic mix of rich red roses and blush carnations, presented in a vase.",
     "image_url": "https://raw.githubusercontent.com/DivyanshuK02/arvyam-landing/refs/heads/main/assets/card-2.jpg",
     "price_inr": 2699,
     "emotion": "Affection/Support",
@@ -50,7 +50,7 @@
   {
     "id": "rom_mix_l1",
     "title": "Grand Romance • Luxury",
-    "desc": "Luxurious bouquet with deep red accents.",
+    "desc": "A luxurious bouquet of stunning roses and orchids with deep red and gold accents.",
     "image_url": "https://raw.githubusercontent.com/DivyanshuK02/arvyam-landing/refs/heads/main/assets/card-2.jpg",
     "price_inr": 4299,
     "emotion": "Affection/Support",
@@ -74,7 +74,7 @@
   {
     "id": "rom_mono_rose_s",
     "title": "Mono Roses • Signature",
-    "desc": "A poised bouquet of premium roses.",
+    "desc": "A poised and classic bouquet of premium red, blush, and cream roses in a box.",
     "image_url": "https://raw.githubusercontent.com/DivyanshuK02/arvyam-landing/refs/heads/main/assets/card-1.jpg",
     "price_inr": 2599,
     "emotion": "Affection/Support",
@@ -97,7 +97,7 @@
   {
     "id": "rom_mono_rose_lg",
     "title": "Mono Roses Grand • Luxury",
-    "desc": "An abundant grand gesture of roses.",
+    "desc": "An abundant grand gesture of deep red roses, perfect for a profound statement.",
     "image_url": "https://raw.githubusercontent.com/DivyanshuK02/arvyam-landing/refs/heads/main/assets/card-1.jpg",
     "price_inr": 5099,
     "emotion": "Affection/Support",
@@ -120,7 +120,7 @@
   {
     "id": "rom_mix_lg1",
     "title": "Crimson Luxe • Luxury",
-    "desc": "Statement arrangement with lush romantic tones.",
+    "desc": "A grand statement arrangement with lush, romantic tones of crimson and gold.",
     "image_url": "https://raw.githubusercontent.com/DivyanshuK02/arvyam-landing/refs/heads/main/assets/card-2.jpg",
     "price_inr": 4999,
     "emotion": "Affection/Support",
@@ -144,7 +144,7 @@
   {
     "id": "sym_mix_c1",
     "title": "Quiet Grace • Classic",
-    "desc": "A calm, dignified mix in soft whites.",
+    "desc": "A calm and dignified mix of chrysanthemum and lily in soft whites and creams.",
     "image_url": "https://raw.githubusercontent.com/DivyanshuK02/arvyam-landing/refs/heads/main/assets/card-1.jpg",
     "price_inr": 1599,
     "emotion": "Strength/Resilience",
@@ -168,7 +168,7 @@
   {
     "id": "sym_mix_s1",
     "title": "Gentle Tribute • Signature",
-    "desc": "Elegant whites with natural greens.",
+    "desc": "An elegant arrangement of white lilies and orchids complemented by natural greens.",
     "image_url": "https://raw.githubusercontent.com/DivyanshuK02/arvyam-landing/refs/heads/main/assets/card-1.jpg",
     "price_inr": 2699,
     "emotion": "Strength/Resilience",
@@ -192,7 +192,7 @@
   {
     "id": "sym_mix_l1",
     "title": "Peaceful Honor • Luxury",
-    "desc": "Refined white florals with foliage.",
+    "desc": "A refined bouquet of white lilies and roses with graceful foliage for a respectful tribute.",
     "image_url": "https://raw.githubusercontent.com/DivyanshuK02/arvyam-landing/refs/heads/main/assets/card-3.jpg",
     "price_inr": 4099,
     "emotion": "Strength/Resilience",
@@ -216,7 +216,7 @@
   {
     "id": "sym_mono_lily_s",
     "title": "Mono Lilies • Signature",
-    "desc": "Pure lilies for a serene tribute.",
+    "desc": "A simple and pure bouquet of serene white lilies, perfect for a heartfelt tribute.",
     "image_url": "https://raw.githubusercontent.com/DivyanshuK02/arvyam-landing/refs/heads/main/assets/card-2.jpg",
     "price_inr": 2599,
     "emotion": "Strength/Resilience",
@@ -239,7 +239,7 @@
   {
     "id": "apo_mix_c1",
     "title": "Sincere Note • Classic",
-    "desc": "A gentle mix to say you’re sorry.",
+    "desc": "A gentle and thoughtful mix of orchids, lilies, and chrysanthemums to say you’re sorry.",
     "image_url": "https://raw.githubusercontent.com/DivyanshuK02/arvyam-landing/refs/heads/main/assets/card-3.jpg",
     "price_inr": 1599,
     "emotion": "Encouragement/Positivity",
@@ -255,7 +255,8 @@
     "seasonal": false,
     "flowers": [
       "orchid",
-      "lily"
+      "lily",
+      "chrysanthemum"
     ],
     "weight": 65,
     "sentiment_family": "reconciliation"
@@ -263,7 +264,7 @@
   {
     "id": "apo_mix_s1",
     "title": "Graceful Apology • Signature",
-    "desc": "Composed tones with orchids and lilies.",
+    "desc": "A composed arrangement in serene tones with elegant orchids and lilies in a vase.",
     "image_url": "https://raw.githubusercontent.com/DivyanshuK02/arvyam-landing/refs/heads/main/assets/card-2.jpg",
     "price_inr": 2699,
     "emotion": "Encouragement/Positivity",
@@ -287,7 +288,7 @@
   {
     "id": "apo_mix_l1",
     "title": "Deeply Sorry • Luxury",
-    "desc": "Refined bouquet with elegant accents.",
+    "desc": "A refined and luxurious bouquet with elegant orchids and roses to express sincere remorse.",
     "image_url": "https://raw.githubusercontent.com/DivyanshuK02/arvyam-landing/refs/heads/main/assets/card-1.jpg",
     "price_inr": 4099,
     "emotion": "Encouragement/Positivity",
@@ -311,7 +312,7 @@
   {
     "id": "apo_mono_orchid_s",
     "title": "Mono Orchids • Signature",
-    "desc": "Orchids to express a thoughtful apology.",
+    "desc": "A graceful bouquet of pure orchids to express a thoughtful and sincere apology.",
     "image_url": "https://raw.githubusercontent.com/DivyanshuK02/arvyam-landing/refs/heads/main/assets/card-1.jpg",
     "price_inr": 2599,
     "emotion": "Encouragement/Positivity",
@@ -332,8 +333,8 @@
   },
   {
     "id": "apo_mono_orchid_lg",
-    "title": "A grand apology in orchids.",
-    "desc": "A lavish apology in orchids.",
+    "title": "Mono Orchids Grand • Luxury",
+    "desc": "A lavish and grand display of beautiful orchids to convey a heartfelt apology.",
     "image_url": "https://raw.githubusercontent.com/DivyanshuK02/arvyam-landing/refs/heads/main/assets/card-3.jpg",
     "price_inr": 5099,
     "emotion": "Encouragement/Positivity",
@@ -356,7 +357,7 @@
   {
     "id": "far_mix_c1",
     "title": "Warm Sendoff • Classic",
-    "desc": "Warm neutrals for a heartfelt goodbye.",
+    "desc": "A bouquet of warm neutrals, including peach and cream roses, for a heartfelt goodbye.",
     "image_url": "https://raw.githubusercontent.com/DivyanshuK02/arvyam-landing/refs/heads/main/assets/card-1.jpg",
     "price_inr": 1599,
     "emotion": "Loyalty/Dependability",
@@ -380,7 +381,7 @@
   {
     "id": "far_mix_s1",
     "title": "Fond Farewell • Signature",
-    "desc": "Elegant blooms for a respectful parting.",
+    "desc": "An elegant collection of white and peach blooms for a respectful and memorable parting.",
     "image_url": "https://raw.githubusercontent.com/DivyanshuK02/arvyam-landing/refs/heads/main/assets/card-1.jpg",
     "price_inr": 2699,
     "emotion": "Loyalty/Dependability",
@@ -404,7 +405,7 @@
   {
     "id": "far_mix_l1",
     "title": "New Horizons • Luxury",
-    "desc": "Graceful bouquet to mark new journeys.",
+    "desc": "A graceful and luxurious bouquet in soft creams to mark new beginnings and journeys.",
     "image_url": "https://raw.githubusercontent.com/DivyanshuK02/arvyam-landing/refs/heads/main/assets/card-2.jpg",
     "price_inr": 4099,
     "emotion": "Loyalty/Dependability",
@@ -413,7 +414,6 @@
     "mono": false,
     "palette": [
       "cream",
-      "gold",
       "soft-green"
     ],
     "luxury_grand": false,
@@ -428,7 +428,7 @@
   {
     "id": "far_mono_rose_s",
     "title": "Mono Roses • Signature",
-    "desc": "Classic roses to wish them well.",
+    "desc": "A classic bouquet of premium peach and cream roses to wish them well on their way.",
     "image_url": "https://raw.githubusercontent.com/DivyanshuK02/arvyam-landing/refs/heads/main/assets/card-1.jpg",
     "price_inr": 2599,
     "emotion": "Loyalty/Dependability",
@@ -450,7 +450,7 @@
   {
     "id": "far_mono_rose_lg",
     "title": "Mono Roses Grand • Luxury",
-    "desc": "A grand gesture of roses for farewell.",
+    "desc": "A grand gesture of beautiful cream and peach roses for a significant farewell.",
     "image_url": "https://raw.githubusercontent.com/DivyanshuK02/arvyam-landing/refs/heads/main/assets/card-2.jpg",
     "price_inr": 5099,
     "emotion": "Loyalty/Dependability",
@@ -459,7 +459,7 @@
     "mono": true,
     "palette": [
       "cream",
-      "gold"
+      "peach"
     ],
     "luxury_grand": true,
     "seasonal": false,
@@ -472,7 +472,7 @@
   {
     "id": "val_mix_c1",
     "title": "Sweetheart Mix • Classic",
-    "desc": "Playful reds and blush for Valentine.",
+    "desc": "A playful and romantic mix of red and blush roses, perfect for your Valentine.",
     "image_url": "https://raw.githubusercontent.com/DivyanshuK02/arvyam-landing/refs/heads/main/assets/card-3.jpg",
     "price_inr": 1599,
     "emotion": "Affection/Support",
@@ -485,7 +485,7 @@
       "cream"
     ],
     "luxury_grand": false,
-    "seasonal": false,
+    "seasonal": true,
     "flowers": [
       "rose"
     ],
@@ -495,7 +495,7 @@
   {
     "id": "val_mix_s1",
     "title": "Charmed Heart • Signature",
-    "desc": "Romantic mix with bold accents.",
+    "desc": "A deeply romantic mix with bold red roses, orchids, and shimmering gold accents.",
     "image_url": "https://raw.githubusercontent.com/DivyanshuK02/arvyam-landing/refs/heads/main/assets/card-1.jpg",
     "price_inr": 2699,
     "emotion": "Affection/Support",
@@ -508,7 +508,7 @@
       "gold"
     ],
     "luxury_grand": false,
-    "seasonal": false,
+    "seasonal": true,
     "flowers": [
       "rose",
       "orchid"
@@ -519,7 +519,7 @@
   {
     "id": "val_mix_l1",
     "title": "Valentine Luxe • Luxury",
-    "desc": "Expressive bouquet with depth and glow.",
+    "desc": "An expressive luxury bouquet with the depth of crimson and the glow of gold.",
     "image_url": "https://raw.githubusercontent.com/DivyanshuK02/arvyam-landing/refs/heads/main/assets/card-1.jpg",
     "price_inr": 4099,
     "emotion": "Affection/Support",
@@ -532,7 +532,7 @@
       "gold"
     ],
     "luxury_grand": false,
-    "seasonal": false,
+    "seasonal": true,
     "flowers": [
       "rose",
       "orchid"
@@ -543,7 +543,7 @@
   {
     "id": "val_mono_rose_s",
     "title": "Valentine Mono Roses • Signature",
-    "desc": "Iconic roses for the perfect Valentine.",
+    "desc": "The iconic gift of red and blush roses for the perfect Valentine's Day gesture.",
     "image_url": "https://raw.githubusercontent.com/DivyanshuK02/arvyam-landing/refs/heads/main/assets/card-2.jpg",
     "price_inr": 2599,
     "emotion": "Affection/Support",
@@ -555,7 +555,7 @@
       "blush"
     ],
     "luxury_grand": false,
-    "seasonal": false,
+    "seasonal": true,
     "flowers": [
       "rose"
     ],
@@ -565,7 +565,7 @@
   {
     "id": "val_mono_rose_lg",
     "title": "Valentine Roses Grand • Luxury",
-    "desc": "A grand romantic statement.",
+    "desc": "A truly grand romantic statement with an abundance of deep red roses.",
     "image_url": "https://raw.githubusercontent.com/DivyanshuK02/arvyam-landing/refs/heads/main/assets/card-2.jpg",
     "price_inr": 5099,
     "emotion": "Affection/Support",
@@ -577,7 +577,7 @@
       "gold"
     ],
     "luxury_grand": true,
-    "seasonal": false,
+    "seasonal": true,
     "flowers": [
       "rose"
     ],
@@ -587,7 +587,7 @@
   {
     "id": "cel_mix_c1",
     "title": "Sunlit Cheers • Classic",
-    "desc": "Bright mix to celebrate big moments.",
+    "desc": "A bright and cheerful mix of yellow and cream blooms to celebrate big moments.",
     "image_url": "https://raw.githubusercontent.com/DivyanshuK02/arvyam-landing/refs/heads/main/assets/card-2.jpg",
     "price_inr": 1599,
     "emotion": "Fun/Humor",
@@ -611,7 +611,7 @@
   {
     "id": "cel_mix_s1",
     "title": "Golden Toast • Signature",
-    "desc": "Festive signature bouquet.",
+    "desc": "A festive signature bouquet in tones of gold, peach, and white for any celebration.",
     "image_url": "https://raw.githubusercontent.com/DivyanshuK02/arvyam-landing/refs/heads/main/assets/card-2.jpg",
     "price_inr": 2699,
     "emotion": "Fun/Humor",
@@ -635,7 +635,7 @@
   {
     "id": "cel_mix_l1",
     "title": "Jubilee Luxe • Luxury",
-    "desc": "Opulent arrangement for milestones.",
+    "desc": "An opulent and grand arrangement in gold and pearl, perfect for marking milestones.",
     "image_url": "https://raw.githubusercontent.com/DivyanshuK02/arvyam-landing/refs/heads/main/assets/card-1.jpg",
     "price_inr": 4099,
     "emotion": "Fun/Humor",
@@ -659,7 +659,7 @@
   {
     "id": "cel_mono_lily_s",
     "title": "Mono Lilies • Signature",
-    "desc": "Elegant lilies worthy of a toast.",
+    "desc": "A stylish bouquet of elegant white and pearl lilies, worthy of a toast.",
     "image_url": "https://raw.githubusercontent.com/DivyanshuK02/arvyam-landing/refs/heads/main/assets/card-2.jpg",
     "price_inr": 2599,
     "emotion": "Fun/Humor",
@@ -681,7 +681,7 @@
   {
     "id": "cel_mix_lg1",
     "title": "Festival Grand • Luxury",
-    "desc": "Grand-scale celebratory bouquet.",
+    "desc": "A grand-scale celebratory bouquet in striking gold and white for major events.",
     "image_url": "https://raw.githubusercontent.com/DivyanshuK02/arvyam-landing/refs/heads/main/assets/card-1.jpg",
     "price_inr": 5099,
     "emotion": "Fun/Humor",
@@ -704,7 +704,7 @@
   {
     "id": "gra_mix_c1",
     "title": "Thankful Bloom • Classic",
-    "desc": "Warm, appreciative mix.",
+    "desc": "A warm, appreciative mix in soft peach and cream to express your gratitude.",
     "image_url": "https://raw.githubusercontent.com/DivyanshuK02/arvyam-landing/refs/heads/main/assets/card-1.jpg",
     "price_inr": 1599,
     "emotion": "Selflessness/Generosity",
@@ -728,7 +728,7 @@
   {
     "id": "gra_mix_s1",
     "title": "Grateful Heart • Signature",
-    "desc": "Elegant thank-you bouquet.",
+    "desc": "An elegant thank-you bouquet featuring a graceful mix of roses and orchids.",
     "image_url": "https://raw.githubusercontent.com/DivyanshuK02/arvyam-landing/refs/heads/main/assets/card-3.jpg",
     "price_inr": 2699,
     "emotion": "Selflessness/Generosity",
@@ -752,7 +752,7 @@
   {
     "id": "gra_mix_l1",
     "title": "Deep Appreciation • Luxury",
-    "desc": "Luxurious bouquet to say thanks.",
+    "desc": "A refined and luxurious bouquet in pearl and cream tones to say a big thank you.",
     "image_url": "https://raw.githubusercontent.com/DivyanshuK02/arvyam-landing/refs/heads/main/assets/card-1.jpg",
     "price_inr": 4099,
     "emotion": "Selflessness/Generosity",
@@ -776,7 +776,7 @@
   {
     "id": "gra_mono_orchid_s",
     "title": "Mono Orchids • Signature",
-    "desc": "A refined thank-you in orchids.",
+    "desc": "A refined and elegant display of white orchids to express sincere gratitude.",
     "image_url": "https://raw.githubusercontent.com/DivyanshuK02/arvyam-landing/refs/heads/main/assets/card-2.jpg",
     "price_inr": 2599,
     "emotion": "Selflessness/Generosity",
@@ -798,7 +798,7 @@
   {
     "id": "fri_mix_c1",
     "title": "Bright Company • Classic",
-    "desc": "Cheery mix for dear friends.",
+    "desc": "A bright and cheery mix of yellow and peach blooms for a dear friend.",
     "image_url": "https://raw.githubusercontent.com/DivyanshuK02/arvyam-landing/refs/heads/main/assets/card-2.jpg",
     "price_inr": 1599,
     "emotion": "Loyalty/Dependability",
@@ -822,7 +822,7 @@
   {
     "id": "fri_mix_s1",
     "title": "Kindred Spirits • Signature",
-    "desc": "Warm signature bouquet.",
+    "desc": "A warm signature bouquet in peach and white hues to celebrate a special bond.",
     "image_url": "https://raw.githubusercontent.com/DivyanshuK02/arvyam-landing/refs/heads/main/assets/card-1.jpg",
     "price_inr": 2699,
     "emotion": "Loyalty/Dependability",
@@ -846,7 +846,7 @@
   {
     "id": "fri_mix_l1",
     "title": "Evergreen Bond • Luxury",
-    "desc": "Elegant bouquet to celebrate friendship.",
+    "desc": "An elegant and lasting bouquet in pearl and cream to celebrate a timeless friendship.",
     "image_url": "https://raw.githubusercontent.com/DivyanshuK02/arvyam-landing/refs/heads/main/assets/card-1.jpg",
     "price_inr": 4099,
     "emotion": "Loyalty/Dependability",
@@ -869,8 +869,8 @@
   },
   {
     "id": "fri_mono_rose_s",
-    "title": "A rosy nod to friendship.",
-    "desc": "A rosy nod to friendship. palette: peach, cream • flowers: rose.",
+    "title": "Friendship Roses • Signature",
+    "desc": "A simple, heartfelt bouquet of peach and cream roses for a dear friend.",
     "image_url": "https://raw.githubusercontent.com/DivyanshuK02/arvyam-landing/refs/heads/main/assets/card-3.jpg",
     "price_inr": 2599,
     "emotion": "Loyalty/Dependability",
@@ -892,7 +892,7 @@
   {
     "id": "gwl_mix_c1",
     "title": "Gentle Lift • Classic",
-    "desc": "Soft mix to brighten recovery.",
+    "desc": "A soft and gentle mix in white and peach to brighten their road to recovery.",
     "image_url": "https://raw.githubusercontent.com/DivyanshuK02/arvyam-landing/refs/heads/main/assets/card-1.jpg",
     "price_inr": 1599,
     "emotion": "Strength/Resilience",
@@ -916,7 +916,7 @@
   {
     "id": "gwl_mix_s1",
     "title": "Healing Hues • Signature",
-    "desc": "Comforting tones for get-well wishes.",
+    "desc": "A bouquet of comforting tones with serene orchids and lilies for get-well wishes.",
     "image_url": "https://raw.githubusercontent.com/DivyanshuK02/arvyam-landing/refs/heads/main/assets/card-2.jpg",
     "price_inr": 2699,
     "emotion": "Strength/Resilience",
@@ -940,7 +940,7 @@
   {
     "id": "gwl_mix_l1",
     "title": "Rest & Bloom • Luxury",
-    "desc": "Calming bouquet with elegant accents.",
+    "desc": "A calming luxury bouquet with elegant white and cream accents to wish them well.",
     "image_url": "https://raw.githubusercontent.com/DivyanshuK02/arvyam-landing/refs/heads/main/assets/card-1.jpg",
     "price_inr": 4099,
     "emotion": "Strength/Resilience",
@@ -964,7 +964,7 @@
   {
     "id": "gwl_mono_lily_s",
     "title": "Mono Lilies • Signature",
-    "desc": "Serene lilies for recovery.",
+    "desc": "A pure and serene bouquet of white lilies to send wishes for a speedy recovery.",
     "image_url": "https://raw.githubusercontent.com/DivyanshuK02/arvyam-landing/refs/heads/main/assets/card-1.jpg",
     "price_inr": 2599,
     "emotion": "Strength/Resilience",
@@ -986,7 +986,7 @@
   {
     "id": "enc_mix_c1",
     "title": "You’ve Got This • Classic",
-    "desc": "Uplifting mix with warm notes.",
+    "desc": "An uplifting mix with warm peach and cream notes to offer encouragement.",
     "image_url": "https://raw.githubusercontent.com/DivyanshuK02/arvyam-landing/refs/heads/main/assets/card-2.jpg",
     "price_inr": 1599,
     "emotion": "Encouragement/Positivity",
@@ -1010,7 +1010,7 @@
   {
     "id": "enc_mix_s1",
     "title": "Keep Going • Signature",
-    "desc": "Supportive tones with gentle contrast.",
+    "desc": "A bouquet of supportive tones with a gentle contrast of peach and white.",
     "image_url": "https://raw.githubusercontent.com/DivyanshuK02/arvyam-landing/refs/heads/main/assets/card-2.jpg",
     "price_inr": 2699,
     "emotion": "Encouragement/Positivity",
@@ -1034,7 +1034,7 @@
   {
     "id": "enc_mix_l1",
     "title": "Brighter Days • Luxury",
-    "desc": "Elegant encouragement bouquet.",
+    "desc": "An elegant bouquet in pearl and cream to send encouragement for brighter days ahead.",
     "image_url": "https://raw.githubusercontent.com/DivyanshuK02/arvyam-landing/refs/heads/main/assets/card-1.jpg",
     "price_inr": 4099,
     "emotion": "Encouragement/Positivity",
@@ -1057,8 +1057,8 @@
   },
   {
     "id": "enc_mono_orchid_s",
-    "title": "Encouraging, composed orchids.",
-    "desc": "Encouraging, composed orchids. palette: white, soft-green • flowers: orchid.",
+    "title": "Mono Orchids • Signature",
+    "desc": "A serene and elegant bouquet of white orchids to offer encouragement.",
     "image_url": "https://raw.githubusercontent.com/DivyanshuK02/arvyam-landing/refs/heads/main/assets/card-3.jpg",
     "price_inr": 2599,
     "emotion": "Encouragement/Positivity",
@@ -1080,7 +1080,7 @@
   {
     "id": "bday_mix_c1",
     "title": "Birthday Joy • Classic",
-    "desc": "Bright blooms to celebrate their day.",
+    "desc": "A classic box of bright peach, yellow, and cream blooms to celebrate their day.",
     "image_url": "https://raw.githubusercontent.com/DivyanshuK02/arvyam-landing/refs/heads/main/assets/card-3.jpg",
     "price_inr": 1599,
     "emotion": "Fun/Humor",
@@ -1104,7 +1104,7 @@
   {
     "id": "bday_mix_s1",
     "title": "Sparkle Day • Signature",
-    "desc": "Festive signature bouquet.",
+    "desc": "A festive signature bouquet in gold and peach to make their birthday sparkle.",
     "image_url": "https://raw.githubusercontent.com/DivyanshuK02/arvyam-landing/refs/heads/main/assets/card-1.jpg",
     "price_inr": 2699,
     "emotion": "Fun/Humor",
@@ -1128,7 +1128,7 @@
   {
     "id": "bday_mix_l1",
     "title": "Birthday Luxe • Luxury",
-    "desc": "A lavish birthday surprise.",
+    "desc": "A lavish and luxurious birthday surprise, featuring elegant gold and pearl tones.",
     "image_url": "https://raw.githubusercontent.com/DivyanshuK02/arvyam-landing/refs/heads/main/assets/card-2.jpg",
     "price_inr": 4099,
     "emotion": "Fun/Humor",
@@ -1152,7 +1152,7 @@
   {
     "id": "bday_mono_rose_s",
     "title": "Birthday Roses • Signature",
-    "desc": "Classic roses for their special day.",
+    "desc": "A beautiful bouquet of classic peach and cream roses for their special day.",
     "image_url": "https://raw.githubusercontent.com/DivyanshuK02/arvyam-landing/refs/heads/main/assets/card-1.jpg",
     "price_inr": 2599,
     "emotion": "Fun/Humor",
@@ -1174,7 +1174,7 @@
   {
     "id": "wis_mix_c1",
     "title": "Sage Focus • Classic",
-    "desc": "Calm whites and greens for thoughtful messages.",
+    "desc": "A calm mix of whites and greens, including lavender, for thoughtful messages.",
     "image_url": "https://raw.githubusercontent.com/DivyanshuK02/arvyam-landing/refs/heads/main/assets/card-1.jpg",
     "price_inr": 1599,
     "emotion": "Intellect/Wisdom",
@@ -1201,7 +1201,7 @@
   {
     "id": "wis_mix_s1",
     "title": "Scholarly Grace • Signature",
-    "desc": "Elegant whites with lavender accents.",
+    "desc": "An elegant arrangement of white and ivory blooms with soft lavender accents.",
     "image_url": "https://raw.githubusercontent.com/DivyanshuK02/arvyam-landing/refs/heads/main/assets/card-2.jpg",
     "price_inr": 2699,
     "emotion": "Intellect/Wisdom",
@@ -1228,7 +1228,7 @@
   {
     "id": "wis_mono_l1",
     "title": "Mono Orchids • Luxury",
-    "desc": "Pure white orchids for serene elegance.",
+    "desc": "A luxurious display of pure white orchids, embodying serene elegance and wisdom.",
     "image_url": "https://raw.githubusercontent.com/DivyanshuK02/arvyam-landing/refs/heads/main/assets/card-3.jpg",
     "price_inr": 4099,
     "emotion": "Intellect/Wisdom",
@@ -1251,7 +1251,7 @@
   {
     "id": "cre_mix_c1",
     "title": "Playful Muse • Classic",
-    "desc": "Peach and coral blooms with lively accents.",
+    "desc": "A creative mix of peach and coral gerberas and roses with other lively accents.",
     "image_url": "https://raw.githubusercontent.com/DivyanshuK02/arvyam-landing/refs/heads/main/assets/card-1.jpg",
     "price_inr": 1599,
     "emotion": "Adventurous/Creativity",
@@ -1277,7 +1277,7 @@
   {
     "id": "cre_mix_s1",
     "title": "Creative Spark • Signature",
-    "desc": "Bold mixed stems in upbeat tones.",
+    "desc": "A bold mix of signature stems in upbeat peach and blush tones to inspire.",
     "image_url": "https://raw.githubusercontent.com/DivyanshuK02/arvyam-landing/refs/heads/main/assets/card-2.jpg",
     "price_inr": 2699,
     "emotion": "Adventurous/Creativity",
@@ -1303,7 +1303,7 @@
   {
     "id": "cre_mono_lily_s",
     "title": "Mono Lilies • Signature",
-    "desc": "Bold single-species lilies with creative flair.",
+    "desc": "A bold arrangement of single-species lilies in coral hues with a creative flair.",
     "image_url": "https://raw.githubusercontent.com/DivyanshuK02/arvyam-landing/refs/heads/main/assets/card-3.jpg",
     "price_inr": 2599,
     "emotion": "Adventurous/Creativity",
@@ -1320,7 +1320,6 @@
     "flowers": [
       "lily"
     ],
-    "weight": 75,
     "tags": [
       "temp_p1_coverage"
     ],
@@ -1329,7 +1328,7 @@
   {
     "id": "cre_mix_l1",
     "title": "Velvet Citrus • Luxury",
-    "desc": "Vibrant luxury mix with creative flair.",
+    "desc": "A vibrant and luxurious mix in peach and blush tones with an artistic flair.",
     "image_url": "https://raw.githubusercontent.com/DivyanshuK02/arvyam-landing/refs/heads/main/assets/card-3.jpg",
     "price_inr": 4099,
     "emotion": "Adventurous/Creativity",
@@ -1354,7 +1353,7 @@
   {
     "id": "int_mix_c1",
     "title": "Thoughtful Clarity • Classic",
-    "desc": "A composed mix in soft lavenders and whites.",
+    "desc": "A composed mix in soft lavenders and whites for moments of clear thought.",
     "image_url": "https://raw.githubusercontent.com/DivyanshuK02/arvyam-landing/refs/heads/main/assets/card-1.jpg",
     "price_inr": 1599,
     "emotion": "Intellect/Wisdom",
@@ -1378,7 +1377,7 @@
   {
     "id": "int_mix_s1",
     "title": "Sage Counsel • Signature",
-    "desc": "Elegant, reflective tones with orchids and lilies.",
+    "desc": "Elegant, reflective tones featuring orchids and lilies for thoughtful appreciation.",
     "image_url": "https://raw.githubusercontent.com/DivyanshuK02/arvyam-landing/refs/heads/main/assets/card-2.jpg",
     "price_inr": 2699,
     "emotion": "Intellect/Wisdom",
@@ -1402,7 +1401,7 @@
   {
     "id": "int_mix_l1",
     "title": "Mindful Grandeur • Luxury",
-    "desc": "Luxurious lavender whites with calm depth.",
+    "desc": "A luxurious arrangement of lavender and white blooms with calm, mindful depth.",
     "image_url": "https://raw.githubusercontent.com/DivyanshuK02/arvyam-landing/refs/heads/main/assets/card-3.jpg",
     "price_inr": 4099,
     "emotion": "Intellect/Wisdom",
@@ -1426,7 +1425,7 @@
   {
     "id": "adv_mix_c1",
     "title": "Creative Spark • Classic",
-    "desc": "A lively mix to celebrate bold ideas.",
+    "desc": "A lively and adventurous mix in peach and gold hues to celebrate bold new ideas.",
     "image_url": "https://raw.githubusercontent.com/DivyanshuK02/arvyam-landing/refs/heads/main/assets/card-2.jpg",
     "price_inr": 1599,
     "emotion": "Adventurous/Creativity",
@@ -1450,7 +1449,7 @@
   {
     "id": "adv_mix_s1",
     "title": "Bold Vision • Signature",
-    "desc": "Expressive signature bouquet with warm contrast.",
+    "desc": "An expressive signature bouquet with the warm, creative contrast of gold and peach.",
     "image_url": "https://raw.githubusercontent.com/DivyanshuK02/arvyam-landing/refs/heads/main/assets/card-1.jpg",
     "price_inr": 2699,
     "emotion": "Adventurous/Creativity",
@@ -1474,7 +1473,7 @@
   {
     "id": "adv_mix_l1",
     "title": "Avant-Garde Luxe • Luxury",
-    "desc": "Opulent arrangement with vivid accents.",
+    "desc": "An opulent arrangement with vivid accents of crimson, gold, and pearl.",
     "image_url": "https://raw.githubusercontent.com/DivyanshuK02/arvyam-landing/refs/heads/main/assets/card-3.jpg",
     "price_inr": 4099,
     "emotion": "Adventurous/Creativity",
@@ -1498,7 +1497,7 @@
   {
     "id": "rom_mono_rose_c",
     "title": "Warm Embrace • Classic Mono",
-    "desc": "Soft, caring mono bouquet.",
+    "desc": "A soft and caring mono bouquet of deep red roses to show your affection.",
     "image_url": "https://raw.githubusercontent.com/DivyanshuK02/arvyam-landing/refs/heads/main/assets/card-2.jpg",
     "price_inr": 1499,
     "emotion": "Affection/Support",
@@ -1521,7 +1520,7 @@
   {
     "id": "sym_mono_lily_c",
     "title": "Quiet Strength • Classic Mono",
-    "desc": "Calm, respectful mono bouquet for support.",
+    "desc": "A calm, respectful mono bouquet of white lilies, offering quiet support.",
     "image_url": "https://raw.githubusercontent.com/DivyanshuK02/arvyam-landing/refs/heads/main/assets/card-2.jpg",
     "price_inr": 1499,
     "emotion": "Strength/Resilience",
@@ -1544,7 +1543,7 @@
   {
     "id": "enc_mono_rose_c",
     "title": "Uplift & Hope • Classic Mono",
-    "desc": "Gentle, encouraging mono bouquet.",
+    "desc": "A gentle and encouraging mono bouquet of yellow and white roses.",
     "image_url": "https://raw.githubusercontent.com/DivyanshuK02/arvyam-landing/refs/heads/main/assets/card-4.jpg",
     "price_inr": 1499,
     "emotion": "Encouragement/Positivity",
@@ -1567,7 +1566,7 @@
   {
     "id": "far_mono_rose_c",
     "title": "Steadfast Heart • Classic Mono",
-    "desc": "Grounded, dependable mono bouquet.",
+    "desc": "A grounded and dependable mono bouquet of white roses for a sincere farewell.",
     "image_url": "https://raw.githubusercontent.com/DivyanshuK02/arvyam-landing/refs/heads/main/assets/card-3.jpg",
     "price_inr": 1499,
     "emotion": "Loyalty/Dependability",
@@ -1585,12 +1584,12 @@
       "rose"
     ],
     "weight": 60,
-    "sentiment_family": "professional_achievement"
+    "sentiment_family": "parting_respect"
   },
   {
     "id": "bday_mono_rose_c",
     "title": "Bright Joy • Classic Mono",
-    "desc": "Playful mono bouquet with cheerful tones.",
+    "desc": "A playful mono bouquet with cheerful tones of yellow and gold for a happy birthday.",
     "image_url": "https://raw.githubusercontent.com/DivyanshuK02/arvyam-landing/refs/heads/main/assets/card-4.jpg",
     "price_inr": 1499,
     "emotion": "Fun/Humor",
@@ -1613,7 +1612,7 @@
   {
     "id": "gra_mono_rose_c",
     "title": "Kindness Bloom • Classic Mono",
-    "desc": "Warm, giving mono bouquet.",
+    "desc": "A warm and giving mono bouquet of white and cream roses to show gratitude.",
     "image_url": "https://raw.githubusercontent.com/DivyanshuK02/arvyam-landing/refs/heads/main/assets/card-1.jpg",
     "price_inr": 1499,
     "emotion": "Selflessness/Generosity",
@@ -1636,7 +1635,7 @@
   {
     "id": "int_mono_orchid_c",
     "title": "Thoughtful Grace • Classic Mono",
-    "desc": "Elegant, thoughtful mono bouquet.",
+    "desc": "An elegant and thoughtful mono bouquet of white and lavender orchids.",
     "image_url": "https://raw.githubusercontent.com/DivyanshuK02/arvyam-landing/refs/heads/main/assets/card-3.jpg",
     "price_inr": 1499,
     "emotion": "Intellect/Wisdom",
@@ -1659,7 +1658,7 @@
   {
     "id": "cre_mono_rose_c",
     "title": "Bold Spirit • Classic Mono",
-    "desc": "Expressive mono bouquet with artistic flair.",
+    "desc": "An expressive mono bouquet with the artistic flair of peach and coral roses.",
     "image_url": "https://raw.githubusercontent.com/DivyanshuK02/arvyam-landing/refs/heads/main/assets/card-1.jpg",
     "price_inr": 1499,
     "emotion": "Adventurous/Creativity",
@@ -1682,7 +1681,7 @@
   {
     "id": "sym_mono_lily_l",
     "title": "Quiet Strength • Luxury Mono",
-    "desc": "Calm, respectful mono bouquet for support.",
+    "desc": "A calm, respectful mono bouquet of luxury lilies, offering profound support.",
     "image_url": "https://raw.githubusercontent.com/DivyanshuK02/arvyam-landing/refs/heads/main/assets/card-4.jpg",
     "price_inr": 4499,
     "emotion": "Strength/Resilience",
@@ -1705,7 +1704,7 @@
   {
     "id": "bday_mono_rose_l",
     "title": "Bright Joy • Luxury Mono",
-    "desc": "Playful mono bouquet with cheerful tones.",
+    "desc": "A playful mono bouquet with cheerful gold and yellow tones in a premium box.",
     "image_url": "https://raw.githubusercontent.com/DivyanshuK02/arvyam-landing/refs/heads/main/assets/card-4.jpg",
     "price_inr": 4499,
     "emotion": "Fun/Humor",
@@ -1728,7 +1727,7 @@
   {
     "id": "gra_mono_rose_l",
     "title": "Kindness Bloom • Luxury Mono",
-    "desc": "Warm, giving mono bouquet.",
+    "desc": "A warm, giving mono bouquet of premium white and pearl roses to express deep thanks.",
     "image_url": "https://raw.githubusercontent.com/DivyanshuK02/arvyam-landing/refs/heads/main/assets/card-3.jpg",
     "price_inr": 4499,
     "emotion": "Selflessness/Generosity",
@@ -1751,7 +1750,7 @@
   {
     "id": "cre_mono_rose_l",
     "title": "Bold Spirit • Luxury Mono",
-    "desc": "Expressive mono bouquet with artistic flair.",
+    "desc": "An expressive mono bouquet with the artistic flair of luxury peach and coral roses.",
     "image_url": "https://raw.githubusercontent.com/DivyanshuK02/arvyam-landing/refs/heads/main/assets/card-4.jpg",
     "price_inr": 4499,
     "emotion": "Adventurous/Creativity",
@@ -1774,7 +1773,7 @@
   {
     "id": "gra_mix_extra_c",
     "title": "Giving Spirit • Classic Mix",
-    "desc": "Extra generosity-themed bouquet.",
+    "desc": "An extra-special bouquet in white and pearl to recognize true generosity.",
     "image_url": "https://raw.githubusercontent.com/DivyanshuK02/arvyam-landing/refs/heads/main/assets/card-2.jpg",
     "price_inr": 1599,
     "emotion": "Selflessness/Generosity",
@@ -1798,7 +1797,7 @@
   {
     "id": "gra_mix_extra_s",
     "title": "Giving Spirit • Signature Mix",
-    "desc": "Extra generosity-themed bouquet.",
+    "desc": "A signature arrangement in white and pearl celebrating a truly generous spirit.",
     "image_url": "https://raw.githubusercontent.com/DivyanshuK02/arvyam-landing/refs/heads/main/assets/card-2.jpg",
     "price_inr": 2699,
     "emotion": "Selflessness/Generosity",
