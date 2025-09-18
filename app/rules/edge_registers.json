@@ -1,12 +1,20 @@
 {
+  "version": "2.0",
+  "last_updated": "2025-09-18",
+  "description": "Edge case registers with sentiment family integration for contamination prevention",
   "copy_max_words": 20,
+  
   "sympathy": {
     "edge_case": true,
     "emotion_anchor": "Strength/Resilience",
+    "sentiment_family": "grief_support",
+    "relationship_contexts": ["any"],
+    "sentiment_over_ladder": true,
+    "priority_rank": 1,
     "copy_max_words": 18,
     "tone": "muted",
     "palette_targets": ["white", "cream", "ivory", "soft-green", "eucalyptus"],
-    "palette_avoid": ["neon", "neon-mixed", "electric", "bright-yellow"],
+    "palette_avoid": ["neon", "neon-mixed", "electric", "bright-yellow", "gold"],
     "palette_target_boost": 1.15,
     "palette_avoid_penalty": 0.90,
     "species_prefer": ["lily", "orchid", "chrysanthemum"],
@@ -16,11 +24,23 @@
     "lg_weight_multiplier": 0.0,
     "allow_lg_in_mix": false,
     "allow_lg_in_mono": false,
-    "exclude_title_keywords": ["birthday", "celebrate", "party", "valentine"]
+    "exclude_title_keywords": ["birthday", "celebrate", "party", "valentine", "congrats", "fun"],
+    "contamination_barriers": [
+      "romantic_passion",
+      "celebration", 
+      "professional_achievement",
+      "creative_expression"
+    ],
+    "relationship_detection": false
   },
+  
   "apology": {
     "edge_case": true,
     "emotion_anchor": "Encouragement/Positivity",
+    "sentiment_family": "reconciliation",
+    "relationship_contexts": ["romantic", "familial", "professional", "friendship"],
+    "sentiment_over_ladder": false,
+    "priority_rank": 4,
     "copy_max_words": 20,
     "tone": "gentle",
     "palette_targets": ["white", "lavender", "soft-purple", "blush", "soft-green"],
@@ -34,32 +54,96 @@
     "lg_weight_multiplier": 0.85,
     "allow_lg_in_mix": true,
     "allow_lg_in_mono": false,
-    "exclude_title_keywords": ["birthday", "party", "congrats", "festival"]
+    "exclude_title_keywords": ["birthday", "party", "congrats", "festival"],
+    "contamination_barriers": [
+      "grief_support",
+      "celebration"
+    ],
+    "relationship_detection": true,
+    "relationship_overrides": {
+      "romantic_repair": {
+        "emotion_anchor": "Affection/Support",
+        "palette_targets": ["blush", "soft-pink", "white", "pearl", "cream"],
+        "palette_avoid": ["neon", "electric", "deep-red", "crimson"],
+        "species_prefer": ["rose", "orchid"],
+        "mono_must_include": ["rose"],
+        "tone": "gentle-contrite",
+        "contamination_barriers": [
+          "grief_support",
+          "parting_respect",
+          "celebration"
+        ]
+      },
+      "familial_repair": {
+        "palette_targets": ["white", "soft-purple", "cream", "lavender"],
+        "palette_avoid": ["deep-red", "blush", "soft-pink"],
+        "tone": "gentle-respectful",
+        "contamination_barriers": [
+          "romantic_passion",
+          "grief_support",
+          "celebration"
+        ]
+      },
+      "professional_repair": {
+        "palette_targets": ["white", "cream", "soft-green", "pearl"],
+        "palette_avoid": ["deep-red", "blush", "soft-pink", "crimson"],
+        "tone": "professional-contrite",
+        "contamination_barriers": [
+          "romantic_passion",
+          "grief_support",
+          "celebration"
+        ]
+      },
+      "friendship_repair": {
+        "palette_targets": ["white", "soft-purple", "cream", "lavender", "peach"],
+        "tone": "gentle",
+        "contamination_barriers": [
+          "grief_support",
+          "celebration"
+        ]
+      }
+    }
   },
+  
   "farewell": {
     "edge_case": true,
     "emotion_anchor": "Loyalty/Dependability",
+    "sentiment_family": "parting_respect",
+    "relationship_contexts": ["any"],
+    "sentiment_over_ladder": true,
+    "priority_rank": 2,
     "copy_max_words": 18,
     "tone": "warm-somber",
-    "palette_targets": ["white", "cream", "ivory", "eucalyptus", "soft-green"],
-    "palette_avoid": ["neon", "neon-mixed", "electric"],
+    "palette_targets": ["white", "cream", "ivory", "eucalyptus", "soft-green", "peach"],
+    "palette_avoid": ["neon", "neon-mixed", "electric", "bright-yellow"],
     "palette_target_boost": 1.12,
     "palette_avoid_penalty": 0.90,
-    "species_prefer": ["lily", "orchid"],
+    "species_prefer": ["lily", "orchid", "rose"],
     "species_avoid": ["sunflower", "gerbera"],
     "mono_must_include": ["lily"],
     "lg_policy": "allow",
     "lg_weight_multiplier": 0.80,
     "allow_lg_in_mix": true,
     "allow_lg_in_mono": false,
-    "exclude_title_keywords": ["birthday", "celebrate", "party"]
+    "exclude_title_keywords": ["birthday", "celebrate", "party", "valentine", "congrats"],
+    "contamination_barriers": [
+      "romantic_passion",
+      "celebration",
+      "grief_support"
+    ],
+    "relationship_detection": false
   },
+  
   "valentine": {
     "edge_case": true,
     "emotion_anchor": "Affection/Support",
+    "sentiment_family": "romantic_passion",
+    "relationship_contexts": ["romantic"],
+    "sentiment_over_ladder": false,
+    "priority_rank": 4,
     "copy_max_words": 18,
     "tone": "romantic",
-    "palette_targets": ["deep-red", "red", "ivory", "pearl"],
+    "palette_targets": ["deep-red", "red", "ivory", "pearl", "crimson", "gold"],
     "palette_avoid": ["neon", "neon-mixed", "electric"],
     "palette_target_boost": 1.08,
     "palette_avoid_penalty": 0.94,
@@ -70,6 +154,90 @@
     "lg_weight_multiplier": 1.00,
     "allow_lg_in_mix": true,
     "allow_lg_in_mono": true,
-    "exclude_title_keywords": ["get-well", "recovery", "farewell", "sorry for your loss", "sympathy"]
+    "exclude_title_keywords": ["get-well", "recovery", "farewell", "sorry for your loss", "sympathy"],
+    "contamination_barriers": [
+      "grief_support",
+      "parting_respect"
+    ],
+    "relationship_detection": false,
+    "valentine_apology_collision": {
+      "description": "When valentine context appears with apology, maintain apology edge but allow soft romantic palettes",
+      "keep_edge": "apology",
+      "palette_blend": ["blush", "soft-pink", "pearl", "white"],
+      "tone_override": "gentle-romantic",
+      "log_valentine_context": true
+    }
+  },
+  
+  "relationship_detection_config": {
+    "enabled": true,
+    "signals": {
+      "apology_required": [
+        "sorry", "apologize", "apologies", "forgive me", "I was wrong", 
+        "make it right", "hurt you", "my fault", "I sincerely apologize"
+      ],
+      "romantic_indicators": {
+        "relationship_nouns": [
+          "girlfriend", "boyfriend", "partner", "spouse", "fiancé", "fiancée",
+          "my love", "my heart", "bae", "darling", "sweetheart", "honey"
+        ],
+        "romantic_context": [
+          "date night", "anniversary", "valentine", "kiss and make up",
+          "romantic", "win you back", "get us back", "won't lose you"
+        ]
+      },
+      "exclusion_hierarchy": {
+        "familial": [
+          "mother", "mom", "mum", "mommy", "father", "dad", "appa", "papa",
+          "sister", "brother", "aunty", "uncle", "grandma", "grandpa",
+          "family", "cousin", "nephew", "niece"
+        ],
+        "professional": [
+          "manager", "boss", "client", "colleague", "team", "workplace",
+          "coworker", "employee", "supervisor", "director", "CEO"
+        ]
+      }
+    },
+    "detection_logic": {
+      "rule": "(Apology ∧ Romance) ∧ ¬(Familial ∨ Professional ∨ Farewell ∨ Sympathy) → romantic_repair",
+      "priority_order": [
+        "farewell",
+        "sympathy", 
+        "professional_repair",
+        "familial_repair",
+        "romantic_repair",
+        "friendship_repair"
+      ],
+      "ambiguity_default": "friendship_repair",
+      "ambiguity_threshold": 0.7
+    }
+  },
+  
+  "evidence_logging": {
+    "required_fields": [
+      "detected_edge",
+      "relationship_context", 
+      "relationship_ambiguous",
+      "valentine_context",
+      "sentiment_family",
+      "contamination_check_passed",
+      "sentiment_override_used",
+      "pre_suppress_pool_size",
+      "post_suppress_pool_size",
+      "fallback_reason"
+    ],
+    "log_level": "info",
+    "privacy_safe": true
+  },
+  
+  "contamination_prevention": {
+    "strict_enforcement": true,
+    "cross_family_blocks": {
+      "grief_support": ["celebration", "romantic_passion"],
+      "parting_respect": ["celebration", "romantic_passion"], 
+      "romantic_passion": ["grief_support", "parting_respect"],
+      "celebration": ["grief_support", "parting_respect"]
+    },
+    "validation_required": true
   }
 }
