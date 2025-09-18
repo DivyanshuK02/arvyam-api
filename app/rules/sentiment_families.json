@@ -1,0 +1,342 @@
+{
+  "version": "1.0",
+  "last_updated": "2025-09-18",
+  "description": "Sentiment family configuration for contamination prevention and relationship context routing",
+  
+  "sentiment_families": {
+    "grief_support": {
+      "description": "Sympathy, condolence, loss support",
+      "emotions": ["Strength/Resilience"],
+      "edge_cases": ["sympathy"],
+      "relationship_contexts": ["any"],
+      "palette_constraints": {
+        "required": ["white", "cream", "soft-green"],
+        "preferred": ["ivory", "eucalyptus"],
+        "forbidden": ["neon", "bright-yellow", "electric", "gold"]
+      },
+      "species_constraints": {
+        "preferred": ["lily", "chrysanthemum", "orchid"],
+        "forbidden": ["sunflower", "gerbera"]
+      },
+      "contamination_barriers": [
+        "romantic_passion",
+        "celebration",
+        "professional_achievement",
+        "friendship_celebration"
+      ],
+      "sentiment_over_ladder": true,
+      "priority_rank": 1,
+      "tone": "muted",
+      "copy_max_words": 18
+    },
+    
+    "parting_respect": {
+      "description": "Farewell, sendoff, respectful parting",
+      "emotions": ["Loyalty/Dependability"],
+      "edge_cases": ["farewell"],
+      "relationship_contexts": ["any"],
+      "palette_constraints": {
+        "required": ["cream", "white", "soft-green"],
+        "preferred": ["peach", "ivory", "eucalyptus"],
+        "forbidden": ["neon", "electric", "bright-yellow"]
+      },
+      "species_constraints": {
+        "preferred": ["rose", "lily", "orchid"],
+        "forbidden": ["sunflower", "gerbera"]
+      },
+      "contamination_barriers": [
+        "romantic_passion",
+        "celebration",
+        "grief_support"
+      ],
+      "sentiment_over_ladder": true,
+      "priority_rank": 2,
+      "tone": "warm-somber",
+      "copy_max_words": 18
+    },
+    
+    "reconciliation": {
+      "description": "Apology and repair relationships across contexts",
+      "subfamilies": {
+        "romantic_repair": {
+          "description": "Apology to romantic partner",
+          "emotions": ["Affection/Support"],
+          "edge_cases": ["apology"],
+          "relationship_contexts": ["romantic"],
+          "palette_constraints": {
+            "required": ["blush", "soft-pink", "white"],
+            "preferred": ["pearl", "cream", "soft-purple"],
+            "forbidden": ["neon", "electric", "deep-red", "crimson"]
+          },
+          "species_constraints": {
+            "preferred": ["rose", "orchid"],
+            "forbidden": ["sunflower"]
+          },
+          "contamination_barriers": [
+            "grief_support",
+            "parting_respect",
+            "celebration"
+          ],
+          "sentiment_over_ladder": false,
+          "priority_rank": 4,
+          "tone": "gentle-contrite",
+          "copy_max_words": 20
+        },
+        
+        "familial_repair": {
+          "description": "Apology to family member",
+          "emotions": ["Encouragement/Positivity"],
+          "edge_cases": ["apology"],
+          "relationship_contexts": ["familial"],
+          "palette_constraints": {
+            "required": ["white", "soft-purple", "cream"],
+            "preferred": ["lavender", "soft-green", "pearl"],
+            "forbidden": ["neon", "electric", "deep-red"]
+          },
+          "species_constraints": {
+            "preferred": ["orchid", "lily"],
+            "forbidden": ["sunflower"]
+          },
+          "contamination_barriers": [
+            "romantic_passion",
+            "grief_support",
+            "celebration"
+          ],
+          "sentiment_over_ladder": false,
+          "priority_rank": 3,
+          "tone": "gentle-respectful",
+          "copy_max_words": 20
+        },
+        
+        "professional_repair": {
+          "description": "Apology in workplace/business context",
+          "emotions": ["Encouragement/Positivity"],
+          "edge_cases": ["apology"],
+          "relationship_contexts": ["professional"],
+          "palette_constraints": {
+            "required": ["white", "cream", "soft-green"],
+            "preferred": ["pearl", "ivory"],
+            "forbidden": ["neon", "electric", "deep-red", "blush", "soft-pink"]
+          },
+          "species_constraints": {
+            "preferred": ["orchid", "lily", "rose"],
+            "forbidden": ["sunflower"]
+          },
+          "contamination_barriers": [
+            "romantic_passion",
+            "grief_support",
+            "celebration"
+          ],
+          "sentiment_over_ladder": false,
+          "priority_rank": 3,
+          "tone": "professional-contrite",
+          "copy_max_words": 20
+        },
+        
+        "friendship_repair": {
+          "description": "Apology to friend (safe default)",
+          "emotions": ["Encouragement/Positivity"],
+          "edge_cases": ["apology"],
+          "relationship_contexts": ["friendship"],
+          "palette_constraints": {
+            "required": ["white", "soft-purple", "cream"],
+            "preferred": ["lavender", "soft-green", "peach"],
+            "forbidden": ["neon", "electric"]
+          },
+          "species_constraints": {
+            "preferred": ["orchid", "lily"],
+            "forbidden": ["sunflower"]
+          },
+          "contamination_barriers": [
+            "grief_support",
+            "celebration"
+          ],
+          "sentiment_over_ladder": false,
+          "priority_rank": 5,
+          "tone": "gentle",
+          "copy_max_words": 20
+        }
+      }
+    },
+    
+    "romantic_passion": {
+      "description": "Valentine, romantic celebration, passionate love",
+      "emotions": ["Affection/Support"],
+      "edge_cases": ["valentine"],
+      "relationship_contexts": ["romantic"],
+      "palette_constraints": {
+        "required": ["deep-red", "red"],
+        "preferred": ["crimson", "gold", "ivory", "pearl"],
+        "forbidden": ["neon", "electric"]
+      },
+      "species_constraints": {
+        "preferred": ["rose", "orchid"],
+        "forbidden": []
+      },
+      "contamination_barriers": [
+        "grief_support",
+        "parting_respect"
+      ],
+      "sentiment_over_ladder": false,
+      "priority_rank": 4,
+      "tone": "romantic",
+      "copy_max_words": 18
+    },
+    
+    "celebration": {
+      "description": "Joy, achievement, milestones (general positive)",
+      "emotions": ["Fun/Humor", "Encouragement/Positivity"],
+      "edge_cases": [],
+      "relationship_contexts": ["any"],
+      "palette_constraints": {
+        "required": ["gold", "yellow", "peach"],
+        "preferred": ["white", "cream", "pearl"],
+        "forbidden": ["neon", "electric"]
+      },
+      "species_constraints": {
+        "preferred": ["rose", "lily", "orchid"],
+        "forbidden": []
+      },
+      "contamination_barriers": [
+        "grief_support",
+        "parting_respect"
+      ],
+      "sentiment_over_ladder": false,
+      "priority_rank": 6,
+      "tone": "upbeat",
+      "copy_max_words": 20
+    },
+    
+    "professional_achievement": {
+      "description": "Work accomplishments, team appreciation",
+      "emotions": ["Loyalty/Dependability", "Selflessness/Generosity"],
+      "edge_cases": [],
+      "relationship_contexts": ["professional"],
+      "palette_constraints": {
+        "required": ["white", "cream", "soft-green"],
+        "preferred": ["pearl", "gold", "peach"],
+        "forbidden": ["neon", "electric", "deep-red"]
+      },
+      "species_constraints": {
+        "preferred": ["rose", "orchid", "lily"],
+        "forbidden": ["sunflower"]
+      },
+      "contamination_barriers": [
+        "grief_support",
+        "romantic_passion"
+      ],
+      "sentiment_over_ladder": false,
+      "priority_rank": 7,
+      "tone": "professional-warm",
+      "copy_max_words": 20
+    },
+    
+    "intellectual_appreciation": {
+      "description": "Academic, scholarly, wisdom recognition",
+      "emotions": ["Intellect/Wisdom"],
+      "edge_cases": [],
+      "relationship_contexts": ["any"],
+      "palette_constraints": {
+        "required": ["white", "cream", "soft-green"],
+        "preferred": ["lavender", "soft-purple", "ivory", "eucalyptus"],
+        "forbidden": ["neon", "electric", "bright-yellow"]
+      },
+      "species_constraints": {
+        "preferred": ["orchid", "chrysanthemum", "lily"],
+        "forbidden": ["sunflower", "gerbera"]
+      },
+      "contamination_barriers": [
+        "grief_support",
+        "celebration"
+      ],
+      "sentiment_over_ladder": false,
+      "priority_rank": 8,
+      "tone": "thoughtful",
+      "copy_max_words": 20
+    },
+    
+    "creative_expression": {
+      "description": "Artistic, adventurous, bold creativity",
+      "emotions": ["Adventurous/Creativity"],
+      "edge_cases": [],
+      "relationship_contexts": ["any"],
+      "palette_constraints": {
+        "required": ["peach", "coral", "soft-pink"],
+        "preferred": ["blush", "cream", "gold"],
+        "forbidden": ["neon", "electric"]
+      },
+      "species_constraints": {
+        "preferred": ["rose", "gerbera", "lily"],
+        "forbidden": []
+      },
+      "contamination_barriers": [
+        "grief_support",
+        "parting_respect"
+      ],
+      "sentiment_over_ladder": false,
+      "priority_rank": 9,
+      "tone": "vibrant",
+      "copy_max_words": 20
+    }
+  },
+  
+  "relationship_detection_signals": {
+    "apology_signals": [
+      "sorry", "apologize", "apologies", "forgive me", "I was wrong", 
+      "make it right", "hurt you", "my fault", "I sincerely apologize"
+    ],
+    
+    "romantic_signals": {
+      "relationship_nouns": [
+        "girlfriend", "boyfriend", "partner", "spouse", "fiancé", "fiancée",
+        "my love", "my heart", "bae", "darling", "sweetheart", "honey"
+      ],
+      "romantic_context": [
+        "date night", "anniversary", "valentine", "kiss and make up",
+        "romantic", "win you back", "get us back", "won't lose you"
+      ]
+    },
+    
+    "exclusion_signals": {
+      "familial": [
+        "mother", "mom", "mum", "mommy", "father", "dad", "appa", "papa",
+        "sister", "brother", "aunty", "uncle", "grandma", "grandpa",
+        "family", "cousin", "nephew", "niece"
+      ],
+      "professional": [
+        "manager", "boss", "client", "colleague", "team", "workplace",
+        "coworker", "employee", "supervisor", "director", "CEO"
+      ]
+    }
+  },
+  
+  "contamination_matrix": {
+    "description": "Defines which families can never cross-contaminate",
+    "strict_barriers": [
+      ["grief_support", "celebration"],
+      ["grief_support", "romantic_passion"],
+      ["parting_respect", "celebration"],
+      ["parting_respect", "romantic_passion"]
+    ],
+    "soft_barriers": [
+      ["professional_achievement", "romantic_passion"],
+      ["intellectual_appreciation", "celebration"]
+    ]
+  },
+  
+  "priority_resolution": {
+    "description": "When multiple contexts detected, use highest priority",
+    "order": [
+      "grief_support",
+      "parting_respect", 
+      "professional_repair",
+      "familial_repair",
+      "romantic_repair",
+      "friendship_repair",
+      "professional_achievement",
+      "intellectual_appreciation",
+      "creative_expression",
+      "celebration"
+    ]
+  }
+}
