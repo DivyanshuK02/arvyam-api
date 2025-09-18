@@ -10,6 +10,10 @@
 # -----
 # * No network calls. Reads JSON files from /app and /app/rules only.
 # * This module avoids hard-coded prices or numeric budgets (per project direction).
+# * AUDIT NOTE: Several configuration files (sentiment_families.json, edge_registers.json)
+#   contain keys and sections (e.g., "contamination_matrix", "relationship_detection_config")
+#   that are NOT used by this script. The logic in this file is the single source of truth.
+#   The `weights_default.json` file is also not used at all.
 
 from __future__ import annotations
 
@@ -49,6 +53,9 @@ def _load_json(path: str, default: Any) -> Any:
 # ------------------------------------------------------------
 
 CATALOG = _load_json(_p("catalog.json"), [])
+# --- FIX 1: Define CAT_BY_ID for dictionary lookups to prevent NameError ---
+CAT_BY_ID = {item['id']: item for item in CATALOG if 'id' in item}
+# --- END FIX 1 ---
 RULES_DIR = _p("rules")
 EMOTION_KEYWORDS = _load_json(os.path.join(RULES_DIR, "emotion_keywords.json"), {})
 EDGES = (EMOTION_KEYWORDS.get("edges", {}) or {})
@@ -753,17 +760,21 @@ async def curate_post(req: CurateRequest):
     }
 
     try:
+        # --- FIX 2: Return dictionary directly to allow FastAPI validation ---
         triad = selection_engine(prompt, context)
         payload_items = _transform_for_api(triad, context.get("resolved_anchor"))
-        payload = {"items": payload_items, "edge_case": any(i.get("edge_case") for i in triad)}
-        resp = Response(content=json.dumps(payload), media_type="application/json")
+        
+        # 1. Construct the final payload dictionary
+        payload = {
+            "items": payload_items,
+            # Use the transformed list for consistency
+            "edge_case": any(i.get("edge_case") for i in payload_items)
+        }
 
-        cfg = (ANCHOR_THRESHOLDS.get("multi_anchor_logging") or {})
-        if FEATURE_MULTI_ANCHOR_LOGGING and cfg.get("emit_header", False):
-            meta = context.get("__meta_detected_emotions") or []
-            if meta:
-                resp.headers["X-Detected-Emotions"] = ",".join(f"{m['anchor']}:{m['score']}" for m in meta[:2])
-        return resp
+        # 2. Return the dictionary directly. FastAPI will handle JSON conversion and validation.
+        # This prevents the ResponseValidationError.
+        return payload
+        # --- END FIX 2 ---
         
     except HTTPException:
         raise
