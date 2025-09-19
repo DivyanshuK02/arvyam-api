@@ -3,7 +3,8 @@ import os, json, logging, uuid, time, csv
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
-from fastapi import FastAPI, HTTPException, Request, Body
+# --- P1.4a Nit: Import Response for header injection ---
+from fastapi import FastAPI, HTTPException, Request, Response, Body
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.exception_handlers import http_exception_handler
@@ -16,7 +17,6 @@ from slowapi.util import get_remote_address
 from slowapi.middleware import SlowAPIMiddleware
 from slowapi.errors import RateLimitExceeded
 
-# --- P1.4a Change: Import the required transformation function and engine ---
 from .selection_engine import selection_engine, normalize, detect_emotion, _transform_for_api
 
 # =========================
@@ -35,6 +35,7 @@ GOLDEN_ARTIFACTS_DIR = os.getenv("GOLDEN_ARTIFACTS_DIR", "/tmp/arvy_golden")
 # =========================
 # Logging
 # =========================
+# --- P1.4a Nit: Standardize on the named logger instance ---
 logger = logging.getLogger("arvyam")
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 
@@ -157,22 +158,17 @@ def map_ids_to_output(ids: List[str]) -> Optional[List[Dict[str, Any]]]:
 def sanitize_text(s: str) -> str:
     return " ".join((s or "").strip().split())
 
-# --- P1.4a Change: New function to write a golden artifact log for auditing ---
 def write_golden_artifact(
     request_id: str,
     persona: str,
     context: Dict[str, Any],
     items: List[Dict[str, Any]]
 ) -> None:
-    """
-    [cite_start]Writes a single-line JSON artifact to a date-stamped log file. [cite: 5, 12]
-    [cite_start]This provides a fast diff of behavior across refactors and deploys. [cite: 8]
-    """
+    """Writes a single-line JSON artifact to a date-stamped log file."""
     try:
         log_dir = GOLDEN_ARTIFACTS_DIR
         os.makedirs(log_dir, exist_ok=True)
         log_file = os.path.join(log_dir, f"{datetime.utcnow().strftime('%Y%m%d')}.log")
-
         artifact = {
             "ts": datetime.utcnow().isoformat(),
             "request_id": request_id,
@@ -182,19 +178,13 @@ def write_golden_artifact(
             "fallback_reason": context.get("fallback_reason"),
             "pool_sizes": context.get("pool_sizes"),
         }
-
         with open(log_file, "a", encoding="utf-8") as f:
             f.write(json.dumps(artifact) + "\n")
-
     except Exception as e:
         logger.error(f"Failed to write golden artifact for request_id={request_id}: {e}")
 
-
 def append_selection_log(items: List[Dict[str, Any]], request_id: str, latency_ms: int, prompt_len: int, path: str = "/api/curate") -> None:
-    """
-    Appends one analytics row per curate request.
-    Schema: ts, request_id, persona, path, latency_ms, prompt_len, detected_emotion, mix_ids, mono_id, tiers, luxury_grand_flags
-    """
+    """Appends one analytics row per curate request."""
     logs_dir = os.path.join(HERE, "logs")
     os.makedirs(logs_dir, exist_ok=True)
     csv_path = os.path.join(logs_dir, "selection_log.csv")
@@ -205,7 +195,6 @@ def append_selection_log(items: List[Dict[str, Any]], request_id: str, latency_m
     tiers = ";".join([it.get("tier","") for it in items])
     lg_flags = ";".join(["true" if it.get("luxury_grand") else "false" for it in items])
     row = [time.strftime("%Y-%m-%dT%H:%M:%S%z"), request_id, PERSONA, path, str(latency_ms), str(prompt_len), detected_emotion, mix_ids, mono_id, tiers, lg_flags]
-
     need_header = not os.path.exists(csv_path) or os.path.getsize(csv_path) == 0
     with open(csv_path, "a", newline="", encoding="utf-8") as f:
         w = csv.writer(f)
@@ -214,33 +203,24 @@ def append_selection_log(items: List[Dict[str, Any]], request_id: str, latency_m
         w.writerow(row)
 
 def analytics_guard_check() -> Dict[str, Any]:
-    """Read last 50 rows of selection_log.csv and compute R/L/O share in MIX items (Phase-3)."""
+    """Read last 50 rows of selection_log.csv and compute R/L/O share in MIX items."""
     if not ANALYTICS_ENABLED:
         return {"window": 0, "mix_iconic_ratio": None, "alert": False, "message": "Analytics disabled."}
-    
     logs_dir = os.path.join(HERE, "logs")
     csv_path = os.path.join(logs_dir, "selection_log.csv")
     result = {"window": 0, "mix_iconic_ratio": None, "alert": False, "message": ""}
-    if not os.path.exists(csv_path):
-        return result
-    with open(csv_path, "r", encoding="utf-8") as f:
-        rows = list(csv.reader(f))
-    if len(rows) <= 1:
-        return result
-    data = rows[1:][-50:]
-    total_mix, iconic_mix = 0, 0
+    if not os.path.exists(csv_path): return result
+    with open(csv_path, "r", encoding="utf-8") as f: rows = list(csv.reader(f))
+    if len(rows) <= 1: return result
+    data, total_mix, iconic_mix = rows[1:][-50:], 0, 0
     for r in data:
         try:
-            mix_ids_field = r[7] if len(r) > 7 else ""
-            mix_ids = [x for x in mix_ids_field.split(";") if x]
+            mix_ids = [x for x in (r[7] if len(r) > 7 else "").split(";") if x]
             for mid in mix_ids:
                 total_mix += 1
                 it = CAT_BY_ID.get(mid)
-                flowers = (it.get("flowers") or []) if it else []
-                if any((f.lower() in ICONIC) for f in flowers):
-                    iconic_mix += 1
-        except Exception:
-            continue
+                if it and any((f.lower() in ICONIC) for f in (it.get("flowers") or [])): iconic_mix += 1
+        except Exception: continue
     result["window"] = len(data)
     if total_mix > 0:
         ratio = iconic_mix / float(total_mix)
@@ -249,37 +229,28 @@ def analytics_guard_check() -> Dict[str, Any]:
             result["alert"] = True
             result["message"] = f"Iconic MIX share dipped below 50% over the last {len(data)} requests."
     os.makedirs(logs_dir, exist_ok=True)
-    with open(os.path.join(logs_dir, "analytics_guard.json"), "w", encoding="utf-8") as f:
-        json.dump(result, f, indent=2)
-    if result["alert"]:
-        logger.warning("[GUARD] MIX iconic ratio %.2f < 0.5 over last %s requests", result.get("mix_iconic_ratio", 0.0), result["window"])
-    else:
-        logger.info("[GUARD] MIX iconic ratio %s over last %s requests", f"{result.get('mix_iconic_ratio', 0.0):.2f}" if result["mix_iconic_ratio"] is not None else "n/a", result["window"])
+    with open(os.path.join(logs_dir, "analytics_guard.json"), "w", encoding="utf-8") as f: json.dump(result, f, indent=2)
+    if result["alert"]: logger.warning("[GUARD] MIX iconic ratio %.2f < 0.5 over last %s requests", result.get("mix_iconic_ratio", 0.0), result["window"])
+    else: logger.info("[GUARD] MIX iconic ratio %s over last %s requests", f"{result.get('mix_iconic_ratio', 0.0):.2f}" if result.get("mix_iconic_ratio") is not None else "n/a", result["window"])
     return result
 
 async def _coerce_prompt(request: Request) -> str:
-    try:
-        data = await request.json()
-    except Exception:
-        data = None
+    try: data = await request.json()
+    except Exception: data = None
     if isinstance(data, dict):
         for k in ("prompt", "text", "q", "message", "input"):
-            v = data.get(k)
-            if isinstance(v, str) and v.strip(): return v.strip()
+            if isinstance(v := data.get(k), str) and v.strip(): return v.strip()
         for v in data.values():
             if isinstance(v, str) and v.strip(): return v.strip()
-    try:
-        form = await request.form()
+    try: form = await request.form()
+    except Exception: form = None
+    if form:
         for k in ("prompt", "text", "q", "message"):
             if k in form and str(form[k]).strip(): return str(form[k]).strip()
-    except Exception:
-        pass
     raw = (await request.body() or b"").decode("utf-8", "ignore").strip()
-    if raw and not (raw.startswith("{") or raw.startswith("[")):
-        return raw
+    if raw and not (raw.startswith("{") or raw.startswith("[")): return raw
     for k in ("prompt", "text", "q", "message", "input"):
-        v = request.query_params.get(k)
-        if v and v.strip(): return v.strip()
+        if (v := request.query_params.get(k)) and v.strip(): return v.strip()
     return ""
 
 # =========================
@@ -304,9 +275,6 @@ class SeedModeIn(BaseModel):
 class CheckoutIn(BaseModel):
     product_id: str
 
-# =========================
-# Typed POST: JSON-only contract for Swagger
-# =========================
 class ItemOut(BaseModel):
     id: str
     title: str
@@ -328,59 +296,44 @@ class ItemOut(BaseModel):
 # Routes
 # =========================
 @app.get("/health")
-def health():
-    return {"status": "ok", "persona": ERROR_PERSONA, "version": "v1"}
+def health(): return {"status": "ok", "persona": ERROR_PERSONA, "version": "v1"}
 
 @app.get("/api/curate/seed_mode")
-def seed_status():
-    return seed_mode_status()
+def seed_status(): return seed_mode_status()
 
 @app.post("/api/curate/seed_mode")
-def seed_enable(body: SeedModeIn):
-    return enable_seed_mode(max(1, int(body.minutes or 60)))
+def seed_enable(body: SeedModeIn): return enable_seed_mode(max(1, int(body.minutes or 60)))
 
 @app.post("/api/curate/seed_mode/disable")
-def seed_disable():
-    return disable_seed_mode()
-
+def seed_disable(): return disable_seed_mode()
 
 @app.post("/api/curate", summary="Curate", response_model=List[ItemOut])
-async def curate_post(body: CurateRequest, request: Request):
-    """
-    JSON-only canonical endpoint (typed) so Swagger renders a JSON schema.
-    """
+# --- P1.4a Nit: Add rate limiting to the primary typed endpoint ---
+@limiter.limit(f"{RATE_LIMIT_PER_MIN}/minute")
+async def curate_post(body: CurateRequest, request: Request, response: Response):
+    """JSON-only canonical endpoint. Returns items validated against the ItemOut schema."""
     started = time.time()
     request_id = str(uuid.uuid4())
     prompt = body.prompt.strip()
     req_context = body.context.dict() if isinstance(body.context, CurateContext) else {}
-    [cite_start]req_context["request_id"] = request_id  # P1.4a Change: Propagate request_id [cite: 6]
+    req_context["request_id"] = request_id
 
     try:
-        # --- P1.4a Change: Engine now returns a tuple (items, context, meta) ---
-        # This allows us to get the final resolved_anchor for the transformer.
         final_triad, context, meta = selection_engine(prompt=prompt, context=req_context)
-
-        # [cite_start]--- P1.4a Change: Pass resolved_anchor string, not the whole context object [cite: 3, 43, 47] ---
         items = _transform_for_api(final_triad, context.get("resolved_anchor"))
-
     except Exception as e:
         logger.error(f"Engine error for request_id={request_id}: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail={"error": {"code": "ENGINE_ERROR", "message": str(e)[:400]}})
 
     latency_ms = int((time.time() - started) * 1000)
-    ip = get_remote_address(request)
-    logging.info("[%s] CURATE ip=%s emotion=%s latency_ms=%s prompt_len=%s",
-                 PERSONA, ip, items[0].get("emotion",""), latency_ms, len(prompt))
+    logger.info("[%s] CURATE ip=%s emotion=%s latency_ms=%s prompt_len=%s",
+                 PERSONA, get_remote_address(request), items[0].get("emotion",""), latency_ms, len(prompt))
     
     append_selection_log(items, request_id, latency_ms, len(prompt), path="/api/curate")
     analytics_guard_check()
-    # [cite_start]--- P1.4a Change: Write golden artifact after successful response [cite: 5] ---
     write_golden_artifact(request_id, PERSONA, context, items)
 
-    # [cite_start]--- P1.4a Change: Refactor to a single return path for clarity and header management [cite: 44] ---
-    response = JSONResponse(content=items)
-
-    emit_header = bool(ANCHOR_THRESHOLDS.get("multi_anchor_logging", {}).get("emit_header", False))
+    emit_header = ANCHOR_THRESHOLDS.get("multi_anchor_logging", {}).get("emit_header", False)
     if FEATURE_MULTI_ANCHOR_LOGGING and emit_header:
         _, _, scores = detect_emotion(normalize(prompt), context or {})
         if scores:
@@ -392,9 +345,11 @@ async def curate_post(body: CurateRequest, request: Request):
                 s2 = round(top[1][1], 2)
                 if s2 >= float(th.get("score2_min", 0.25)) and (s1 - s2) <= float(th.get("delta_max", 0.15)):
                     header_vals.append(f"{top[1][0]}:{s2}")
+            # --- P1.4a Nit: Set header on injected response object ---
             response.headers["X-Detected-Emotions"] = ",".join(header_vals)
 
-    return response
+    # --- P1.4a Nit: Return raw list to allow Pydantic validation via response_model ---
+    return items
 
 # =========================
 # Flexible/Legacy Routes
@@ -418,9 +373,8 @@ async def _curate_flexible(request: Request) -> JSONResponse:
         return error_json("ENGINE_ERROR", str(e)[:400], 500, request_id)
 
     latency_ms = int((time.time() - started) * 1000)
-    ip = get_remote_address(request)
-    logging.info("[%s] CURATE(SHIM) ip=%s emotion=%s latency_ms=%s prompt_len=%s",
-                 PERSONA, ip, items[0].get("emotion",""), latency_ms, len(prompt))
+    logger.info("[%s] CURATE(SHIM) ip=%s emotion=%s latency_ms=%s prompt_len=%s",
+                 PERSONA, get_remote_address(request), items[0].get("emotion",""), latency_ms, len(prompt))
     append_selection_log(items, request_id, latency_ms, len(prompt), path="/curate(shim)")
     analytics_guard_check()
     write_golden_artifact(request_id, PERSONA, context, items)
@@ -430,43 +384,68 @@ async def _curate_flexible(request: Request) -> JSONResponse:
 @app.get("/api/curate")
 @limiter.limit(f"{RATE_LIMIT_PER_MIN}/minute")
 async def curate_get(request: Request):
-    """GET endpoint for simple tests and browser-based calls."""
-    # This now delegates to the flexible handler to share the updated logic.
-    return await _curate_flexible(request)
+    # This endpoint retains its original seed-mode logic, which was previously removed by mistake.
+    started = time.time()
+    request_id = str(uuid.uuid4())
+    prompt = await _coerce_prompt(request)
+    if not isinstance(prompt, str) or len(prompt.strip()) < 3:
+        return JSONResponse({"error": "Invalid input."}, status_code=400)
+    
+    prompt = sanitize_text(prompt)
+    if not prompt:
+        return error_json("EMPTY_PROMPT", "Please write a short line.", 422, request_id)
+    
+    req_context = {"request_id": request_id}
+    
+    seed_state = seed_mode_status()
+    items = None
+    context = {}
+    if seed_state.get("enabled"):
+        norm = normalize(prompt)
+        emo, _, _ = detect_emotion(norm, req_context)
+        seeds = load_seeds().get(emo) or []
+        if len(seeds) == 3:
+            seeded_items = map_ids_to_output(seeds)
+            if seeded_items:
+                # In seed mode, context is minimal. We pass the detected emotion as the resolved anchor.
+                items = _transform_for_api(seeded_items, emo)
+                context = {"resolved_anchor": emo} # Create a minimal context for logging
+
+    if items is None:
+        final_triad, context, meta = selection_engine(prompt=prompt, context=req_context)
+        items = _transform_for_api(final_triad, context.get("resolved_anchor"))
+
+    latency_ms = int((time.time() - started) * 1000)
+    logger.info("[%s] CURATE ip=%s emotion=%s latency_ms=%s prompt_len=%s%s",
+                 PERSONA, get_remote_address(request), items[0].get("emotion",""), latency_ms, len(prompt),
+                 " (seed-mode)" if seed_state.get("enabled") and items is not None else "")
+    
+    append_selection_log(items, request_id, latency_ms, len(prompt), path="/api/curate_get")
+    analytics_guard_check()
+    write_golden_artifact(request_id, PERSONA, context, items)
+
+    return JSONResponse(items)
 
 @app.post("/curate")
 @limiter.limit(f"{RATE_LIMIT_PER_MIN}/minute")
-async def curate_alias_post(request: Request):
-    return await _curate_flexible(request)
+async def curate_alias_post(request: Request): return await _curate_flexible(request)
 
 @app.get("/curate")
 @limiter.limit(f"{RATE_LIMIT_PER_MIN}/minute")
-async def curate_alias_get(request: Request):
-    return await curate_get(request)
+async def curate_alias_get(request: Request): return await curate_get(request)
 
-# [cite_start]--- P1.4a Change: Unify response shape for /api/curate/next [cite: 4, 11, 44] ---
 @app.post("/api/curate/next", summary="Curate (rotate next)", response_model=List[ItemOut])
 async def curate_post_next(body: CurateRequest, request: Request):
-    """
-    Gets the next set of items for a given prompt, ensuring the response shape
-    is identical to the primary /api/curate endpoint.
-    """
-    request_id = str(uuid.uuid4())
-    req_context = body.context.dict() if isinstance(body.context, CurateContext) else {}
+    """Gets the next set of items, ensuring the response shape is identical to the primary endpoint."""
+    request_id, req_context = str(uuid.uuid4()), body.context.dict() if isinstance(body.context, CurateContext) else {}
     req_context["run_count"] = int(req_context.get("run_count") or 0) + 1
     req_context["request_id"] = request_id
-
     try:
         final_triad, context, meta = selection_engine(prompt=body.prompt.strip(), context=req_context)
-        # Apply the same transformation to unify the response shape.
         items = _transform_for_api(final_triad, context.get("resolved_anchor"))
     except Exception as e:
         logger.error(f"Engine error for request_id={request_id} (next): {e}", exc_info=True)
         raise HTTPException(status_code=500, detail={"error": {"code": "ENGINE_ERROR", "message": str(e)[:400]}})
-
-    # Optional: Golden artifact can be written here as well for completeness if needed.
-    # write_golden_artifact(request_id, PERSONA, context, items)
-    
     return items
 
 # -------------------------
@@ -491,10 +470,8 @@ GOLDEN_TESTS: List[Dict[str, Any]] = [
 
 def _run_one(test: Dict[str, Any]) -> Dict[str, Any]:
     out: Dict[str, Any] = {"name": test["name"], "prompt": test["prompt"], "status": "PASS", "reasons": []}
-    try:
-        items, _, _ = selection_engine(prompt=test["prompt"], context=test.get("context") or {})
-    except Exception as e:
-        out["status"] = "FAIL"; out["reasons"].append(f"engine_error: {repr(e)}"); return out
+    try: items, _, _ = selection_engine(prompt=test["prompt"], context=test.get("context") or {})
+    except Exception as e: out["status"] = "FAIL"; out["reasons"].append(f"engine_error: {repr(e)}"); return out
     if len(items) != 3: out["status"] = "FAIL"; out["reasons"].append("triad_len != 3")
     if sum(1 for it in items if it.get("mono")) != 1: out["status"] = "FAIL"; out["reasons"].append("mono_count != 1")
     if any(not isinstance(it.get("palette"), list) or len(it["palette"]) == 0 for it in items): out["status"] = "FAIL"; out["reasons"].append("palette missing")
@@ -515,11 +492,24 @@ def curate_golden(request: Request):
     started = time.time()
     results = [_run_one(t) for t in GOLDEN_TESTS]
     passed = sum(1 for r in results if r["status"] == "PASS")
-    summary = {"persona": ERROR_PERSONA, "total": len(results), "passed": passed, "failed": len(results) - passed, "latency_ms": int((time.time() - started) * 1000), "results": results}
+    summary = {
+        "ts": datetime.utcnow().isoformat(), "persona": ERROR_PERSONA, "total": len(results),
+        "passed": passed, "failed": len(results) - passed,
+        "latency_ms": int((time.time() - started) * 1000), "results": results
+    }
+    # --- P1.4a Nit: Write a small artifact per run for easy diffing ---
+    try:
+        logs_dir = os.path.join(HERE, "logs")
+        os.makedirs(logs_dir, exist_ok=True)
+        with open(os.path.join(logs_dir, "golden_harness_runs.log"), "a", encoding="utf-8") as f:
+            f.write(json.dumps(summary) + "\n")
+    except Exception as e:
+        logger.error(f"Failed to write golden harness artifact: {e}")
     return summary
 
 @app.get("/api/curate/golden/p1")
 def curate_golden_p1(request: Request):
+    """Alias for Phase-1 golden suite."""
     return curate_golden(request)
 
 @app.post("/api/checkout")
@@ -528,38 +518,24 @@ def checkout(body: CheckoutIn, request: Request):
     pid = (body.product_id or "").strip()
     if not pid: return error_json("BAD_PRODUCT", "product_id is required.", 422)
     url = f"https://checkout.example/intent?pid={pid}"
-    ip = get_remote_address(request)
-    logger.info(f"[{PERSONA}] CHECKOUT ip={ip} product={pid}")
+    logger.info(f"[{PERSONA}] CHECKOUT ip={get_remote_address(request)} product={pid}")
     return {"checkout_url": url}
 
 # =========================
 # Error Normalization
 # =========================
 def error_json(code: str, message: str, status: int = 400, request_id: Optional[str] = None) -> JSONResponse:
-    return JSONResponse(
-        status_code=status,
-        content={
-            "error": {"code": code, "message": message},
-            "persona": ERROR_PERSONA,
-            "request_id": request_id or str(uuid.uuid4())
-        }
-    )
+    return JSONResponse(status_code=status, content={"error": {"code": code, "message": message}, "persona": ERROR_PERSONA, "request_id": request_id or str(uuid.uuid4())})
 
 @app.exception_handler(HTTPException)
 async def http_exc_handler(request: Request, exc: HTTPException):
     if isinstance(exc.detail, dict):
-        shaped = {
-            "error": exc.detail.get("error", {"code": "HTTP_ERROR", "message": "Request error."}),
-            "persona": ERROR_PERSONA,
-            "request_id": str(uuid.uuid4())
-        }
+        shaped = {"error": exc.detail.get("error", {"code": "HTTP_ERROR", "message": "Request error."}), "persona": ERROR_PERSONA, "request_id": str(uuid.uuid4())}
         return JSONResponse(status_code=exc.status_code, content=shaped)
     return await http_exception_handler(request, exc)
 
 @app.exception_handler(RequestValidationError)
-async def validation_exception_handler(request: Request, exc):
-    return error_json("VALIDATION_ERROR", "Invalid input.", 422)
+async def validation_exception_handler(request: Request, exc): return error_json("VALIDATION_ERROR", "Invalid input.", 422)
 
 @app.exception_handler(RateLimitExceeded)
-async def ratelimit_handler(request: Request, exc: RateLimitExceeded):
-    return error_json("RATE_LIMITED", "Too many requests. Please try again in a minute.", 429)
+async def ratelimit_handler(request: Request, exc: RateLimitExceeded): return error_json("RATE_LIMITED", "Too many requests. Please try again in a minute.", 429)
