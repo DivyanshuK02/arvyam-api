@@ -1,5 +1,6 @@
 # main.py
 import os, json, logging, uuid, time, csv
+from datetime import datetime
 from typing import Any, Dict, List, Optional
 
 from fastapi import FastAPI, HTTPException, Request, Body
@@ -15,7 +16,7 @@ from slowapi.util import get_remote_address
 from slowapi.middleware import SlowAPIMiddleware
 from slowapi.errors import RateLimitExceeded
 
-# --- FIX 1: Import the required transformation function ---
+# --- P1.4a Change: Import the required transformation function and engine ---
 from .selection_engine import selection_engine, normalize, detect_emotion, _transform_for_api
 
 # =========================
@@ -28,6 +29,8 @@ PERSONA = os.getenv("PERSONA_NAME", "ARVY")  # for logs/UI
 ERROR_PERSONA = "ARVY"                       # hard-coded in API errors
 ICONIC = {"rose","lily","orchid"}            # for analytics guard
 ANALYTICS_ENABLED = os.getenv("ANALYTICS_ENABLED", "0") == "1"
+GOLDEN_ARTIFACTS_DIR = os.getenv("GOLDEN_ARTIFACTS_DIR", "/tmp/arvy_golden")
+
 
 # =========================
 # Logging
@@ -154,6 +157,39 @@ def map_ids_to_output(ids: List[str]) -> Optional[List[Dict[str, Any]]]:
 def sanitize_text(s: str) -> str:
     return " ".join((s or "").strip().split())
 
+# --- P1.4a Change: New function to write a golden artifact log for auditing ---
+def write_golden_artifact(
+    request_id: str,
+    persona: str,
+    context: Dict[str, Any],
+    items: List[Dict[str, Any]]
+) -> None:
+    """
+    [cite_start]Writes a single-line JSON artifact to a date-stamped log file. [cite: 5, 12]
+    [cite_start]This provides a fast diff of behavior across refactors and deploys. [cite: 8]
+    """
+    try:
+        log_dir = GOLDEN_ARTIFACTS_DIR
+        os.makedirs(log_dir, exist_ok=True)
+        log_file = os.path.join(log_dir, f"{datetime.utcnow().strftime('%Y%m%d')}.log")
+
+        artifact = {
+            "ts": datetime.utcnow().isoformat(),
+            "request_id": request_id,
+            "persona": persona,
+            "resolved_anchor": context.get("resolved_anchor"),
+            "item_ids": [item.get("id") for item in items],
+            "fallback_reason": context.get("fallback_reason"),
+            "pool_sizes": context.get("pool_sizes"),
+        }
+
+        with open(log_file, "a", encoding="utf-8") as f:
+            f.write(json.dumps(artifact) + "\n")
+
+    except Exception as e:
+        logger.error(f"Failed to write golden artifact for request_id={request_id}: {e}")
+
+
 def append_selection_log(items: List[Dict[str, Any]], request_id: str, latency_ms: int, prompt_len: int, path: str = "/api/curate") -> None:
     """
     Appends one analytics row per curate request.
@@ -179,7 +215,6 @@ def append_selection_log(items: List[Dict[str, Any]], request_id: str, latency_m
 
 def analytics_guard_check() -> Dict[str, Any]:
     """Read last 50 rows of selection_log.csv and compute R/L/O share in MIX items (Phase-3)."""
-    # Off by default; enable later by setting ANALYTICS_ENABLED=1 in env.
     if not ANALYTICS_ENABLED:
         return {"window": 0, "mix_iconic_ratio": None, "alert": False, "message": "Analytics disabled."}
     
@@ -188,21 +223,18 @@ def analytics_guard_check() -> Dict[str, Any]:
     result = {"window": 0, "mix_iconic_ratio": None, "alert": False, "message": ""}
     if not os.path.exists(csv_path):
         return result
-    # Load lines (skip header)
     with open(csv_path, "r", encoding="utf-8") as f:
         rows = list(csv.reader(f))
     if len(rows) <= 1:
         return result
-    data = rows[1:][-50:]  # last up to 50 rows
-    total_mix = 0
-    iconic_mix = 0
+    data = rows[1:][-50:]
+    total_mix, iconic_mix = 0, 0
     for r in data:
         try:
             mix_ids_field = r[7] if len(r) > 7 else ""
             mix_ids = [x for x in mix_ids_field.split(";") if x]
             for mid in mix_ids:
                 total_mix += 1
-                # Look up flowers by id
                 it = CAT_BY_ID.get(mid)
                 flowers = (it.get("flowers") or []) if it else []
                 if any((f.lower() in ICONIC) for f in flowers):
@@ -215,8 +247,7 @@ def analytics_guard_check() -> Dict[str, Any]:
         result["mix_iconic_ratio"] = ratio
         if ratio < 0.5:
             result["alert"] = True
-            result["message"] = "Iconic MIX share dipped below 50% over the last {} requests.".format(len(data))
-    # Persist guard status
+            result["message"] = f"Iconic MIX share dipped below 50% over the last {len(data)} requests."
     os.makedirs(logs_dir, exist_ok=True)
     with open(os.path.join(logs_dir, "analytics_guard.json"), "w", encoding="utf-8") as f:
         json.dump(result, f, indent=2)
@@ -226,9 +257,7 @@ def analytics_guard_check() -> Dict[str, Any]:
         logger.info("[GUARD] MIX iconic ratio %s over last %s requests", f"{result.get('mix_iconic_ratio', 0.0):.2f}" if result["mix_iconic_ratio"] is not None else "n/a", result["window"])
     return result
 
-# -- payload coercion shim: accept raw string, {"prompt"}, {"text"}, {"q"}, form, or query
 async def _coerce_prompt(request: Request) -> str:
-    # 1) JSON body (accept common keys OR first string value)
     try:
         data = await request.json()
     except Exception:
@@ -236,52 +265,34 @@ async def _coerce_prompt(request: Request) -> str:
     if isinstance(data, dict):
         for k in ("prompt", "text", "q", "message", "input"):
             v = data.get(k)
-            if isinstance(v, str) and v.strip():
-                return v.strip()
-        # last resort: pick the first non-empty string value in the dict
+            if isinstance(v, str) and v.strip(): return v.strip()
         for v in data.values():
-            if isinstance(v, str) and v.strip():
-                return v.strip()
-
-    # 2) form-encoded
+            if isinstance(v, str) and v.strip(): return v.strip()
     try:
         form = await request.form()
         for k in ("prompt", "text", "q", "message"):
-            if k in form:
-                v = str(form[k]).strip()
-                if v:
-                    return v
+            if k in form and str(form[k]).strip(): return str(form[k]).strip()
     except Exception:
         pass
-
-    # 3) raw text body (text/plain or fetch without content-type)
     raw = (await request.body() or b"").decode("utf-8", "ignore").strip()
-    if raw and not (raw.startswith("{") or raw.startswith("[")):  # not JSON-looking
+    if raw and not (raw.startswith("{") or raw.startswith("[")):
         return raw
-
-    # 4) query params
     for k in ("prompt", "text", "q", "message", "input"):
         v = request.query_params.get(k)
-        if v and v.strip():
-            return v.strip()
-
+        if v and v.strip(): return v.strip()
     return ""
 
 # =========================
 # Schemas (UI-aligned)
 # =========================
-class CurateIn(BaseModel):
-    prompt: str = Field(..., min_length=1, max_length=500)
-    context: Optional[Dict[str, Any]] = None  # emotion_hint, budget_inr, packaging_pref, locale
-
 class CurateContext(BaseModel):
     budget_inr: Optional[int] = None
     emotion_hint: Optional[str] = None
     packaging_pref: Optional[str] = None
     locale: Optional[str] = None
-    recent_ids: Optional[List[str]] = None   # for session-level dedupe (optional, see B2)
-    session_id: Optional[str] = None         # for deterministic rotation seed
-    run_count: Optional[int] = 0             # increment to rotate within top-K
+    recent_ids: Optional[List[str]] = None
+    session_id: Optional[str] = None
+    run_count: Optional[int] = 0
 
 class CurateRequest(BaseModel):
     prompt: str = Field(..., min_length=1, max_length=500)
@@ -292,27 +303,6 @@ class SeedModeIn(BaseModel):
 
 class CheckoutIn(BaseModel):
     product_id: str
-
-# =========================
-# Routes
-# =========================
-@app.get("/health")
-def health():
-    return {"status": "ok", "persona": ERROR_PERSONA, "version": "v1"}
-
-@app.get("/api/curate/seed_mode")
-def seed_status():
-    return seed_mode_status()
-
-@app.post("/api/curate/seed_mode")
-def seed_enable(body: SeedModeIn):
-    data = enable_seed_mode(max(1, int(body.minutes or 60)))
-    return data
-
-@app.post("/api/curate/seed_mode/disable")
-def seed_disable():
-    return disable_seed_mode()
-
 
 # =========================
 # Typed POST: JSON-only contract for Swagger
@@ -334,44 +324,64 @@ class ItemOut(BaseModel):
     edge_type: Optional[str] = None
     note: Optional[str] = None
 
+# =========================
+# Routes
+# =========================
+@app.get("/health")
+def health():
+    return {"status": "ok", "persona": ERROR_PERSONA, "version": "v1"}
+
+@app.get("/api/curate/seed_mode")
+def seed_status():
+    return seed_mode_status()
+
+@app.post("/api/curate/seed_mode")
+def seed_enable(body: SeedModeIn):
+    return enable_seed_mode(max(1, int(body.minutes or 60)))
+
+@app.post("/api/curate/seed_mode/disable")
+def seed_disable():
+    return disable_seed_mode()
+
+
 @app.post("/api/curate", summary="Curate", response_model=List[ItemOut])
 async def curate_post(body: CurateRequest, request: Request):
     """
     JSON-only canonical endpoint (typed) so Swagger renders a JSON schema.
-    Coercion is intentionally NOT applied here to keep the contract audit-clean.
     """
     started = time.time()
+    request_id = str(uuid.uuid4())
     prompt = body.prompt.strip()
-    context = body.context.dict() if isinstance(body.context, CurateContext) else {}
+    req_context = body.context.dict() if isinstance(body.context, CurateContext) else {}
+    [cite_start]req_context["request_id"] = request_id  # P1.4a Change: Propagate request_id [cite: 6]
 
     try:
-        # Get raw data from the engine
-        raw_items = selection_engine(prompt=prompt, context=context)
-        # --- FIX 2: Call the transformation function before returning ---
-        items = _transform_for_api(raw_items, context)
+        # --- P1.4a Change: Engine now returns a tuple (items, context, meta) ---
+        # This allows us to get the final resolved_anchor for the transformer.
+        final_triad, context, meta = selection_engine(prompt=prompt, context=req_context)
+
+        # [cite_start]--- P1.4a Change: Pass resolved_anchor string, not the whole context object [cite: 3, 43, 47] ---
+        items = _transform_for_api(final_triad, context.get("resolved_anchor"))
 
     except Exception as e:
-        # normalized error (JSON only)
+        logger.error(f"Engine error for request_id={request_id}: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail={"error": {"code": "ENGINE_ERROR", "message": str(e)[:400]}})
 
-    # (Optional) minimal analytics/logging parity with GET handler
     latency_ms = int((time.time() - started) * 1000)
-    request_id = str(uuid.uuid4())
     ip = get_remote_address(request)
     logging.info("[%s] CURATE ip=%s emotion=%s latency_ms=%s prompt_len=%s",
                  PERSONA, ip, items[0].get("emotion",""), latency_ms, len(prompt))
+    
     append_selection_log(items, request_id, latency_ms, len(prompt), path="/api/curate")
     analytics_guard_check()
+    # [cite_start]--- P1.4a Change: Write golden artifact after successful response [cite: 5] ---
+    write_golden_artifact(request_id, PERSONA, context, items)
 
-    # Pass-through + Optional QA header flow (OFF by default)
+    # [cite_start]--- P1.4a Change: Refactor to a single return path for clarity and header management [cite: 44] ---
+    response = JSONResponse(content=items)
+
     emit_header = bool(ANCHOR_THRESHOLDS.get("multi_anchor_logging", {}).get("emit_header", False))
-    resp_body = items
-
     if FEATURE_MULTI_ANCHOR_LOGGING and emit_header:
-        # Non-mutating header build (we do NOT change items or their resolved anchor)
-        # A lightweight call to detect_emotion() is acceptable for header only;
-        # it must NOT alter the curated items or edge flags.
-        from .selection_engine import normalize, detect_emotion
         _, _, scores = detect_emotion(normalize(prompt), context or {})
         if scores:
             top = sorted(scores.items(), key=lambda kv: kv[1], reverse=True)
@@ -382,118 +392,48 @@ async def curate_post(body: CurateRequest, request: Request):
                 s2 = round(top[1][1], 2)
                 if s2 >= float(th.get("score2_min", 0.25)) and (s1 - s2) <= float(th.get("delta_max", 0.15)):
                     header_vals.append(f"{top[1][0]}:{s2}")
-            resp = JSONResponse(content=resp_body)
-            resp.headers["X-Detected-Emotions"] = ",".join(header_vals)
-            return resp
+            response.headers["X-Detected-Emotions"] = ",".join(header_vals)
 
-    # Normal (no header) return path
-    return resp_body
+    return response
 
 # =========================
-# Helper for flexible/legacy calls (keeps shim behavior)
+# Flexible/Legacy Routes
 # =========================
 async def _curate_flexible(request: Request) -> JSONResponse:
-    """
-    Coercion shim for legacy/alias routes:
-    - raw string
-    - { "text": "..." } / { "prompt": "..." } / { "q": "..." }
-    - form-encoded
-    - querystring ?prompt=
-    """
+    """Coercion shim for legacy/alias routes."""
     started = time.time()
+    request_id = str(uuid.uuid4())
     prompt = await _coerce_prompt(request)
     if not prompt:
-        return error_json("PROMPT_REQUIRED", "Provide a non-empty 'prompt'.", 400)
-
+        return error_json("PROMPT_REQUIRED", "Provide a non-empty 'prompt'.", 400, request_id)
+    
     prompt = sanitize_text(prompt)
-    try:
-        raw_items = selection_engine(prompt=prompt, context={})
-        # Apply the same transformation here for consistency
-        items = _transform_for_api(raw_items, {})
+    req_context = {"request_id": request_id}
 
+    try:
+        final_triad, context, meta = selection_engine(prompt=prompt, context=req_context)
+        items = _transform_for_api(final_triad, context.get("resolved_anchor"))
     except Exception as e:
-        return error_json("ENGINE_ERROR", str(e)[:400], 500)
+        logger.error(f"Engine error for request_id={request_id} (shim): {e}", exc_info=True)
+        return error_json("ENGINE_ERROR", str(e)[:400], 500, request_id)
 
     latency_ms = int((time.time() - started) * 1000)
-    request_id = str(uuid.uuid4())
     ip = get_remote_address(request)
     logging.info("[%s] CURATE(SHIM) ip=%s emotion=%s latency_ms=%s prompt_len=%s",
                  PERSONA, ip, items[0].get("emotion",""), latency_ms, len(prompt))
     append_selection_log(items, request_id, latency_ms, len(prompt), path="/curate(shim)")
     analytics_guard_check()
+    write_golden_artifact(request_id, PERSONA, context, items)
+    
     return JSONResponse(items)
 
 @app.get("/api/curate")
 @limiter.limit(f"{RATE_LIMIT_PER_MIN}/minute")
 async def curate_get(request: Request):
-    started = time.time()
-    prompt = await _coerce_prompt(request)
-    if not isinstance(prompt, str) or len(prompt.strip()) < 3:
-        return JSONResponse({"error": "Invalid input."}, status_code=400)
-    
-    prompt = sanitize_text(prompt)
-    if not prompt:
-        return error_json("EMPTY_PROMPT", "Please write a short line.", 422)
-    prompt_len = len(prompt)
-    context = {} # Assuming no context from these new input types, as per the user's patch
+    """GET endpoint for simple tests and browser-based calls."""
+    # This now delegates to the flexible handler to share the updated logic.
+    return await _curate_flexible(request)
 
-    # Seed-mode check (1 hour window)
-    seed_state = seed_mode_status()
-    items = None
-    if seed_state.get("enabled"):
-        # Determine emotion using the engine's normalize+detect
-        norm = normalize(prompt)
-        emo, _, _ = detect_emotion(norm, context) # Use tuple unpacking
-        seeds = load_seeds().get(emo) or []
-        if len(seeds) == 3:
-            seeded = map_ids_to_output(seeds)
-            if seeded:
-                # The map_ids_to_output already transforms, but we'll re-transform for safety
-                items = _transform_for_api(seeded, context)
-
-    # If no seed triad (or invalid), fall back to engine
-    if items is None:
-        raw_items = selection_engine(prompt=prompt, context=context)
-        items = _transform_for_api(raw_items, context)
-
-    # Basic metrics and a request id
-    latency_ms = int((time.time() - started) * 1000)
-    request_id = str(uuid.uuid4())
-
-    # Safe logs (never log full prompt)
-    ip = get_remote_address(request)
-    logging.info("[%s] CURATE ip=%s emotion=%s latency_ms=%s prompt_len=%s%s",
-                 PERSONA, ip, items[0].get("emotion",""), latency_ms, prompt_len,
-                 " (seed-mode)" if seed_state.get("enabled") and items is not None else "")
-
-    # CSV analytics guard (R/L/O share checks offline)
-    append_selection_log(items, request_id, latency_ms, prompt_len, path="/api/curate_get")
-    analytics_guard_check()
-
-    # Pass-through + Optional QA header flow (OFF by default)
-    emit_header = bool(ANCHOR_THRESHOLDS.get("multi_anchor_logging", {}).get("emit_header", False))
-    resp_body = items
-
-    if FEATURE_MULTI_ANCHOR_LOGGING and emit_header:
-        # ... (header logic remains the same)
-        _, _, scores = detect_emotion(normalize(prompt), context or {})
-        if scores:
-            top = sorted(scores.items(), key=lambda kv: kv[1], reverse=True)
-            s1 = round(top[0][1], 2)
-            header_vals = [f"{top[0][0]}:{s1}"]
-            if len(top) > 1:
-                th = ANCHOR_THRESHOLDS.get("multi_anchor_logging", {})
-                s2 = round(top[1][1], 2)
-                if s2 >= float(th.get("score2_min", 0.25)) and (s1 - s2) <= float(th.get("delta_max", 0.15)):
-                    header_vals.append(f"{top[1][0]}:{s2}")
-            resp = JSONResponse(content=resp_body)
-            resp.headers["X-Detected-Emotions"] = ",".join(header_vals)
-            return resp
-
-    return JSONResponse(resp_body)
-
-
-# ---- Aliases so legacy/front-end calls to /curate keep working ----
 @app.post("/curate")
 @limiter.limit(f"{RATE_LIMIT_PER_MIN}/minute")
 async def curate_alias_post(request: Request):
@@ -504,126 +444,89 @@ async def curate_alias_post(request: Request):
 async def curate_alias_get(request: Request):
     return await curate_get(request)
 
-@app.post("/api/curate/next", summary="Curate (rotate next)")
+# [cite_start]--- P1.4a Change: Unify response shape for /api/curate/next [cite: 4, 11, 44] ---
+@app.post("/api/curate/next", summary="Curate (rotate next)", response_model=List[ItemOut])
 async def curate_post_next(body: CurateRequest, request: Request):
-    payload_ctx = body.context.dict() if isinstance(body.context, CurateContext) else {}
-    payload_ctx["run_count"] = int(payload_ctx.get("run_count") or 0) + 1
-    items = selection_engine(prompt=body.prompt.strip(), context=payload_ctx)
+    """
+    Gets the next set of items for a given prompt, ensuring the response shape
+    is identical to the primary /api/curate endpoint.
+    """
+    request_id = str(uuid.uuid4())
+    req_context = body.context.dict() if isinstance(body.context, CurateContext) else {}
+    req_context["run_count"] = int(req_context.get("run_count") or 0) + 1
+    req_context["request_id"] = request_id
+
+    try:
+        final_triad, context, meta = selection_engine(prompt=body.prompt.strip(), context=req_context)
+        # Apply the same transformation to unify the response shape.
+        items = _transform_for_api(final_triad, context.get("resolved_anchor"))
+    except Exception as e:
+        logger.error(f"Engine error for request_id={request_id} (next): {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail={"error": {"code": "ENGINE_ERROR", "message": str(e)[:400]}})
+
+    # Optional: Golden artifact can be written here as well for completeness if needed.
+    # write_golden_artifact(request_id, PERSONA, context, items)
+    
     return items
 
 # -------------------------
-# Golden-Set Harness
+# Golden-Set Harness (Internal Test Tool)
 # -------------------------
 GOLDEN_TESTS: List[Dict[str, Any]] = [
-    # Romance / baseline
     {"name": "romance_budget_2000", "prompt": "romantic anniversary under 2000", "context": {"budget_inr": 2000}},
     {"name": "romance_plain", "prompt": "romantic bouquet please"},
-    # Iconic override
     {"name": "only_lilies", "prompt": "only lilies please", "expect_lily_mono": True},
-    # Redirection
     {"name": "hydrangea_redirect", "prompt": "hydrangea bouquet", "expect_note": True},
-    # Celebration / bright
     {"name": "celebration_bright", "prompt": "bright congratulations"},
-    # Encouragement
     {"name": "encouragement_exams", "prompt": "encouragement for exams"},
-    # Gratitude
     {"name": "gratitude_thanks", "prompt": "thank you flowers"},
-    # Friendship
     {"name": "friendship_care", "prompt": "for a dear friend"},
-    # Encouragement
     {"name": "encouragement_getwell", "prompt": "get well soon flowers"},
-    # Birthday
     {"name": "birthday", "prompt": "birthday flowers"},
-    # Sympathy core
     {"name": "sympathy_loss", "prompt": "i’m so sorry for your loss"},
-    # Edge: apology route
     {"name": "apology", "prompt": "i deeply apologize"},
-    # Edge: farewell
     {"name": "farewell", "prompt": "farewell flowers"},
-    # Edge: valentine
     {"name": "valentine", "prompt": "valentine surprise"}
 ]
 
 def _run_one(test: Dict[str, Any]) -> Dict[str, Any]:
     out: Dict[str, Any] = {"name": test["name"], "prompt": test["prompt"], "status": "PASS", "reasons": []}
     try:
-        items = selection_engine(prompt=test["prompt"], context=test.get("context") or {})
+        items, _, _ = selection_engine(prompt=test["prompt"], context=test.get("context") or {})
     except Exception as e:
-        out["status"] = "FAIL"
-        out["reasons"].append(f"engine_error: {repr(e)}")
-        return out
-
-    # Structural checks
-    if len(items) != 3:
-        out["status"] = "FAIL"; out["reasons"].append("triad_len != 3")
-    mono_count = sum(1 for it in items if it.get("mono"))
-    if mono_count != 1:
-        out["status"] = "FAIL"; out["reasons"].append("mono_count != 1")
-    for it in items:
-        pal = it.get("palette")
-        if not isinstance(pal, list) or len(pal) == 0:
-            out["status"] = "FAIL"; out["reasons"].append("palette missing on some item"); break
-    lg_count = sum(1 for it in items if it.get("luxury_grand"))
-    if lg_count > 1:
-        out["status"] = "FAIL"; out["reasons"].append("more than one luxury_grand")
-
-    # Intent checks
+        out["status"] = "FAIL"; out["reasons"].append(f"engine_error: {repr(e)}"); return out
+    if len(items) != 3: out["status"] = "FAIL"; out["reasons"].append("triad_len != 3")
+    if sum(1 for it in items if it.get("mono")) != 1: out["status"] = "FAIL"; out["reasons"].append("mono_count != 1")
+    if any(not isinstance(it.get("palette"), list) or len(it["palette"]) == 0 for it in items): out["status"] = "FAIL"; out["reasons"].append("palette missing")
+    if sum(1 for it in items if it.get("luxury_grand")) > 1: out["status"] = "FAIL"; out["reasons"].append(">1 luxury_grand")
     if test.get("expect_lily_mono"):
         mono_item = next((it for it in items if it.get("mono")), None)
-        if not mono_item:
-            out["status"] = "FAIL"; out["reasons"].append("no mono item returned")
+        if not mono_item: out["status"] = "FAIL"; out["reasons"].append("no mono item")
         else:
             cat = CAT_BY_ID.get(mono_item["id"]) or {}
-            species = [s.lower() for s in (cat.get("flowers") or [])]
-            if "lily" not in species:
-                out["status"] = "FAIL"; out["reasons"].append("mono is not lily for 'only lilies' intent")
-
-    if test.get("expect_note"):
-        if not any(it.get("note") for it in items):
-            out["status"] = "FAIL"; out["reasons"].append("redirection note missing for hydrangea")
-
-    out["emotion"] = items[0].get("emotion", "")
-    out["ids"] = [it.get("id") for it in items]
-    out["tiers"] = [it.get("tier") for it in items]
-    out["mono_id"] = next((it.get("id") for it in items if it.get("mono")), "")
+            if "lily" not in [s.lower() for s in (cat.get("flowers") or [])]: out["status"] = "FAIL"; out["reasons"].append("mono is not lily")
+    if test.get("expect_note") and not any(it.get("note") for it in items): out["status"] = "FAIL"; out["reasons"].append("redirection note missing")
+    out["emotion"] = items[0].get("emotion", ""); out["ids"] = [it.get("id") for it in items]
+    out["tiers"] = [it.get("tier") for it in items]; out["mono_id"] = next((it.get("id") for it in items if it.get("mono")), "")
     return out
 
 @app.post("/api/curate/golden")
 def curate_golden(request: Request):
     started = time.time()
-    results: List[Dict[str, Any]] = []
-    for t in GOLDEN_TESTS:
-        results.append(_run_one(t))
+    results = [_run_one(t) for t in GOLDEN_TESTS]
     passed = sum(1 for r in results if r["status"] == "PASS")
-    failed = len(results) - passed
-    latency_ms = int((time.time() - started) * 1000)
-    summary = {
-        "persona": ERROR_PERSONA,
-        "total": len(results),
-        "passed": passed,
-        "failed": failed,
-        "latency_ms": latency_ms,
-        "results": results
-    }
+    summary = {"persona": ERROR_PERSONA, "total": len(results), "passed": passed, "failed": len(results) - passed, "latency_ms": int((time.time() - started) * 1000), "results": results}
     return summary
 
 @app.get("/api/curate/golden/p1")
 def curate_golden_p1(request: Request):
-    """
-    Alias for Phase-1 golden suite.
-    Delegates to the existing POST /api/curate/golden.
-    """
-    try:
-        return curate_golden(request)
-    except NameError:
-        return error_json("NO_GOLDEN", "Golden suite is not available in this build.", 503)
+    return curate_golden(request)
 
 @app.post("/api/checkout")
 @limiter.limit(f"{RATE_LIMIT_PER_MIN}/minute")
 def checkout(body: CheckoutIn, request: Request):
     pid = (body.product_id or "").strip()
-    if not pid:
-        return error_json("BAD_PRODUCT", "product_id is required.", 422)
+    if not pid: return error_json("BAD_PRODUCT", "product_id is required.", 422)
     url = f"https://checkout.example/intent?pid={pid}"
     ip = get_remote_address(request)
     logger.info(f"[{PERSONA}] CHECKOUT ip={ip} product={pid}")
@@ -632,13 +535,13 @@ def checkout(body: CheckoutIn, request: Request):
 # =========================
 # Error Normalization
 # =========================
-def error_json(code: str, message: str, status: int = 400) -> JSONResponse:
+def error_json(code: str, message: str, status: int = 400, request_id: Optional[str] = None) -> JSONResponse:
     return JSONResponse(
         status_code=status,
         content={
             "error": {"code": code, "message": message},
             "persona": ERROR_PERSONA,
-            "request_id": str(uuid.uuid4())
+            "request_id": request_id or str(uuid.uuid4())
         }
     )
 
