@@ -138,7 +138,7 @@ def map_ids_to_output(ids: List[str]) -> Optional[List[Dict[str, Any]]]:
             "currency": "INR",
             "emotion": it["emotion"],
             "tier": it["tier"],
-            "packaging": it["packaging"],
+            "packaging": it.get("packaging"),
             "mono": bool(it.get("mono")),
             "palette": pal,
             "luxury_grand": bool(it.get("luxury_grand"))
