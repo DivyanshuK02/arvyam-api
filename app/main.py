@@ -539,3 +539,5 @@ async def validation_exception_handler(request: Request, exc): return error_json
 
 @app.exception_handler(RateLimitExceeded)
 async def ratelimit_handler(request: Request, exc: RateLimitExceeded): return error_json("RATE_LIMITED", "Too many requests. Please try again in a minute.", 429)
+
+}
