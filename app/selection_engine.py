@@ -46,6 +46,29 @@ SUB_NOTES = _load_json(os.path.join(RULES_DIR, "substitution_notes.json"), {"def
 ANCHOR_THRESHOLDS = _load_json(os.path.join(RULES_DIR, "anchor_thresholds.json"), {})
 SENTIMENT_FAMILIES = _load_json(os.path.join(RULES_DIR, "sentiment_families.json"), {})
 
+# Relationship context tokens (source-of-truth: emotion_keywords.json + builder sets)
+ROMANTIC_TOKENS = {
+    "love","romance","romantic","blush","sweetheart","darling","my love","crush",
+    "miss you","thinking of you","together","couple","partner","wife","husband",
+    "girlfriend","boyfriend","fiancé","anniversary","hearts","date night","soulmate",
+    "adoration","forever", "valentine","my valentine","sweetheart"
+}
+PROFESSIONAL_TOKENS = {
+    "loyal","reliable","dependable","steady","trust","always there","backbone",
+    "colleague","coworker","teammate","partner at work","service award","milestone",
+    "workiversary","commitment","dedication","supportive","pillar","solid","reliability",
+    "farewell","goodbye","sendoff","offboarding",
+    "work","office","team","years of service","new role"
+}
+FAMILIAL_TOKENS = {
+    "mother","mom","mum","father","dad","parent","parents","son","daughter","brother",
+    "sister","grandma","grandmother","granny","grandpa","grandfather","aunt","uncle",
+    "cousin","niece","nephew","in-law","mother-in-law","father-in-law","family","familial"
+}
+FRIENDSHIP_TOKENS = {
+    "friend","friends","best friend","bestie","bff","buddy","pal","mate","bros","homie","friendship"
+}
+
 EDGE_CASE_KEYS = {"sympathy", "apology", "farewell", "valentine"}
 FEATURE_MULTI_ANCHOR_LOGGING = os.getenv("FEATURE_MULTI_ANCHOR_LOGGING", "0") == "1" # Off by default
 
@@ -371,35 +394,22 @@ def detect_emotion(prompt: str, context: dict | None) -> Tuple[str, Optional[str
         resolved_anchor = sorted_scores[1][0]
     return resolved_anchor, edge_type, scores
 
-# --- B2 START: New function for relationship context detection ---
-def detect_relationship_context(prompt: str) -> tuple[str, bool]:
-    """
-    Returns (context, ambiguous)
-    context ∈ {"romantic","familial","friendship","professional"}
-    """
-    p = prompt.lower()
-    romantic = {"love", "my love", "sweetheart", "darling", "partner"}
-    familial = {"mom", "mother", "dad", "father", "sister", "brother", "family"}
-    professional = {"team", "boss", "manager", "colleague", "work", "office"}
-    friendship = {"friend", "buddy", "pal"}
-
-    hits = []
-    if any(w in p for w in romantic): hits.append("romantic")
-    if any(w in p for w in familial): hits.append("familial")
-    if any(w in p for w in professional): hits.append("professional")
-    if any(w in p for w in friendship): hits.append("friendship")
-
-    if not hits: return ("friendship", True)  # safest default
-    if len(hits) == 1: return (hits[0], False)
-
-    # tie-breaker (romantic > professional > familial > friendship)
-    order = ["romantic", "professional", "familial", "friendship"]
-    for k in order:
-        if k in hits: 
-            return (k, True)
-
-    return (hits[0], True)
-# --- B2 END ---
+def detect_relationship_context(prompt_norm: str) -> tuple[str, bool]:
+    p = prompt_norm
+    hits = {
+        "romantic": any(tok in p for tok in ROMANTIC_TOKENS),
+        "familial": any(tok in p for tok in FAMILIAL_TOKENS),
+        "friendship": any(tok in p for tok in FRIENDSHIP_TOKENS),
+        "professional": any(tok in p for tok in PROFESSIONAL_TOKENS),
+    }
+    positives = [k for k,v in hits.items() if v]
+    if not positives:
+        return "unknown", True
+    # priority: romantic > professional > familial > friendship
+    for lane in ("romantic","professional","familial","friendship"):
+        if lane in positives:
+            return lane, (len(positives) > 1)
+    return "unknown", True
 
 def find_iconic_species(prompt_norm: str) -> Optional[str]:
     if ONLY_ICONIC_RE.search(prompt_norm):
@@ -436,12 +446,18 @@ def _backfill_to_three(items: list[dict], catalog: list[dict], context: dict) ->
     existing_ids = set()
     for item in items:
         tier_idx = TIER_RANK.get(item.get("tier"))
-        if tier_idx is not None:
+        if tier_idx is not None and final_triad[tier_idx] is None:
             final_triad[tier_idx] = item
             existing_ids.add(_stable_id(item))
-    missing_tiers = [TIER_ORDER[i] for i, item in enumerate(final_triad) if item is None]
+            
     target_family = context.get("target_family")
     family_pool = [it for it in catalog if (it.get("sentiment_family") == target_family or it.get("sentiment_family") == "UNSPECIFIED") and _stable_id(it) not in existing_ids]
+
+    if context.get("edge_type"):
+        family_pool = _apply_edge_register_filters(family_pool, context["edge_type"])
+        
+    missing_tiers = [TIER_ORDER[i] for i, item in enumerate(final_triad) if item is None]
+
     for tier in missing_tiers:
         tier_pool = [it for it in family_pool if it.get("tier") == tier]
         if tier_pool:
@@ -449,6 +465,7 @@ def _backfill_to_three(items: list[dict], catalog: list[dict], context: dict) ->
             final_triad[TIER_RANK[tier]] = selected
             existing_ids.add(_stable_id(selected))
             family_pool = [it for it in family_pool if _stable_id(it) != _stable_id(selected)]
+            
     if None in final_triad and context.get("sentiment_over_ladder"):
         filled_items = [it for it in final_triad if it is not None]
         if filled_items:
@@ -457,6 +474,7 @@ def _backfill_to_three(items: list[dict], catalog: list[dict], context: dict) ->
                 if final_triad[i] is None:
                     final_triad[i] = dict(filler)
                     final_triad[i]['tier'] = TIER_ORDER[i]
+                    
     if None in final_triad:
         context["fallback_reason"] = "cross_family_last_resort"
         any_pool = [it for it in catalog if _stable_id(it) not in existing_ids]
@@ -467,30 +485,30 @@ def _backfill_to_three(items: list[dict], catalog: list[dict], context: dict) ->
                 if candidate:
                     final_triad[i] = candidate
                     existing_ids.add(_stable_id(candidate))
+                    
     final_triad = [it for it in final_triad if it is not None]
     while len(final_triad) < 3:
         final_triad.append(final_triad[-1] if final_triad else catalog[0])
+        
     return final_triad[:3]
 
-# --- B1 START: New helper functions for family boundaries ---
 def _family_for_anchor(anchor: str, families_json: dict) -> str:
     families = families_json.get("sentiment_families", {})
     for fam, spec in families.items():
         emos = set(spec.get("emotions") or [])
         if anchor in emos:
             return fam
-        # also allow nested subfamilies (reconciliation.*)
         if isinstance(spec, dict) and "subfamilies" in spec:
             for subname, sub in spec["subfamilies"].items():
                 if isinstance(sub, dict) and anchor in set(sub.get("emotions") or []):
-                    return subname # Return the specific subfamily name
+                    return subname
     return "UNSPECIFIED"
 
 def _filter_in_family(catalog: list[dict], fam: str, families_json: dict) -> list[dict]:
     families = families_json.get("sentiment_families", {})
     fam_emos = set()
     spec = families.get(fam)
-    if not spec: # Handle subfamilies
+    if not spec:
         for main_fam in families.values():
             if isinstance(main_fam, dict) and "subfamilies" in main_fam and fam in main_fam["subfamilies"]:
                 spec = main_fam["subfamilies"][fam]
@@ -502,11 +520,13 @@ def _filter_in_family(catalog: list[dict], fam: str, families_json: dict) -> lis
     return [x for x in catalog if (x.get("emotion") in fam_emos)]
 
 def _pool_general_in_family(catalog: list[dict], fam: str) -> list[dict]:
-    # convention: items with "emotion" == "general" but tagged with family in your data
     return [x for x in catalog if (x.get("emotion") == "general" and x.get("sentiment_family") == fam)]
 
 def _fallback_boundary_path(available_catalog: list[dict], target_family: str, context: dict,
                             families_json: dict, need_count: int) -> list[dict]:
+    if not context.get("fallback_reason"):
+        context["fallback_reason"] = "none"
+
     # 1) in-family
     p1 = _filter_in_family(available_catalog, target_family, families_json)
     if len(p1) >= need_count:
@@ -520,17 +540,14 @@ def _fallback_boundary_path(available_catalog: list[dict], target_family: str, c
         context["fallback_reason"] = "general_in_family"
         return p2
 
-    # 3) duplicate-tier (only if sentiment_over_ladder is true for this edge)
-    # This path returns the current pool; the duplication logic is handled in the tier loop.
-    if context.get("edge_type") in {"sympathy", "farewell"} and context.get("sentiment_over_ladder"):
+    # 3) duplicate-tier
+    if context.get("sentiment_over_ladder"):
         context["fallback_reason"] = "duplicate_tier"
         return p2
 
     # 4) last resort cross-family
     context["fallback_reason"] = "cross_family_last_resort"
     return available_catalog
-# --- B1 END ---
-
 
 def selection_engine(prompt: str, context: Dict[str, Any]) -> Tuple[List[Dict[str, Any]], Dict[str, Any], Dict[str, Any]]:
     if not CATALOG:
@@ -540,33 +557,40 @@ def selection_engine(prompt: str, context: Dict[str, Any]) -> Tuple[List[Dict[st
     resolved_anchor, edge_type, _scores = detect_emotion(prompt, context or {})
     selected_species = find_iconic_species(prompt_norm)
     
-    # Ensure anchor/edge available to downstream
     context["resolved_anchor"] = resolved_anchor
     context["edge_type"] = edge_type
     
-    # --- B2 START: Reroute apology lanes ---
-    if edge_type == "apology":
-        rel_ctx, ambiguous = detect_relationship_context(prompt)
-        context["relationship_context"] = rel_ctx
-        context["relationship_ambiguous"] = bool(ambiguous)
-        # if romantic → prefer Affection/Support family; else Reconciliation lanes
-        if rel_ctx == "romantic":
-            resolved_anchor = "Affection/Support"  # keep evidence; family logic will constrain
-    # --- B2 END ---
+    ctx, amb = detect_relationship_context(prompt_norm)
+    context["relationship_context"] = ctx
+    context["relationship_ambiguous"] = amb
+
+    if context.get("edge_type") == "apology":
+        rc = context.get("relationship_context")
+        if rc == "romantic":
+            context["sentiment_family"] = "reconciliation/romantic_repair"
+        elif rc in {"familial","friendship","professional"}:
+            context["sentiment_family"] = f"reconciliation/{rc}_repair"
+        else:
+            context["sentiment_family"] = "reconciliation/friendship_repair"
             
-    # --- B1 START: Use new family boundary logic ---
-    target_family = _family_for_anchor(resolved_anchor, SENTIMENT_FAMILIES)
+    target_family = context.get("sentiment_family") or _family_for_anchor(resolved_anchor, SENTIMENT_FAMILIES)
     context["target_family"] = target_family
     sentiment_over_ladder = bool(EDGE_REGISTERS.get(edge_type, {}).get("sentiment_over_ladder", False))
     context["sentiment_over_ladder"] = sentiment_over_ladder
     
     available_catalog = list(CATALOG)
-    # 'need_count' is how many mix candidates you require (usually 2 + slack)
     emotion_pool = _fallback_boundary_path(available_catalog, target_family, context, SENTIMENT_FAMILIES, need_count=6)
-    # --- B1 END ---
+
+    # B3: Pool-size telemetry (pre-suppression)
+    pool_sizes = {
+        "pre_suppress": {
+            "classic": sum(1 for x in emotion_pool if x.get("tier")=="Classic"),
+            "signature": sum(1 for x in emotion_pool if x.get("tier")=="Signature"),
+            "luxury": sum(1 for x in emotion_pool if x.get("tier")=="Luxury"),
+        }
+    }
 
     context["duplication_used"] = False
-    context["fallback_reason"] = context.get("fallback_reason", "none") # Set by boundary path
     context["barriers_triggered"] = []
     
     seed = context.get("prompt_hash", "seed")
@@ -574,11 +598,7 @@ def selection_engine(prompt: str, context: Dict[str, Any]) -> Tuple[List[Dict[st
     seen_ids = set()
 
     for tier in TIER_ORDER:
-        # The main pool is now pre-filtered by the boundary path logic
         tier_pool = [it for it in emotion_pool if it.get("tier") == tier and _stable_id(it) not in seen_ids]
-        
-        # We no longer need _filter_by_family or separate emotion matching here,
-        # as it's handled by _fallback_boundary_path. We just pick from the result.
         
         if edge_type:
             tier_pool = _apply_edge_register_filters(tier_pool, edge_type)
@@ -588,15 +608,11 @@ def selection_engine(prompt: str, context: Dict[str, Any]) -> Tuple[List[Dict[st
             idx = _rotation_index(f"{seed}:{tier}", len(tier_pool))
             selected_item = dict(tier_pool[idx])
         else:
-            # Duplication logic is still valid if the boundary path allows it
             if context.get("fallback_reason") == "duplicate_tier" and triad:
                 context["duplication_used"] = True
-                if tier == "Signature" and triad[0]:
-                    selected_item = dict(triad[0])
-                elif tier == "Luxury" and len(triad) > 1 and triad[1]:
-                     selected_item = dict(triad[1])
-                elif triad[0]:
-                    selected_item = dict(triad[0])
+                if tier == "Signature" and triad[0]: selected_item = dict(triad[0])
+                elif tier == "Luxury" and len(triad) > 1 and triad[1]: selected_item = dict(triad[1])
+                elif triad[0]: selected_item = dict(triad[0])
         
         if selected_item:
             selected_item["tier"] = tier
@@ -611,13 +627,18 @@ def selection_engine(prompt: str, context: Dict[str, Any]) -> Tuple[List[Dict[st
     else:
         final_triad = triad[:3]
 
-    pre_suppress_pool_size = {t: len([it for it in available_catalog if it.get("tier") == t]) for t in TIER_ORDER}
     if context.get("recent_ids"):
         final_triad = _suppress_recent(final_triad, set(context["recent_ids"]))
         if len(final_triad) < 3:
             final_triad = _backfill_to_three(final_triad, CATALOG, context)
+
+    # B3: Pool-size telemetry (post-suppression)
+    pool_sizes["post_suppress"] = {
+        "classic": sum(1 for x in emotion_pool if x.get("tier")=="Classic"),
+        "signature": sum(1 for x in emotion_pool if x.get("tier")=="Signature"),
+        "luxury": sum(1 for x in emotion_pool if x.get("tier")=="Luxury"),
+    }
             
-    post_suppress_pool_size = {t: sum(1 for it in final_triad if it.get("tier") == t) for t in TIER_ORDER}
     final_triad = _ensure_one_mono_in_triad(final_triad, context)
     _ensure_triad_or_500(final_triad)
     
@@ -630,11 +651,6 @@ def selection_engine(prompt: str, context: Dict[str, Any]) -> Tuple[List[Dict[st
     if not _intent_clarity(prompt, len(_scores)):
         _add_unclear_mix_note(final_triad)
     
-    context["pool_sizes"] = {
-        "pre_suppress": pre_suppress_pool_size,
-        "post_suppress": post_suppress_pool_size
-    }
-    
     meta_detected = []
     if FEATURE_MULTI_ANCHOR_LOGGING:
         meta_detected = _compute_detected_emotions(_scores or {})
@@ -643,10 +659,12 @@ def selection_engine(prompt: str, context: Dict[str, Any]) -> Tuple[List[Dict[st
         "resolved_anchor": context.get("resolved_anchor"),
         "edge_case": bool(context.get("edge_type")),
         "edge_type": context.get("edge_type"),
-        "pool_sizes": context.get("pool_sizes"),
         "fallback_reason": context.get("fallback_reason", "none"),
         "duplication_used": context.get("duplication_used", False),
-        "sentiment_override_used": context.get("sentiment_over_ladder", False)
+        "sentiment_override_used": context.get("sentiment_over_ladder", False),
+        "relationship_context": context.get("relationship_context"),
+        "relationship_ambiguous": bool(context.get("relationship_ambiguous")),
+        "pool_size": pool_sizes
     }
     log.info("SELECTION_EVIDENCE: %s", json.dumps(log_record, ensure_ascii=False))
 
