@@ -5,6 +5,12 @@ from pathlib import Path
 from fastapi.testclient import TestClient
 from slowapi.util import get_remote_address
 
+# --- ADD THIS SECTION FOR ROBUST IMPORTS ---
+# Add repo root to sys.path so "from app.main import app" always works
+import sys
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+# --- END OF SECTION ---
+
 # Import the main FastAPI app instance
 from app.main import app
 
@@ -12,18 +18,16 @@ from app.main import app
 def override_get_remote_address():
     return "127.0.0.1"
 
+# Replace the real dependency with our dummy one for all tests
+app.dependency_overrides[get_remote_address] = override_get_remote_address
+
 @pytest.fixture(scope="session")
 def client():
     """A TestClient that has rate limiting reliably disabled."""
-    # Apply the override right before creating the TestClient
-    app.dependency_overrides[get_remote_address] = override_get_remote_address
-    
     with TestClient(app) as c:
         yield c
-
     # Clean up the override after all tests are done
     app.dependency_overrides.clear()
-
 
 @pytest.fixture(scope="session")
 def evidence_dir():
