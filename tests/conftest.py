@@ -8,20 +8,22 @@ from slowapi.util import get_remote_address
 # Import the main FastAPI app instance
 from app.main import app
 
-# --- THIS SECTION DISABLES RATE LIMITING IN TESTS ---
-# This dummy function will replace the real rate limiter
+# This dummy function will replace the real rate limiter during tests
 def override_get_remote_address():
     return "127.0.0.1"
 
-# Replace the real dependency with our dummy one for all tests
-app.dependency_overrides[get_remote_address] = override_get_remote_address
-# --- END OF SECTION ---
-
 @pytest.fixture(scope="session")
 def client():
-    """A TestClient that has rate limiting disabled."""
+    """A TestClient that has rate limiting reliably disabled."""
+    # Apply the override right before creating the TestClient
+    app.dependency_overrides[get_remote_address] = override_get_remote_address
+    
     with TestClient(app) as c:
         yield c
+
+    # Clean up the override after all tests are done
+    app.dependency_overrides.clear()
+
 
 @pytest.fixture(scope="session")
 def evidence_dir():
