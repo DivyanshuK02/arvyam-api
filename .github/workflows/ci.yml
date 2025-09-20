@@ -1,23 +1,25 @@
 name: CI
 on: [push, pull_request]
+
 jobs:
   test:
     runs-on: ubuntu-latest
+    env:
+      PYTHONPATH: ${{ github.workspace }}   # <-- make 'app' importable
+
     steps:
       - uses: actions/checkout@v4
+
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
           cache: "pip"
+
       - run: pip install -r requirements.txt -r dev-requirements.txt
-      
-      # This step fixes the import error
-      - name: Set PYTHONPATH
-        run: echo "PYTHONPATH=$PYTHONPATH:$(pwd)" >> $GITHUB_ENV
 
-      - name: Run tests
-        run: pytest -q
+      - run: pytest -q
 
+      # Always publish the golden harness outputs (if any were written)
       - name: Upload evidence (golden harness)
         if: always()
         uses: actions/upload-artifact@v4
