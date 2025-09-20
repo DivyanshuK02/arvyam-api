@@ -3,7 +3,6 @@ import os, json, logging, uuid, time, csv
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
-# --- P1.4a Nit: Import Response for header injection ---
 from fastapi import FastAPI, HTTPException, Request, Response, Body
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -35,7 +34,6 @@ GOLDEN_ARTIFACTS_DIR = os.getenv("GOLDEN_ARTIFACTS_DIR", "/tmp/arvy_golden")
 # =========================
 # Logging
 # =========================
-# --- P1.4a Nit: Standardize on the named logger instance ---
 logger = logging.getLogger("arvyam")
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 
@@ -308,7 +306,6 @@ def seed_enable(body: SeedModeIn): return enable_seed_mode(max(1, int(body.minut
 def seed_disable(): return disable_seed_mode()
 
 @app.post("/api/curate", summary="Curate", response_model=List[ItemOut])
-# --- P1.4a Nit: Add rate limiting to the primary typed endpoint ---
 @limiter.limit(f"{RATE_LIMIT_PER_MIN}/minute")
 async def curate_post(body: CurateRequest, request: Request, response: Response):
     """JSON-only canonical endpoint. Returns items validated against the ItemOut schema."""
@@ -345,10 +342,8 @@ async def curate_post(body: CurateRequest, request: Request, response: Response)
                 s2 = round(top[1][1], 2)
                 if s2 >= float(th.get("score2_min", 0.25)) and (s1 - s2) <= float(th.get("delta_max", 0.15)):
                     header_vals.append(f"{top[1][0]}:{s2}")
-            # --- P1.4a Nit: Set header on injected response object ---
             response.headers["X-Detected-Emotions"] = ",".join(header_vals)
 
-    # --- P1.4a Nit: Return raw list to allow Pydantic validation via response_model ---
     return items
 
 # =========================
@@ -470,8 +465,16 @@ GOLDEN_TESTS: List[Dict[str, Any]] = [
 
 def _run_one(test: Dict[str, Any]) -> Dict[str, Any]:
     out: Dict[str, Any] = {"name": test["name"], "prompt": test["prompt"], "status": "PASS", "reasons": []}
-    try: items, _, _ = selection_engine(prompt=test["prompt"], context=test.get("context") or {})
-    except Exception as e: out["status"] = "FAIL"; out["reasons"].append(f"engine_error: {repr(e)}"); return out
+    try:
+        # Pass request_id for better test traceability
+        test_context = test.get("context") or {}
+        test_context["request_id"] = f"golden-harness-{uuid.uuid4().hex}"
+        items, _, _ = selection_engine(prompt=test["prompt"], context=test_context)
+    except Exception as e:
+        out["status"] = "FAIL"
+        out["reasons"].append(f"engine_error: {repr(e)}")
+        return out
+    
     if len(items) != 3: out["status"] = "FAIL"; out["reasons"].append("triad_len != 3")
     if sum(1 for it in items if it.get("mono")) != 1: out["status"] = "FAIL"; out["reasons"].append("mono_count != 1")
     if any(not isinstance(it.get("palette"), list) or len(it["palette"]) == 0 for it in items): out["status"] = "FAIL"; out["reasons"].append("palette missing")
@@ -497,7 +500,6 @@ def curate_golden(request: Request):
         "passed": passed, "failed": len(results) - passed,
         "latency_ms": int((time.time() - started) * 1000), "results": results
     }
-    # --- P1.4a Nit: Write a small artifact per run for easy diffing ---
     try:
         logs_dir = os.path.join(HERE, "logs")
         os.makedirs(logs_dir, exist_ok=True)
@@ -539,5 +541,3 @@ async def validation_exception_handler(request: Request, exc): return error_json
 
 @app.exception_handler(RateLimitExceeded)
 async def ratelimit_handler(request: Request, exc: RateLimitExceeded): return error_json("RATE_LIMITED", "Too many requests. Please try again in a minute.", 429)
-
-}
