@@ -11,7 +11,7 @@ jobs:
           cache: "pip"
       - run: pip install -r requirements.txt -r dev-requirements.txt
       
-      # Add this step to fix the import error
+      # This step fixes the import error
       - name: Set PYTHONPATH
         run: echo "PYTHONPATH=$PYTHONPATH:$(pwd)" >> $GITHUB_ENV
 
