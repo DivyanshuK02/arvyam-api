@@ -494,7 +494,7 @@ def _backfill_to_three(items: list[dict], catalog: list[dict], context: dict) ->
                     final_triad[i]['tier'] = TIER_ORDER[i]
                     
     if None in final_triad:
-        context["fallback_reason"] = "cross_family_last_resort"
+        _set_fallback_reason(context, "cross_family_last_resort")
         any_pool = [it for it in catalog if _stable_id(it) not in existing_ids]
         for i in range(3):
             if final_triad[i] is None:
@@ -543,7 +543,7 @@ def _pool_general_in_family(catalog: list[dict], fam: str) -> list[dict]:
 def _fallback_boundary_path(available_catalog: list[dict], target_family: str, context: dict,
                             families_json: dict, need_count: int) -> list[dict]:
     if not context.get("fallback_reason"):
-        context["fallback_reason"] = "none"
+        context["fallback_reason"] = "none" # Default before logic runs
 
     # Build a barrier-aware base pool once
     base_pool = _filter_by_family(available_catalog, target_family, context)
@@ -551,23 +551,23 @@ def _fallback_boundary_path(available_catalog: list[dict], target_family: str, c
     # 1) in-family (emotion-specific)
     p1 = [x for x in base_pool if x.get("emotion") in set((_get_family_config(target_family) or {}).get("emotions") or [])]
     if len(p1) >= need_count:
-        context["fallback_reason"] = "in_family"
+        _set_fallback_reason(context, "in_family")
         return p1
 
     # 2) general-in-family
     p2_candidates = [x for x in base_pool if x.get("emotion") == "general"]
     p2 = p1 + [item for item in p2_candidates if item["id"] not in {x["id"] for x in p1}]
     if len(p2) >= need_count:
-        context["fallback_reason"] = "general_in_family"
+        _set_fallback_reason(context, "general_in_family")
         return p2
 
     # 3) duplicate-tier
     if context.get("sentiment_over_ladder"):
-        context["fallback_reason"] = "duplicate_tier"
+        _set_fallback_reason(context, "duplicate_tier")
         return p2
 
     # 4) last resort cross-family
-    context["fallback_reason"] = "cross_family_last_resort"
+    _set_fallback_reason(context, "cross_family_last_resort")
     return available_catalog
 
 def selection_engine(prompt: str, context: Dict[str, Any]) -> Tuple[List[Dict[str, Any]], Dict[str, Any], Dict[str, Any]]:
@@ -675,6 +675,7 @@ def selection_engine(prompt: str, context: Dict[str, Any]) -> Tuple[List[Dict[st
         meta_detected = _compute_detected_emotions(_scores or {})
     
     log_record = {
+        "request_id": context.get("request_id"),
         "resolved_anchor": context.get("resolved_anchor"),
         "edge_case": bool(context.get("edge_type")),
         "edge_type": context.get("edge_type"),
@@ -693,5 +694,3 @@ def selection_engine(prompt: str, context: Dict[str, Any]) -> Tuple[List[Dict[st
     meta = {"detected_emotions": meta_detected}
 
     return final_triad, context, meta
-
-}
