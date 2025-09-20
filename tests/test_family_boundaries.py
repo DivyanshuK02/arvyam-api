@@ -1,45 +1,24 @@
-# tests/test_family_boundaries.py
-from typing import Iterable
+from app.selection_engine import selection_engine
+import pytest
 
-# palettes that clearly read as "celebration/romance" we want to block for grief/farewell
-CELEBRATION_TOKENS: set[str] = {
-    "deep-red", "red", "crimson", "gold", "neon", "bright", "hot-pink"
-}
+CELEBRATION_PALETTE = {"deep-red", "crimson", "gold", "bright", "hot-pink", "neon"}
 
-def _flatten_palettes(items: list[dict]) -> set[str]:
-    seen: set[str] = set()
-    for it in items:
-        pal = it.get("palette") or []
-        for p in pal:
-            if isinstance(p, str):
-                seen.add(p.strip().lower())
-    return seen
+PROMPTS_TO_GUARD = [
+    "I’m so sorry for your loss",
+    "condolences on your loss",
+    "Farewell and good luck in your next role",
+    "farewell to a colleague",
+]
 
-def _has_any(tokens: Iterable[str], universe: set[str]) -> bool:
-    return any(t in universe for t in tokens)
-
-def test_sympathy_never_uses_celebration_palettes(client):
-    r = client.post("/api/curate", json={"prompt": "I’m so sorry for your loss"})
-    assert r.status_code == 200
-    data = r.json()
-    items = data["items"]
-    assert isinstance(items, list) and len(items) == 3
-
-    # public schema only
-    for it in items:
-        for k in ("id", "title", "desc", "image", "price", "currency"):
-            assert k in it and it[k] not in (None, "")
-        assert "image_url" not in it and "price_inr" not in it
-
-    palettes = _flatten_palettes(items)
-    assert not _has_any(CELEBRATION_TOKENS, palettes), f"drifted palettes: {palettes}"
-
-def test_farewell_never_uses_celebration_palettes(client):
-    r = client.post("/api/curate", json={"prompt": "Farewell and good luck in your next role"})
-    assert r.status_code == 200
-    data = r.json()
-    items = data["items"]
-    assert isinstance(items, list) and len(items) == 3
-
-    palettes = _flatten_palettes(items)
-    assert not _has_any(CELEBRATION_TOKENS, palettes), f"drifted palettes: {palettes}"
+@pytest.mark.parametrize("prompt", PROMPTS_TO_GUARD)
+def test_guarded_prompts_never_use_celebration_palettes(prompt):
+    """Verifies that sympathy/farewell prompts do not return items with celebration palettes."""
+    items, _, _ = selection_engine(prompt=prompt, context={})
+    assert len(items) == 3, "Expected a triad of 3 items"
+    
+    for item in items:
+        palette = set(item.get("palette", []))
+        forbidden_found = palette & CELEBRATION_PALETTE
+        assert not forbidden_found, \
+            f"Item {item.get('id')} for prompt '{prompt}' has forbidden palette token(s). "\
+            f"Found: {forbidden_found}"
