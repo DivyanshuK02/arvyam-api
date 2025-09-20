@@ -46,28 +46,31 @@ SUB_NOTES = _load_json(os.path.join(RULES_DIR, "substitution_notes.json"), {"def
 ANCHOR_THRESHOLDS = _load_json(os.path.join(RULES_DIR, "anchor_thresholds.json"), {})
 SENTIMENT_FAMILIES = _load_json(os.path.join(RULES_DIR, "sentiment_families.json"), {})
 
-# Relationship context tokens (source-of-truth: emotion_keywords.json + builder sets)
-ROMANTIC_TOKENS = {
+def _rel_terms(key: str, fallback: set[str]) -> set[str]:
+    src = (EMOTION_KEYWORDS.get("relationship_signals") or {}).get(key) or []
+    # accept both lists and dict-likes; coerce to lowercase strings
+    out = { (str(t or "")).strip().lower() for t in src if str(t or "").strip() }
+    return out or { s.lower() for s in fallback }
+
+# Relationship context tokens (from emotion_keywords.json with fallback)
+ROMANTIC_TOKENS    = _rel_terms("romantic",    {
     "love","romance","romantic","blush","sweetheart","darling","my love","crush",
     "miss you","thinking of you","together","couple","partner","wife","husband",
     "girlfriend","boyfriend","fiancé","anniversary","hearts","date night","soulmate",
-    "adoration","forever", "valentine","my valentine","sweetheart"
-}
-PROFESSIONAL_TOKENS = {
-    "loyal","reliable","dependable","steady","trust","always there","backbone",
-    "colleague","coworker","teammate","partner at work","service award","milestone",
-    "workiversary","commitment","dedication","supportive","pillar","solid","reliability",
-    "farewell","goodbye","sendoff","offboarding",
-    "work","office","team","years of service","new role"
-}
-FAMILIAL_TOKENS = {
+    "adoration","forever","valentine","my valentine","sweetheart"
+})
+PROFESSIONAL_TOKENS = _rel_terms("professional", {
+    "colleague","coworker","teammate","work","office","team","project","deadline",
+    "years of service","milestone","new role","promotion","manager","client"
+})
+FAMILIAL_TOKENS     = _rel_terms("familial",    {
     "mother","mom","mum","father","dad","parent","parents","son","daughter","brother",
     "sister","grandma","grandmother","granny","grandpa","grandfather","aunt","uncle",
     "cousin","niece","nephew","in-law","mother-in-law","father-in-law","family","familial"
-}
-FRIENDSHIP_TOKENS = {
+})
+FRIENDSHIP_TOKENS   = _rel_terms("friendship",  {
     "friend","friends","best friend","bestie","bff","buddy","pal","mate","bros","homie","friendship"
-}
+})
 
 EDGE_CASE_KEYS = {"sympathy", "apology", "farewell", "valentine"}
 FEATURE_MULTI_ANCHOR_LOGGING = os.getenv("FEATURE_MULTI_ANCHOR_LOGGING", "0") == "1" # Off by default
@@ -527,14 +530,17 @@ def _fallback_boundary_path(available_catalog: list[dict], target_family: str, c
     if not context.get("fallback_reason"):
         context["fallback_reason"] = "none"
 
-    # 1) in-family
-    p1 = _filter_in_family(available_catalog, target_family, families_json)
+    # Build a barrier-aware base pool once
+    base_pool = _filter_by_family(available_catalog, target_family, context)
+    
+    # 1) in-family (emotion-specific)
+    p1 = [x for x in base_pool if x.get("emotion") in set((_get_family_config(target_family) or {}).get("emotions") or [])]
     if len(p1) >= need_count:
         context["fallback_reason"] = "in_family"
         return p1
 
     # 2) general-in-family
-    p2_candidates = _pool_general_in_family(available_catalog, target_family)
+    p2_candidates = [x for x in base_pool if x.get("emotion") == "general"]
     p2 = p1 + [item for item in p2_candidates if item["id"] not in {x["id"] for x in p1}]
     if len(p2) >= need_count:
         context["fallback_reason"] = "general_in_family"
@@ -567,11 +573,11 @@ def selection_engine(prompt: str, context: Dict[str, Any]) -> Tuple[List[Dict[st
     if context.get("edge_type") == "apology":
         rc = context.get("relationship_context")
         if rc == "romantic":
-            context["sentiment_family"] = "reconciliation/romantic_repair"
+            context["sentiment_family"] = "romantic_repair"
         elif rc in {"familial","friendship","professional"}:
-            context["sentiment_family"] = f"reconciliation/{rc}_repair"
+            context["sentiment_family"] = f"{rc}_repair"
         else:
-            context["sentiment_family"] = "reconciliation/friendship_repair"
+            context["sentiment_family"] = "friendship_repair"
             
     target_family = context.get("sentiment_family") or _family_for_anchor(resolved_anchor, SENTIMENT_FAMILIES)
     context["target_family"] = target_family
@@ -627,16 +633,14 @@ def selection_engine(prompt: str, context: Dict[str, Any]) -> Tuple[List[Dict[st
     else:
         final_triad = triad[:3]
 
-    if context.get("recent_ids"):
-        final_triad = _suppress_recent(final_triad, set(context["recent_ids"]))
-        if len(final_triad) < 3:
-            final_triad = _backfill_to_three(final_triad, CATALOG, context)
+    # compute a post-suppress view of the pool (exclude recent_ids)
+    recent_set = set(context.get("recent_ids") or [])
+    post_pool = [x for x in emotion_pool if _stable_id(x) not in recent_set]
 
-    # B3: Pool-size telemetry (post-suppression)
     pool_sizes["post_suppress"] = {
-        "classic": sum(1 for x in emotion_pool if x.get("tier")=="Classic"),
-        "signature": sum(1 for x in emotion_pool if x.get("tier")=="Signature"),
-        "luxury": sum(1 for x in emotion_pool if x.get("tier")=="Luxury"),
+        "classic":   sum(1 for x in post_pool if x.get("tier") == "Classic"),
+        "signature": sum(1 for x in post_pool if x.get("tier") == "Signature"),
+        "luxury":    sum(1 for x in post_pool if x.get("tier") == "Luxury"),
     }
             
     final_triad = _ensure_one_mono_in_triad(final_triad, context)
