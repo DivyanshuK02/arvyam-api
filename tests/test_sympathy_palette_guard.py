@@ -1,3 +1,4 @@
+# tests/test_sympathy_palette_guard.py
 from typing import Iterable
 
 # tokens we consider "celebration/romance" and want to *block* in grief/farewell
@@ -19,8 +20,9 @@ def _has_any(tokens: Iterable[str], universe: set[str]) -> bool:
 def test_sympathy_never_uses_celebration_palettes(client):
     r = client.post("/api/curate", json={"prompt": "I’m so sorry for your loss"})
     assert r.status_code == 200
-    data = r.json()
-    items = data["items"]
+    
+    # FIX: The response is the list of items directly
+    items = r.json()
     assert isinstance(items, list) and len(items) == 3
 
     palettes = _flatten_palettes(items)
