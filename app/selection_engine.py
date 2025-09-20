@@ -46,6 +46,21 @@ SUB_NOTES = _load_json(os.path.join(RULES_DIR, "substitution_notes.json"), {"def
 ANCHOR_THRESHOLDS = _load_json(os.path.join(RULES_DIR, "anchor_thresholds.json"), {})
 SENTIMENT_FAMILIES = _load_json(os.path.join(RULES_DIR, "sentiment_families.json"), {})
 
+# --- Telemetry enums (single source of truth) ---
+ALLOWED_FALLBACK_REASONS = frozenset({
+    "in_family",
+    "general_in_family",
+    "duplicate_tier",
+    "cross_family_last_resort",
+})
+
+def _set_fallback_reason(context: dict, reason: str) -> None:
+    if reason not in ALLOWED_FALLBACK_REASONS:
+        # Keep it strict so dashboards never get typos
+        raise ValueError(f"Invalid fallback_reason: {reason}")
+    context["fallback_reason"] = reason
+
+
 def _rel_terms(key: str, fallback: set[str]) -> set[str]:
     src = (EMOTION_KEYWORDS.get("relationship_signals") or {}).get(key) or []
     # accept both lists and dict-likes; coerce to lowercase strings
@@ -678,3 +693,5 @@ def selection_engine(prompt: str, context: Dict[str, Any]) -> Tuple[List[Dict[st
     meta = {"detected_emotions": meta_detected}
 
     return final_triad, context, meta
+
+}
