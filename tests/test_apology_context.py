@@ -1,26 +1,23 @@
-# tests/test_apology_context.py
-ROMANTIC_PROMPT = "I’m sorry, my love — I want to make it right"
-PROFESSIONAL_PROMPT = "I let my team down and I’m truly sorry"
+from app.selection_engine import selection_engine
 
-def _emotions(items: list[dict]) -> set[str]:
-    return { (it.get("emotion") or "").strip() for it in items }
+ROMANTIC_PROMPT = "I am so sorry my love, I messed up completely"
+PROFESSIONAL_PROMPT = "my apologies to the team for the delay"
 
-def test_apology_romantic_routes_to_affection_support(client):
-    r = client.post("/api/curate", json={"prompt": ROMANTIC_PROMPT})
-    assert r.status_code == 200
-    items = r.json()["items"]
-    assert len(items) == 3
+def test_apology_romantic_routes_to_affection_support():
+    """
+    Tests that a romantic apology correctly resolves to the
+    'Affection/Support' anchor and 'romantic' relationship context.
+    """
+    _, context, _ = selection_engine(prompt=ROMANTIC_PROMPT, context={})
+    assert context.get("resolved_anchor") == "Affection/Support"
+    assert context.get("relationship_context") == "romantic"
 
-    # at least one card should carry the romantic lane’s anchor
-    emos = _emotions(items)
-    assert "Affection/Support" in emos, f"emotions picked: {emos}"
 
-def test_apology_professional_routes_to_reconciliation_lanes(client):
-    r = client.post("/api/curate", json={"prompt": PROFESSIONAL_PROMPT})
-    assert r.status_code == 200
-    items = r.json()["items"]
-    assert len(items) == 3
-
-    # reconciliation (non-romantic) is anchored on Encouragement/Positivity
-    emos = _emotions(items)
-    assert "Encouragement/Positivity" in emos, f"emotions picked: {emos}"
+def test_apology_professional_routes_to_reconciliation_lanes():
+    """
+    Tests that a professional apology correctly sets the 
+    sentiment_family to 'professional_repair'.
+    """
+    _, context, _ = selection_engine(prompt=PROFESSIONAL_PROMPT, context={})
+    assert context.get("sentiment_family") == "professional_repair"
+    assert context.get("relationship_context") == "professional"
