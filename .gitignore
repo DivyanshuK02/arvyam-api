@@ -1,3 +1,46 @@
-/evidence/
+# Python
 __pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+*.egg-info/
+.dist/
+build/
+.eggs/
+.mypy_cache/
 .pytest_cache/
+.coverage
+coverage.xml
+htmlcov/
+
+# Envs & local
+.venv/
+venv/
+.env
+.env.*
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs & temp
+logs/
+*.log
+*.tmp
+/tmp/
+*.swp
+
+# Node (if any frontend bits live here)
+node_modules/
+
+# Evidence (kept empty folder via .keep)
+evidence/*
+!evidence/.keep
+
+# IDE
+.vscode/
+.idea/
+
+# Docker/Compose (if present)
+docker-compose.override.yml
