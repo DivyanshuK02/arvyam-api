@@ -1,28 +1,41 @@
 name: CI
-on: [push, pull_request]
+
+on:
+  push:
+  pull_request:
 
 jobs:
   test:
     runs-on: ubuntu-latest
-    env:
-      PYTHONPATH: ${{ github.workspace }}   # <-- make 'app' importable
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
 
-      - uses: actions/setup-python@v5
+      - name: Set up Python
+        uses: actions/setup-python@v5
         with:
           python-version: "3.11"
-          cache: "pip"
 
-      - run: pip install -r requirements.txt -r dev-requirements.txt
+      - name: Install prod dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
 
-      - run: pytest -q
+      - name: Install dev/test dependencies
+        run: |
+          pip install -r dev-requirements.txt
 
-      # Always publish the golden harness outputs (if any were written)
-      - name: Upload evidence (golden harness)
+      - name: Run tests
+        run: |
+          pytest -q
+
+      # Optional: publish golden harness artifacts if present
+      - name: Upload evidence bundle
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: evidence-${{ github.run_id }}
-          path: evidence/
+          name: evidence-bundle
+          path: |
+            evidence/**
+          if-no-files-found: ignore
