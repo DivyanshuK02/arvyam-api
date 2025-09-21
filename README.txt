@@ -17,16 +17,18 @@ Project Layout (execution-ready, zero-drift)
 │     ├─ emotion_keywords.json
 │     ├─ sentiment_families.json
 │     ├─ tier_policy.json
-│     ├─ pricing_policy.json (optional)
-│     └─ weights_default.json (optional)
+│     ├─ pricing_policy.json  # optional
+│     └─ weights_default.json # optional
 ├─ tests/
 │  ├─ conftest.py
-│  ├─ test_api_contract.py    # public-schema contract (typed POST)
-│  └─ test_golden_harness.py  # multi-prompt evidence writer
-├─ evidence/                  # golden harness outputs (gitignored)
+│  ├─ test_api_contract.py      # public-schema contract (typed POST)
+│  ├─ test_golden_harness.py    # multi-prompt evidence writer
+│  ├─ test_family_boundaries.py  # drift guard (sympathy/farewell)
+│  └─ test_apology_context.py    # romantic vs non-romantic routing
+├─ evidence/                  # golden harness outputs (GITIGNORED)
 ├─ requirements.txt           # runtime deps (FastAPI, Uvicorn, etc.)
-├─ dev-requirements.txt       # test-only deps (pytest, etc.)
-├─ .github/workflows/ci.yml   # CI: install + run pytest
+├─ dev-requirements.txt       # test-only deps (pytest, httpx)
+├─ .github/workflows/ci.yml   # CI: install + run pytest (+ upload artifacts)
 ├─ .gitignore                 # ignores evidence/ & caches
 └─ README.txt                 # this file
 
@@ -51,8 +53,12 @@ Local Dev (optional)
 API Contracts (zero-drift)
 POST /api/curate
 - Body: { "prompt": "<text ≤ 240 chars>" }
-- Returns: { "items": [ { id,title,desc,image,price,currency } x3 ], "edge_case": <bool> }
-
+- Returns: a list of exactly 3 public items:
+  [
+    { "id","title","desc","image","price","currency" },
+    { ... },
+    { ... }
+  ]
 Notes:
 - Public payload uses image/price/currency (never image_url/price_inr).
 - Always exactly 3 items.
@@ -64,27 +70,37 @@ Error Shape (structured)
   "request_id": "<uuid>"
 }
 
-Tests (PR-4)
+Golden Harness & Evidence
+- The golden harness test writes one JSON file per prompt under:
+  evidence/p1_4a_harness_<RUN>/
+- The evidence/ directory is **root-level and gitignored** to keep the repo clean.
+- CI uploads the evidence folder as a run artifact for review.
+
+Logging / Telemetry
+- The engine emits a single-line JSON “SELECTION_EVIDENCE” per request with:
+  request_id, resolved_anchor, relationship_context, pool_size {pre_suppress,post_suppress}, and fallback_reason ∈ {"in_family","general_in_family","duplicate_tier","cross_family_last_resort"}.
+- Use these to spot catalog scarcity and verify boundary behavior.
+
+Tests (PR-4 guards)
 1) Contract test (public schema)
    - pytest -q -k contract
 2) Golden harness (evidence pack)
    - pytest -q -k golden
-   - JSON files written under: evidence/p1_4a_harness_<RUN>/
+3) Family boundary tests (no celebration palettes for sympathy/farewell)
+   - pytest -q -k family_boundaries
+4) Apology routing tests (romantic vs non-romantic)
+   - pytest -q -k apology_context
 
 CI (GitHub Actions)
 - Runs on every push/PR
 - Installs runtime + dev deps, executes pytest
-- Optional: upload golden harness artifacts (see ci.yml snippet below)
-
-Logging / Evidence
-- Selection evidence and telemetry emitted by the engine (stdout)
-- Golden harness writes readable JSON artifacts per prompt to evidence/
+- Uploads evidence/ as a build artifact (see .github/workflows/ci.yml)
 
 Troubleshooting
 - 404 on “HEAD / HTTP/1.1” in Render logs is harmless (health check).
 - Ensure PERSONA_NAME=ARVY is present; CORS uses ALLOWED_ORIGINS.
-- If CI fails, check: missing deps, changed schema, or test prompt set.
+- If CI fails, check: dependency pins, schema drift (contract test), or evidence paths.
 
-Ownership
+Ownership & Source of Truth
 - main.py defines routes; selection_engine.py is logic-only.
-- Policy lives in app/rules/* and is synced with the engine.
+- Policy lives under app/rules/*. Keep engine + policy **in sync**.
