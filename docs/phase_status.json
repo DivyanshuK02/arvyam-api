@@ -1,0 +1,19 @@
+{
+  "phase_1_4a": {
+    "pr_1_routes_unification": "complete",
+    "pr_2_transform_everywhere": "complete",
+    "pr_3_policy_sync": "complete",
+    "pr_4_golden_harness_and_contract_tests": "complete"
+  },
+  "phase_2": {
+    "b1_family_boundaries_default": "complete",
+    "b2_apology_relationship_context": "complete",
+    "b3_pool_size_telemetry": "complete",
+    "b4_schema_guard_test": "complete"
+  },
+  "phase_1_4_emotions_enrichment": {
+    "enrich_emotion_keywords": "in_progress",
+    "offline_llm_feeder_doc": "planned",
+    "golden_prompts_refresh": "planned"
+  }
+}
