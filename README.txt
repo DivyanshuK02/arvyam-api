@@ -1,131 +1,154 @@
-ARVYAM — Deployment, Contracts & Zero-Drift Runbook
-===================================================
+ARVYAM — API (Beginner-Safe, Zero-Drift Rails)
 
-Persona (single source of truth)
-- Persona name: ARVY
-- ENV: PERSONA_NAME=ARVY
-- Public errors must include: "persona":"ARVY"
+Project purpose
+---------------
+A deterministic curation API that turns a short user prompt into exactly
+THREE products (2 MIX + 1 MONO) chosen from the catalog, mapped to one of
+EIGHT emotional anchors with an explicit palette[].
 
-Zero-Drift Principles (enforced)
-- One FastAPI app (app/main.py) – routes live here only
-- selection_engine.py is logic-only (no routes)
-- Public API always returns the same v1 contract (see below)
-- Tests + CI guard the contract and the evidence bundle
+This repo is stabilized by Phase 1.4a rails:
+- Single public schema, one return path
+- Family boundaries ON + apology relationship context
+- Pool-size telemetry in evidence logs
+- Golden harness + contract tests in CI
 
-Repository Layout (execution-ready)
-.
-├─ app/
-│  ├─ main.py                  # single FastAPI app & routes
-│  ├─ selection_engine.py      # pure logic module (no routes)
-│  ├─ catalog.json             # merchandise catalog (public fields: image/price/currency)
-│  └─ rules/
-│     ├─ edge_registers.json
-│     ├─ emotion_keywords.json
-│     ├─ sentiment_families.json
-│     ├─ tier_policy.json
-│     ├─ weights_default.json
-│     └─ pricing_policy.json   # optional
-├─ tests/
-│  ├─ conftest.py
-│  ├─ test_api_contract.py        # public-schema contract
-│  ├─ test_golden_harness.py      # evidence pack generator
-│  ├─ test_family_boundaries.py   # no grief→celebration drift
-│  └─ test_apology_context.py     # romantic vs non-romantic routing
-├─ evidence/                   # golden outputs (gitignored; folder kept via .keep)
-├─ requirements.txt            # runtime deps
-├─ dev-requirements.txt        # test/harness deps (pytest, httpx, etc.)
-├─ .github/workflows/ci.yml    # CI: install deps + run pytest (+ upload evidence)
-├─ .gitignore                  # ignores evidence/, venv, caches, .env, logs
-└─ README.txt                  # this file
+Live shape (public API)
+-----------------------
+GET  /health
+→ 200 { "status":"ok", "persona":"ARVY", "version":"v1" }
 
-How to Run (Local)
-1) python -m venv .venv && source .venv/bin/activate
-2) pip install -r requirements.txt -r dev-requirements.txt
-3) export PERSONA_NAME=ARVY
-4) uvicorn app.main:app --reload
-
-How to Run (Render / container)
-- Command: uvicorn app.main:app --host 0.0.0.0 --port $PORT
-- ENV:
-  - PERSONA_NAME=ARVY
-  - ALLOWED_ORIGINS=<your frontend origin>
-  - PUBLIC_ASSET_BASE=/assets
-
-Public API Contract (v1)
 POST /api/curate
 Request:
-  { "prompt": "<text ≤ 240 chars>" }
-Response:
+  { "prompt":"string (1–500)", "context"?{ ... } }
+Response (ALWAYS length = 3):
   [
     {
-      "id": "...",
-      "title": "...",
-      "desc": "...",
-      "image": "<public URL>",
-      "price": <number>,
-      "currency": "INR",
-      "palette": ["..."],        // array of tokens
-      "mono": <true|false>,      // exactly 1 item must be mono
-      "tier": "Classic|Signature|Luxury",
-      "emotion": "<anchor>"      // from catalog or fallback to resolved anchor
+      "id":"sku_x",
+      "title":"Rose Bouquet • Signature",
+      "desc":"A poised arrangement with soft blush notes.",
+      "image":"https://cdn/...",
+      "price":1699, "currency":"INR",
+      "emotion":"Affection/Support",
+      "tier":"Signature", "packaging":"Box",
+      "mono":false,
+      "palette":["blush","soft-pink"],
+      "luxury_grand":false
     },
-    { ... }, { ... }             // ALWAYS exactly 3 items
+    { ... }, { ... }
   ]
-Notes:
-- Never expose internal fields (image_url, price_inr). They’re mapped to public fields by the transformer.
-- Edge rails and palettes are enforced by the engine.
 
-Error Shape (structured)
-{
-  "error": { "code": "INPUT_TOO_LONG" | "BAD_REQUEST" | "INTERNAL", "message": "..." },
-  "persona": "ARVY",
-  "request_id": "<uuid>"
-}
+POST /api/checkout   (stub)
+Request:  { "product_id":"sku_x", "quantity"?1 }
+Response: { "checkout_url":"https://example/...", "expires_at":"...", "test":true }
 
-Selection Evidence (one JSON line per request)
-- Event name: SELECTION_EVIDENCE
-- Required keys:
-  {
-    "request_id": "<uuid4>",
-    "resolved_anchor": "<anchor>",
-    "relationship_context": "romantic|familial|friendship|professional|unknown",
-    "pool_size": {
-      "pre_suppress": {"classic": n, "signature": n, "luxury": n},
-      "post_suppress": {"classic": n, "signature": n, "luxury": n}
-    },
-    "fallback_reason": "in_family|general_in_family|duplicate_tier|cross_family_last_resort"
-  }
+Zero-drift acceptance floor (frozen by tests)
+---------------------------------------------
+- Exactly 3 items; never 2 or 4
+- Public schema only (no internal fields like image_url/price_inr)
+- Family boundaries enforced; apology relationship_context logged
+- Sympathy/farewell palette guard (no celebration tokens)
+- Evidence line per request (request_id, resolved_anchor, fallback_reason, pool_size)
 
-Golden Harness (evidence pack)
-- tests/test_golden_harness.py hits 6–10 canonical prompts (8 anchors + ≥2 edges)
-- Outputs JSON files into evidence/p1_4a_harness_<RUN>/
-- CI uploads the evidence/ directory as an artifact
+Repo layout (single source of truth)
+------------------------------------
+.
+├─ app/
+│  ├─ __init__.py
+│  ├─ main.py                  # FastAPI app & routes; injects request_id; schema transform
+│  ├─ selection_engine.py      # pure logic: boundaries, relationship context, telemetry
+│  ├─ catalog.json             # public catalog (id/title/desc/image/price/currency/…)
+│  └─ rules/
+│     ├─ emotion_keywords.json # NOW being enriched in Phase 1.4
+│     ├─ sentiment_families.json
+│     ├─ edge_registers.json
+│     └─ tier_policy.json
+├─ tests/
+│  ├─ conftest.py
+│  ├─ test_api_contract.py
+│  ├─ test_golden_harness.py
+│  ├─ test_sympathy_palette_guard.py
+│  └─ test_apology_context.py
+├─ evidence/                   # golden harness output (gitignored)
+├─ .github/workflows/ci.yml
+├─ requirements.txt
+├─ dev-requirements.txt
+└─ docs/
+   ├─ phase_status.json        # phase checklist & progress
+   └─ llm_feeder.md           # (planned in 1.4; docs only, no runtime)
 
-Tests (must stay green)
-- Contract: pytest -q -k api_contract
-- Golden:   pytest -q -k golden
-- Family:   pytest -q -k family_boundaries
-- Apology:  pytest -q -k apology_context
+Environment (Render / local)
+----------------------------
+Python: 3.11
+Start:  uvicorn app.main:app --host 0.0.0.0 --port $PORT
 
-CI (GitHub Actions)
-- Installs runtime + dev deps
-- Runs pytest
-- Uploads evidence/ as artifact
-- Blocks merges on test failures (prevents schema drift)
+ENV:
+- PERSONA_NAME=ARVY
+- ALLOWED_ORIGINS=https://arvyam.com
+- RATE_LIMIT_PER_MIN=10
+- API_VERSION=v1
+(Optionally) SUPABASE_URL, SUPABASE_KEY
 
-Troubleshooting
-- 404 on HEAD / in Render logs: harmless health check
-- 500s: check that _transform_for_api is used on ALL returned items
-- Schema failures: contract test will point to the missing field
-- Evidence missing: ensure evidence/ exists (repo keeps empty folder via .keep), and CI has artifact upload step
+Local run
+---------
+pip install -r requirements.txt
+uvicorn app.main:app --reload
+# Open http://127.0.0.1:8000/health
 
-Ownership & Source of Truth
-- Routes: app/main.py
-- Logic: app/selection_engine.py
-- Policy/rules: app/rules/*.json
-- Keep engine + policy JSONs in sync; any policy change must be paired with a test update
+Tests & evidence
+----------------
+pip install -r dev-requirements.txt
+pytest -q
+# Golden harness artifacts saved under ./evidence/
+# CI always uploads ./evidence/ as an artifact for audits
 
-Versioning Note
-- v1 is frozen. New fields must be additive/optional.
-- If you need breaking changes, introduce /v2 and keep v1 active until sunset.
+Palettes & anchors (cheat table)
+--------------------------------
+Use only these palette tokens per anchor in catalog.json.
+(If you add a token, update tests first.)
+
+1) Affection/Support         → pink, blush, soft-rose, pearl, rose-gold
+2) Loyalty/Dependability     → white, blue, navy, soft-grey, steel
+3) Encouragement/Positivity  → yellow, golden, soft-orange, apricot, citrus
+4) Strength/Resilience       → purple, lavender, deep-green, eucalyptus, sage
+5) Intellect/Wisdom          → cream, ivory, white, soft-beige, linen
+6) Adventurous/Creativity    → multicolor, vibrant, contrast, accent
+7) Selflessness/Generosity   → warm, amber, soft-gold, honey, caramel
+8) Fun/Humor                 → bright-yellow, sunny, citrus, marigold
+
+Celebration tokens (BLOCKED for sympathy/farewell lanes):
+deep-red, crimson, gold, neon, bright, hot-pink
+
+Evidence line (per request)
+---------------------------
+event: "SELECTION_EVIDENCE"
+request_id: UUIDv4
+resolved_anchor: one of 8 anchors
+relationship_context: romantic|familial|friendship|professional|unknown
+fallback_reason: in_family|general_in_family|duplicate_tier|cross_family_last_resort
+pool_size: { pre_suppress:{classic,signature,luxury}, post_suppress:{...} }
+
+Contributing (web-only workflow)
+--------------------------------
+- Single main branch, small PRs
+- Commit style:  feat(rulebook): add synonyms for Positivity
+- Never change tests or contracts casually — they are the rails
+- Update docs/phase_status.json when a phase task changes state
+
+Current phase status (snapshot)
+-------------------------------
+See docs/phase_status.json
+- 1.4a: complete (routes unification, transform everywhere, policy sync, golden harness)
+- Phase 2 rails (B1–B4): complete (boundaries default, apology context, pool telemetry, schema guard)
+- 1.4 Enrichment: emotion_keywords (in_progress); llm_feeder.md (planned); golden prompts refresh (planned)
+
+Rollback (fast path)
+--------------------
+1) Revert rules JSON or selection_engine.py to last green commit
+2) Re-run pytest; confirm contract + palette guard + golden harness
+3) Re-deploy Render
+(Do not touch app/main.py unless public schema breaks)
+
+License
+-------
+Proprietary © Arvyam
 
