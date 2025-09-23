@@ -12,8 +12,15 @@
     "b4_schema_guard_test": "complete"
   },
   "phase_1_4_emotions_enrichment": {
-    "enrich_emotion_keywords": "in_progress",
-    "offline_llm_feeder_doc": "planned",
-    "golden_prompts_refresh": "planned"
-  }
+    "enrich_emotion_keywords": "complete",
+    "offline_llm_feeder_doc": "complete",
+    "golden_prompts_refresh": "complete",
+    "palette_allowlist_guard": "complete",
+    "feeder_tools_ci_smoke": "complete"
+  },
+  "phase_1_5": {
+    "status": "ready_to_kickoff",
+    "notes": "Begin per Phase 1.5 handbook; no schema changes or rail relaxations."
+  },
+  "updated_at": "2025-09-23"
 }
