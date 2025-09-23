@@ -2,7 +2,17 @@ name: CI
 
 on:
   push:
+    branches: [ main ]
   pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   test:
@@ -15,27 +25,51 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.11"
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Upgrade pip
+        run: python -m pip install --upgrade pip
 
       - name: Install prod dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements.txt
+        if: hashFiles('requirements.txt') != ''
+        run: pip install -r requirements.txt
 
       - name: Install dev/test dependencies
+        if: hashFiles('dev-requirements.txt') != ''
+        run: pip install -r dev-requirements.txt
+
+      # --- Feeder smoke: protects CSV headers/enums. Dry-run; no writes. ---
+      - name: Feeder smoke (dry-run; no writes)
+        shell: bash
         run: |
-          pip install -r dev-requirements.txt
+          set -euo pipefail
+
+          # Use committed smoke CSV if present; otherwise create a tiny one on the fly
+          if [[ -f "tests/data/review_smoke.csv" ]]; then
+            SMOKE="tests/data/review_smoke.csv"
+          else
+            mkdir -p tests/data
+            SMOKE="tests/data/_ci_review_smoke.csv"
+            cat > "$SMOKE" <<'CSV'
+phrase,decision,anchor,notes,list_type,intensity,polarity
+"ecstatic for you",approve,"Encouragement/Positivity",ci-smoke,synonyms,,
+CSV
+          fi
+
+          python tools/apply_tokens.py \
+            --review "$SMOKE" \
+            --rules  app/rules/emotion_keywords.json \
+            --dry-run
 
       - name: Run tests
-        run: |
-          pytest -q
+        run: pytest -q
 
-      # Optional: publish golden harness artifacts if present
-      - name: Upload evidence bundle
-        if: always()
+      - name: Upload evidence bundle (if present)
+        if: hashFiles('evidence/**') != ''
         uses: actions/upload-artifact@v4
         with:
-          name: evidence-bundle
-          path: |
-            evidence/**
+          name: evidence_bundle
+          path: evidence/**
           if-no-files-found: ignore
+          retention-days: 7
