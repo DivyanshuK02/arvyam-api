@@ -19,7 +19,7 @@ Safety:
 Typical:
   python tools/apply_tokens.py \
     --review feeder/runs/2025-09-22/review.csv \
-    --rules rules/emotion_keywords.json \
+    --rules app/rules/emotion_keywords.json \
     --dry-run
 """
 
@@ -183,3 +183,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
