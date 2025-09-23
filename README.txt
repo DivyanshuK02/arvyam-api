@@ -1,154 +1,123 @@
 ARVYAM — API (Beginner-Safe, Zero-Drift Rails)
 
-Project purpose
----------------
-A deterministic curation API that turns a short user prompt into exactly
-THREE products (2 MIX + 1 MONO) chosen from the catalog, mapped to one of
-EIGHT emotional anchors with an explicit palette[].
+PURPOSE
+Deterministic curation API. A short user prompt returns exactly THREE products (2 MIX + 1 MONO), each mapped to one of EIGHT emotional anchors with an explicit palette[].
 
-This repo is stabilized by Phase 1.4a rails:
-- Single public schema, one return path
-- Family boundaries ON + apology relationship context
-- Pool-size telemetry in evidence logs
-- Golden harness + contract tests in CI
+Rails enforced by Phase 1.4a: single public schema, family boundaries, apology relationship context, pool-size telemetry, golden harness + CI.
 
-Live shape (public API)
------------------------
-GET  /health
-→ 200 { "status":"ok", "persona":"ARVY", "version":"v1" }
+PERSONA
+Persona name: ARVY (single source of truth)
+Env var: PERSONA_NAME=ARVY
+
+PUBLIC API (V1)
+GET /health
+-> 200 { "status":"ok", "persona":"ARVY", "version":"v1" }
 
 POST /api/curate
-Request:
-  { "prompt":"string (1–500)", "context"?{ ... } }
-Response (ALWAYS length = 3):
-  [
-    {
-      "id":"sku_x",
-      "title":"Rose Bouquet • Signature",
-      "desc":"A poised arrangement with soft blush notes.",
-      "image":"https://cdn/...",
-      "price":1699, "currency":"INR",
-      "emotion":"Affection/Support",
-      "tier":"Signature", "packaging":"Box",
-      "mono":false,
-      "palette":["blush","soft-pink"],
-      "luxury_grand":false
-    },
-    { ... }, { ... }
-  ]
+Request: { "prompt": "string (1–500)" }
+Response: ALWAYS an array of 3 items, each with public-only fields:
+id, title, desc, image, price, currency, emotion, tier, packaging, mono, palette[], luxury_grand
 
-POST /api/checkout   (stub)
-Request:  { "product_id":"sku_x", "quantity"?1 }
-Response: { "checkout_url":"https://example/...", "expires_at":"...", "test":true }
+Notes:
+Only public fields. Internals like image_url, price_inr never leak (transformed in app/main.py).
+Family boundaries ON; apology relationship context logged.
 
-Zero-drift acceptance floor (frozen by tests)
----------------------------------------------
-- Exactly 3 items; never 2 or 4
-- Public schema only (no internal fields like image_url/price_inr)
-- Family boundaries enforced; apology relationship_context logged
-- Sympathy/farewell palette guard (no celebration tokens)
-- Evidence line per request (request_id, resolved_anchor, fallback_reason, pool_size)
+ZERO-DRIFT ACCEPTANCE FLOOR (FROZEN BY TESTS)
+Exactly 3 items in every response.
+Public schema only (no internal fields).
+Family boundaries enforced; apology relationship_context logged.
+Sympathy/Farewell palette guard (no celebration tokens).
+Evidence line per request with: request_id, resolved_anchor, relationship_context, fallback_reason ∈ {in_family, general_in_family, duplicate_tier, cross_family_last_resort}, pool_size (pre/post by tier).
 
-Repo layout (single source of truth)
-------------------------------------
+REPO LAYOUT
 .
 ├─ app/
-│  ├─ __init__.py
-│  ├─ main.py                  # FastAPI app & routes; injects request_id; schema transform
-│  ├─ selection_engine.py      # pure logic: boundaries, relationship context, telemetry
-│  ├─ catalog.json             # public catalog (id/title/desc/image/price/currency/…)
-│  └─ rules/
-│     ├─ emotion_keywords.json # NOW being enriched in Phase 1.4
-│     ├─ sentiment_families.json
-│     ├─ edge_registers.json
-│     └─ tier_policy.json
+│ ├─ main.py (routes; public transform; request_id)
+│ ├─ selection_engine.py (pure logic; boundaries; apology context; telemetry)
+│ ├─ catalog.json (id/title/desc/image/price/currency/tier/…)
+│ └─ rules/
+│ ├─ emotion_keywords.json (enriched in Phase 1.4: synonyms, misspellings, combos)
+│ ├─ sentiment_families.json
+│ ├─ edge_registers.json
+│ └─ tier_policy.json
 ├─ tests/
-│  ├─ conftest.py
-│  ├─ test_api_contract.py
-│  ├─ test_golden_harness.py
-│  ├─ test_sympathy_palette_guard.py
-│  └─ test_apology_context.py
-├─ evidence/                   # golden harness output (gitignored)
+│ ├─ conftest.py
+│ ├─ test_api_contract.py
+│ ├─ test_golden_harness.py
+│ ├─ test_sympathy_palette_guard.py
+│ ├─ test_apology_context.py
+│ ├─ test_palette_allowlist.py (per-anchor allowlists + grief/farewell block)
+│ ├─ test_miner_filter.py (offline feeder miner)
+│ └─ test_apply_enums.py (offline feeder enums/dupes)
+├─ tools/
+│ ├─ mine_unknowns.py
+│ ├─ make_review_sheet.py
+│ └─ apply_tokens.py (add-only; .bak; --dry-run)
+├─ docs/
+│ ├─ phase_status.json (phase checklist)
+│ └─ llm_feeder.md (OFFLINE feeder guide; no runtime LLM)
+├─ evidence/ (golden artifacts; gitignored)
 ├─ .github/workflows/ci.yml
 ├─ requirements.txt
-├─ dev-requirements.txt
-└─ docs/
-   ├─ phase_status.json        # phase checklist & progress
-   └─ llm_feeder.md           # Docs: see docs/llm_feeder.md (offline, add-only; no runtime LLM).
+└─ dev-requirements.txt
 
-Environment (Render / local)
-----------------------------
-Python: 3.11
-Start:  uvicorn app.main:app --host 0.0.0.0 --port $PORT
-
-ENV:
-- PERSONA_NAME=ARVY
-- ALLOWED_ORIGINS=https://arvyam.com
-- RATE_LIMIT_PER_MIN=10
-- API_VERSION=v1
-(Optionally) SUPABASE_URL, SUPABASE_KEY
-
-Local run
----------
+SETUP (LOCAL)
+Python 3.11
 pip install -r requirements.txt
 uvicorn app.main:app --reload
-# Open http://127.0.0.1:8000/health
+Visit http://127.0.0.1:8000/health
 
-Tests & evidence
-----------------
+ENV (EXAMPLES)
+PERSONA_NAME=ARVY
+ALLOWED_ORIGINS=https://arvyam.com
+RATE_LIMIT_PER_MIN=10
+API_VERSION=v1
+
+TESTS (LOCAL)
 pip install -r dev-requirements.txt
 pytest -q
-# Golden harness artifacts saved under ./evidence/
-# CI always uploads ./evidence/ as an artifact for audits
+Golden harness outputs to ./evidence/ (CI uploads artifacts)
 
-Palettes & anchors (cheat table)
---------------------------------
-Use only these palette tokens per anchor in catalog.json.
-(If you add a token, update tests first.)
+PALETTES & ANCHORS (ALLOWLIST CHEAT TABLE)
+Use only these palette tokens per anchor in app/catalog.json. If you add a token, update tests first.
+Affection/Support → pink, blush, soft-rose, pearl, rose-gold
+Loyalty/Dependability → white, blue, navy, soft-grey, steel
+Encouragement/Positivity → yellow, golden, soft-orange, apricot, citrus
+Strength/Resilience → purple, lavender, deep-green, eucalyptus, sage
+Intellect/Wisdom → cream, ivory, white, soft-beige, linen
+Adventurous/Creativity → multicolor, vibrant, contrast, accent
+Selflessness/Generosity → warm, amber, soft-gold, honey, caramel
+Fun/Humor → bright-yellow, sunny, citrus, marigold
+Celebration tokens (BLOCKED in sympathy/farewell): deep-red, crimson, gold, neon, bright, hot-pink
 
-1) Affection/Support         → pink, blush, soft-rose, pearl, rose-gold
-2) Loyalty/Dependability     → white, blue, navy, soft-grey, steel
-3) Encouragement/Positivity  → yellow, golden, soft-orange, apricot, citrus
-4) Strength/Resilience       → purple, lavender, deep-green, eucalyptus, sage
-5) Intellect/Wisdom          → cream, ivory, white, soft-beige, linen
-6) Adventurous/Creativity    → multicolor, vibrant, contrast, accent
-7) Selflessness/Generosity   → warm, amber, soft-gold, honey, caramel
-8) Fun/Humor                 → bright-yellow, sunny, citrus, marigold
+EVIDENCE LOG (ONE LINE / REQUEST)
+event=SELECTION_EVIDENCE
+request_id=UUIDv4
+resolved_anchor=<one of 8>
+relationship_context=romantic|familial|friendship|professional|unknown
+fallback_reason ∈ {in_family, general_in_family, duplicate_tier, cross_family_last_resort}
+pool_size = { pre_suppress:{classic,signature,luxury}, post_suppress:{...} }
 
-Celebration tokens (BLOCKED for sympathy/farewell lanes):
-deep-red, crimson, gold, neon, bright, hot-pink
+OFFLINE FEEDER (ADD-ONLY; NO RUNTIME LLM)
+Read: docs/llm_feeder.md (beginner-proof, copy-paste flow)
 
-Evidence line (per request)
----------------------------
-event: "SELECTION_EVIDENCE"
-request_id: UUIDv4
-resolved_anchor: one of 8 anchors
-relationship_context: romantic|familial|friendship|professional|unknown
-fallback_reason: in_family|general_in_family|duplicate_tier|cross_family_last_resort
-pool_size: { pre_suppress:{classic,signature,luxury}, post_suppress:{...} }
+Reproduce the CI smoke locally (sanity check headers/enums):
+python tools/apply_tokens.py --review tests/data/review_smoke.csv --rules app/rules/emotion_keywords.json --dry-run
 
-Contributing (web-only workflow)
---------------------------------
-- Single main branch, small PRs
-- Commit style:  feat(rulebook): add synonyms for Positivity
-- Never change tests or contracts casually — they are the rails
-- Update docs/phase_status.json when a phase task changes state
+PHASE STATUS (SNAPSHOT)
+1.4a — Stabilization: COMPLETE
+1.4 — Emotions & Palettes (Enrichment): COMPLETE
+1.5 — Next phase: STARTING (see docs/phase_status.json)
 
-Current phase status (snapshot)
--------------------------------
-See docs/phase_status.json
-- 1.4a: complete (routes unification, transform everywhere, policy sync, golden harness)
-- Phase 2 rails (B1–B4): complete (boundaries default, apology context, pool telemetry, schema guard)
-- 1.4 Enrichment: emotion_keywords (in_progress); llm_feeder.md (planned); golden prompts refresh (planned)
+CONTRIBUTING
+Small PRs targeted at a single change (e.g., “feat(rulebook): add synonyms for Positivity”).
+Do not change public schema or the 3-card contract without updating tests and handbook.
+Update docs/phase_status.json when a task completes.
 
-Rollback (fast path)
---------------------
-1) Revert rules JSON or selection_engine.py to last green commit
-2) Re-run pytest; confirm contract + palette guard + golden harness
-3) Re-deploy Render
-(Do not touch app/main.py unless public schema breaks)
+ROLLBACK (FAST PATH)
+Rulebook: revert to previous .bak produced by tools/apply_tokens.py (or git revert).
+Re-run pytest; confirm contract tests + palette guard + goldens.
+Re-deploy.
 
-License
--------
+LICENSE
 Proprietary © Arvyam
-
