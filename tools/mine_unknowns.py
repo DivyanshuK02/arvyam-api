@@ -11,16 +11,14 @@ import re
 import sys
 from collections import Counter
 from pathlib import Path
-from typing import Iterable, List, Set
+from typing import Dict, Iterable, List, Set
 
 
 # ------------------------------
 # Normalization & helpers
 # ------------------------------
 
-_WS_RE = re.compile(r"\s+")
-# Keep letters, digits, apostrophes; turn everything else into spaces.
-_NOPUNCT_RE = re.compile(r"[^a-z0-9'\s]+")
+WORD_RE = re.compile(r"[a-z0-9]+")
 
 # Small English stopword list (safe: does NOT include domain words like "sorry")
 DEFAULT_STOPWORDS = {
@@ -31,16 +29,12 @@ DEFAULT_STOPWORDS = {
     "just","really","very","kindly","please"
 }
 
+def _cf(s: str) -> str:
+    return (s or "").casefold()
+
 def _normalize(s: str) -> str:
     """lowercase, strip punctuation, collapse whitespace"""
-    s = (s or "").strip().lower()
-    s = _NOPUNCT_RE.sub(" ", s)
-    s = _WS_RE.sub(" ", s)
-    return s.strip()
-
-def _remove_stopwords(text: str, stopwords: Set[str]) -> str:
-    toks = [t for t in text.split() if t and t not in stopwords]
-    return " ".join(toks)
+    return " ".join(WORD_RE.findall(_cf(s)))
 
 
 # ------------------------------
@@ -143,42 +137,58 @@ def iter_evidence_prompts(paths: Iterable[str], fallback_only: bool) -> Iterable
 # Unknown mining
 # ------------------------------
 
+def _dedupe_adjacent(words: List[str]) -> List[str]:
+    out: List[str] = []
+    prev = None
+    for w in words:
+        if w and w != prev:
+            out.append(w)
+            prev = w
+    return out
+
 def find_unknowns(
-    raw_prompts: Iterable[str],
+    prompts: Iterable[str],
     known_tokens: Set[str],
-    min_count: int,
-    stopwords: Set[str],
-) -> List[dict]:
+    min_count: int = 3,
+    stopwords: Set[str] | None = None,
+) -> List[Dict[str, int]]:
     """
-    Keep prompts that, after normalization & stopword removal, do NOT contain any known token.
-    Aggregate counts by the reduced (normalized, no-stopword) form.
-    Return [{phrase, count}] sorted by count desc.
+    Extract 'unknown' phrases from free-text prompts.
+
+    Fix: emit single-word candidates after stopword removal so cases like
+    'so so happy' -> 'happy' are not lost (test expectation).
     """
-    ctr: Counter[str] = Counter()
+    sw = set(stopwords or DEFAULT_STOPWORDS)
+    known = { _cf(k) for k in (known_tokens or set()) }
 
-    for raw in raw_prompts:
-        norm = _normalize(raw)
-        if not norm:
+    counts: Counter[str] = Counter()
+
+    for raw in prompts:
+        s = _normalize(raw)
+        if not s:
             continue
-        reduced = _remove_stopwords(norm, stopwords)
-
-        # Drop ultra-short noise (0–1 tokens after stopword removal)
-        if len(reduced.split()) <= 1:
-            continue
-
-        # If ANY known token appears in the reduced string, it's "covered"
-        if any(tok and tok in reduced for tok in known_tokens):
+        words = [w for w in s.split() if w not in sw]
+        words = _dedupe_adjacent(words)
+        if not words:
             continue
 
-        ctr[reduced] += 1
+        # --- conservative extraction ---
+        # 1) unigrams (critical so 'happy' survives stopword stripping)
+        for w in words:
+            if w not in sw and w not in known and len(w) >= 2:
+                counts[w] += 1
 
-    results = [
-        {"phrase": phrase, "count": count}
-        for phrase, count in ctr.items()
-        if count >= max(1, int(min_count))
-    ]
-    results.sort(key=lambda x: (-x["count"], x["phrase"]))
-    return results
+        # 2) (optional) light bigrams using the filtered words
+        for i in range(len(words) - 1):
+            bg = f"{words[i]} {words[i+1]}"
+            if bg not in known:
+                counts[bg] += 1
+
+    # materialize ≥ min_count
+    out = [{"phrase": k, "count": v} for k, v in counts.items() if v >= min_count]
+    # stable ordering for diffs
+    out.sort(key=lambda x: (-x["count"], x["phrase"]))
+    return out
 
 
 # ------------------------------
