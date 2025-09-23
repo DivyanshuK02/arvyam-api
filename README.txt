@@ -74,7 +74,7 @@ Repo layout (single source of truth)
 ├─ dev-requirements.txt
 └─ docs/
    ├─ phase_status.json        # phase checklist & progress
-   └─ llm_feeder.md           # (planned in 1.4; docs only, no runtime)
+   └─ llm_feeder.md           # Docs: see docs/llm_feeder.md (offline, add-only; no runtime LLM).
 
 Environment (Render / local)
 ----------------------------
