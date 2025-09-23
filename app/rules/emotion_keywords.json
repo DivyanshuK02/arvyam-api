@@ -1241,9 +1241,32 @@
     },
     {
       "when_any": [
-        "sorry"
+        "sorry",
+        "apologize",
+        "apologies",
+        "apology",
+        "i'm sorry",
+        "im sorry",
+        "my apologies"
       ],
       "route": [
+        {
+          "if_any": [
+            "my love",
+            "love",
+            "sweetheart",
+            "darling",
+            "babe",
+            "baby",
+            "jaan",
+            "girlfriend",
+            "boyfriend",
+            "husband",
+            "wife",
+            "soulmate"
+          ],
+          "anchor": "Affection/Support"
+        },
         {
           "if_any": [
             "loss",
@@ -1252,6 +1275,19 @@
             "bereavement"
           ],
           "anchor": "Strength/Resilience"
+        },
+        {
+          "if_any": [
+            "team",
+            "manager",
+            "client",
+            "deadline",
+            "project",
+            "deliverable",
+            "office",
+            "work"
+          ],
+          "anchor": "Encouragement/Positivity"
         },
         {
           "else": "Encouragement/Positivity"
@@ -1378,6 +1414,10 @@
       {
         "pattern": "\\b(congrats|proud|cheer|good luck)\\b.*\\b(promotion|new job|project)\\b",
         "anchor": "Encouragement/Positivity"
+      },
+      {
+        "pattern": "\\b(sorry|apolog(y|ise|ize)|apologies)\\b.*\\b(my\\s+love|sweetheart|darling|babe|baby|jaan)\\b.*\\b(mistake|mess|wrong)\\b",
+        "anchor": "Affection/Support"
       },
       {
         "pattern": "\\b(sorry|my\\s+fault)\\b.*\\b(mistake|mess)\\b",
