@@ -73,7 +73,7 @@ def dedupe_lower(strings: list[str]) -> list[str]:
 def main():
     ap = argparse.ArgumentParser(description="Apply approved phrases to emotion_keywords.json")
     ap.add_argument("--review", required=True, help="CSV with phrase decisions")
-    ap.add_argument("--rules",   default="rules/emotion_keywords.json", help="Rulebook JSON path")
+    ap.add_argument("--rules",   default="app/rules/emotion_keywords.json", help="Rulebook JSON path")
     ap.add_argument("--dry-run", action="store_true", help="Print changes only; don't write")
     args = ap.parse_args()
 
@@ -183,4 +183,5 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
