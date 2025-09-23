@@ -2,7 +2,7 @@
 # tools/mine_unknowns.py
 #
 # Mine "unknown" user phrases from SELECTION_EVIDENCE logs for the offline feeder.
-# This script is OFFLINE-ONLY and never runs in the request path.
+# OFFLINE-ONLY. Never runs in the request path.
 
 import argparse
 import glob
@@ -14,71 +14,107 @@ from pathlib import Path
 from typing import Iterable, List, Set
 
 
-def _casefold(s: str) -> str:
-    return re.sub(r"\s+", " ", (s or "").strip().lower())
+# ------------------------------
+# Normalization & helpers
+# ------------------------------
 
+_WS_RE = re.compile(r"\s+")
+# Keep letters, digits, apostrophes; turn everything else into spaces.
+_NOPUNCT_RE = re.compile(r"[^a-z0-9'\s]+")
+
+# Small English stopword list (safe: does NOT include domain words like "sorry")
+DEFAULT_STOPWORDS = {
+    "a","an","the","and","or","but","if","so","of","for","to","in","on","at","with","from","by","about","as",
+    "is","are","was","were","be","been","being","have","has","had","do","does","did",
+    "not","no","yes",
+    "i","you","he","she","it","we","they","me","him","her","them","my","your","our","their","this","that","these","those",
+    "just","really","very","kindly","please"
+}
+
+def _normalize(s: str) -> str:
+    """lowercase, strip punctuation, collapse whitespace"""
+    s = (s or "").strip().lower()
+    s = _NOPUNCT_RE.sub(" ", s)
+    s = _WS_RE.sub(" ", s)
+    return s.strip()
+
+def _remove_stopwords(text: str, stopwords: Set[str]) -> str:
+    toks = [t for t in text.split() if t and t not in stopwords]
+    return " ".join(toks)
+
+
+# ------------------------------
+# Rulebook tokens (known phrases)
+# ------------------------------
 
 def load_rulebook_tokens(rulebook_path: Path) -> Set[str]:
     """
-    Collect a broad set of 'known' tokens/phrases from the rulebook so we don't
-    over-flag prompts. We include:
+    Collect a broad set of 'known' tokens/phrases so we don't over-flag prompts.
+    We include:
       - anchor blocks: synonyms, misspellings, synonyms_detailed[].token
-      - top-level exact phrases
-      - top-level combos[].all[]
+      - top-level exact phrases (keys)
+      - top-level combos[].all[] parts
       - keywords[anchor][] (if present)
+    All values are normalized (no punctuation, lowercased).
     """
     with rulebook_path.open("r", encoding="utf-8") as f:
         rb = json.load(f)
 
     tokens: Set[str] = set()
 
-    # Anchor blocks (dict keyed by anchor) – be defensive about shape
     if isinstance(rb, dict):
+        # Anchor blocks (dict keyed by anchor)
         for _k, block in rb.items():
             if not isinstance(block, dict):
                 continue
-            # synonyms / misspellings arrays
+            # arrays: synonyms / misspellings
             for key in ("synonyms", "misspellings"):
                 for t in (block.get(key) or []):
                     if isinstance(t, str) and t.strip():
-                        tokens.add(_casefold(t))
-            # synonyms_detailed: list of dicts with a "token" field
+                        tokens.add(_normalize(t))
+            # detailed synonyms: list of dicts with "token"
             for d in (block.get("synonyms_detailed") or []):
                 if isinstance(d, dict):
                     t = d.get("token")
                     if isinstance(t, str) and t.strip():
-                        tokens.add(_casefold(t))
+                        tokens.add(_normalize(t))
 
-    # Top-level exact map: { "phrase": "AnchorName", ... }
-    exact = rb.get("exact") if isinstance(rb, dict) else None
-    if isinstance(exact, dict):
-        for phrase in exact.keys():
-            if isinstance(phrase, str) and phrase.strip():
-                tokens.add(_casefold(phrase))
+        # exact map: { "phrase": "AnchorName", ... }
+        exact = rb.get("exact")
+        if isinstance(exact, dict):
+            for phrase in exact.keys():
+                if isinstance(phrase, str) and phrase.strip():
+                    tokens.add(_normalize(phrase))
 
-    # Top-level combos list: [{ "all": ["a","b"], ... }, ...]
-    combos = rb.get("combos") if isinstance(rb, dict) else None
-    if isinstance(combos, list):
-        for combo in combos:
-            if isinstance(combo, dict):
-                for part in (combo.get("all") or []):
-                    if isinstance(part, str) and part.strip():
-                        tokens.add(_casefold(part))
+        # combos list: [{ "all": ["a","b"], ...}, ...]
+        combos = rb.get("combos")
+        if isinstance(combos, list):
+            for combo in combos:
+                if isinstance(combo, dict):
+                    for part in (combo.get("all") or []):
+                        if isinstance(part, str) and part.strip():
+                            tokens.add(_normalize(part))
 
-    # keywords bucket: { "AnchorName": ["k1","k2",...], ... }
-    keywords = rb.get("keywords") if isinstance(rb, dict) else None
-    if isinstance(keywords, dict):
-        for arr in keywords.values():
-            for t in (arr or []):
-                if isinstance(t, str) and t.strip():
-                    tokens.add(_casefold(t))
+        # keywords bucket: { "AnchorName": ["k1","k2",...], ... }
+        keywords = rb.get("keywords")
+        if isinstance(keywords, dict):
+            for arr in keywords.values():
+                for t in (arr or []):
+                    if isinstance(t, str) and t.strip():
+                        tokens.add(_normalize(t))
 
+    # prune empties
+    tokens.discard("")
     return tokens
 
 
+# ------------------------------
+# Evidence iterator
+# ------------------------------
+
 def iter_evidence_prompts(paths: Iterable[str], fallback_only: bool) -> Iterable[str]:
     """
-    Yield normalized prompts from evidence JSONL files.
+    Yield RAW prompts from evidence JSONL files.
     If fallback_only is True, only yield lines that have a non-empty 'fallback_reason'.
     """
     for pattern in paths:
@@ -98,30 +134,43 @@ def iter_evidence_prompts(paths: Iterable[str], fallback_only: bool) -> Iterable
                     prompt = (ev.get("prompt") or "").strip()
                     if len(prompt) < 4:  # ignore trivial noise
                         continue
+                    if fallback_only and not (ev.get("fallback_reason") or "").strip():
+                        continue
+                    yield prompt
 
-                    if fallback_only:
-                        fr = (ev.get("fallback_reason") or "").strip()
-                        if not fr:
-                            continue
 
-                    yield _casefold(prompt)
-
+# ------------------------------
+# Unknown mining
+# ------------------------------
 
 def find_unknowns(
-    prompts: Iterable[str],
+    raw_prompts: Iterable[str],
     known_tokens: Set[str],
-    min_count: int = 3,
+    min_count: int,
+    stopwords: Set[str],
 ) -> List[dict]:
     """
-    Keep prompts that don't contain any known token/phrase (substring match),
-    and aggregate counts. Return a list of {phrase, count} sorted by count desc.
+    Keep prompts that, after normalization & stopword removal, do NOT contain any known token.
+    Aggregate counts by the reduced (normalized, no-stopword) form.
+    Return [{phrase, count}] sorted by count desc.
     """
     ctr: Counter[str] = Counter()
-    for pr in prompts:
-        # If ANY known token appears as substring, we treat the prompt as "covered"
-        if any(tok and tok in pr for tok in known_tokens):
+
+    for raw in raw_prompts:
+        norm = _normalize(raw)
+        if not norm:
             continue
-        ctr[pr] += 1
+        reduced = _remove_stopwords(norm, stopwords)
+
+        # Drop ultra-short noise (0–1 tokens after stopword removal)
+        if len(reduced.split()) <= 1:
+            continue
+
+        # If ANY known token appears in the reduced string, it's "covered"
+        if any(tok and tok in reduced for tok in known_tokens):
+            continue
+
+        ctr[reduced] += 1
 
     results = [
         {"phrase": phrase, "count": count}
@@ -132,8 +181,12 @@ def find_unknowns(
     return results
 
 
+# ------------------------------
+# CLI
+# ------------------------------
+
 def main(argv: List[str]) -> int:
-    ap = argparse.ArgumentParser(description="Mine unknown phrases from evidence logs")
+    ap = argparse.ArgumentParser(description="Mine unknown phrases from evidence logs (noise-filtered)")
     ap.add_argument(
         "--logs",
         nargs="+",
@@ -161,14 +214,29 @@ def main(argv: List[str]) -> int:
         action="store_true",
         help="Only consider evidence lines that recorded a fallback_reason",
     )
+    ap.add_argument(
+        "--stopwords-file",
+        help="Optional newline-delimited stopwords file (lowercased). If provided, extends the built-in list.",
+    )
     args = ap.parse_args(argv)
+
+    # Stopwords
+    stopwords = set(DEFAULT_STOPWORDS)
+    if args.stopwords_file:
+        try:
+            extra = Path(args.stopwords_file).read_text(encoding="utf-8").splitlines()
+            stopwords.update([_normalize(x) for x in extra if x.strip()])
+        except Exception:
+            # Non-fatal; continue with defaults
+            pass
+    stopwords.discard("")  # safety
 
     rulebook = Path(args.rules)
     out_path = Path(args.out)
 
     known = load_rulebook_tokens(rulebook)
     prompts = list(iter_evidence_prompts(args.logs, args.fallback_only))
-    unknowns = find_unknowns(prompts, known, args.min_count)
+    unknowns = find_unknowns(prompts, known, args.min_count, stopwords)
 
     out_path.parent.mkdir(parents=True, exist_ok=True)
     out_path.write_text(json.dumps(unknowns, ensure_ascii=False, indent=2), encoding="utf-8")
