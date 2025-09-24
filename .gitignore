@@ -44,3 +44,7 @@ evidence/*
 
 # Docker/Compose (if present)
 docker-compose.override.yml
+
+# --- Phase 1.4 Feeder: rulebook backups ---
+# Backups created by tools/apply_tokens.py during real (non--dry-run) applies
+app/rules/*.bak
