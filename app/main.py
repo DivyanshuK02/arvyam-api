@@ -191,7 +191,7 @@ def append_selection_log(items: List[Dict[str, Any]], request_id: str, latency_m
     mix_ids = ";".join([it["id"] for it in items if not it.get("mono")])
     mono_id = next((it["id"] for it in items if it.get("mono")), "")
     tiers = ";".join([it.get("tier","") for it in items])
-    lg_flags = ";".join(["true" if it.get("luxury_grand") else "false" for it in items])
+    lg_flags = ";".join(["true" if CAT_BY_ID.get(it.get("id",""),{}).get("luxury_grand") else "false" for it in items])
     row = [time.strftime("%Y-%m-%dT%H:%M:%S%z"), request_id, PERSONA, path, str(latency_ms), str(prompt_len), detected_emotion, mix_ids, mono_id, tiers, lg_flags]
     need_header = not os.path.exists(csv_path) or os.path.getsize(csv_path) == 0
     with open(csv_path, "a", newline="", encoding="utf-8") as f:
@@ -251,6 +251,15 @@ async def _coerce_prompt(request: Request) -> str:
         if (v := request.query_params.get(k)) and v.strip(): return v.strip()
     return ""
 
+# ---- v1 public allow-list (drop all internals/unknowns) ----
+PUBLIC_FIELDS = {
+    "id","title","desc","image","price","currency","emotion",
+    "tier","mono","palette","note","edge_case","edge_type"
+}
+def _sanitize_item(d: Dict[str, Any]) -> Dict[str, Any]:
+    return {k: v for k, v in d.items() if k in PUBLIC_FIELDS}
+# ------------------------------------------------------------
+
 # =========================
 # Schemas (UI-aligned)
 # =========================
@@ -282,10 +291,9 @@ class ItemOut(BaseModel):
     currency: str
     emotion: str
     tier: str
-    packaging: Optional[str] = None
     mono: bool
     palette: List[str]
-    luxury_grand: bool
+    # optional extras (public-safe)
     edge_case: Optional[bool] = False
     edge_type: Optional[str] = None
     note: Optional[str] = None
@@ -318,6 +326,7 @@ async def curate_post(body: CurateRequest, request: Request, response: Response)
     try:
         final_triad, context, meta = selection_engine(prompt=prompt, context=req_context)
         items = _transform_for_api(final_triad, context.get("resolved_anchor"))
+        items = [_sanitize_item(it) for it in items]
     except Exception as e:
         logger.error(f"Engine error for request_id={request_id}: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail={"error": {"code": "ENGINE_ERROR", "message": str(e)[:400]}})
@@ -363,6 +372,7 @@ async def _curate_flexible(request: Request) -> JSONResponse:
     try:
         final_triad, context, meta = selection_engine(prompt=prompt, context=req_context)
         items = _transform_for_api(final_triad, context.get("resolved_anchor"))
+        items = [_sanitize_item(it) for it in items]
     except Exception as e:
         logger.error(f"Engine error for request_id={request_id} (shim): {e}", exc_info=True)
         return error_json("ENGINE_ERROR", str(e)[:400], 500, request_id)
@@ -404,11 +414,13 @@ async def curate_get(request: Request):
             if seeded_items:
                 # In seed mode, context is minimal. We pass the detected emotion as the resolved anchor.
                 items = _transform_for_api(seeded_items, emo)
+                items = [_sanitize_item(it) for it in items]
                 context = {"resolved_anchor": emo} # Create a minimal context for logging
 
     if items is None:
         final_triad, context, meta = selection_engine(prompt=prompt, context=req_context)
         items = _transform_for_api(final_triad, context.get("resolved_anchor"))
+        items = [_sanitize_item(it) for it in items]
 
     latency_ms = int((time.time() - started) * 1000)
     logger.info("[%s] CURATE ip=%s emotion=%s latency_ms=%s prompt_len=%s%s",
@@ -438,6 +450,7 @@ async def curate_post_next(body: CurateRequest, request: Request):
     try:
         final_triad, context, meta = selection_engine(prompt=body.prompt.strip(), context=req_context)
         items = _transform_for_api(final_triad, context.get("resolved_anchor"))
+        items = [_sanitize_item(it) for it in items]
     except Exception as e:
         logger.error(f"Engine error for request_id={request_id} (next): {e}", exc_info=True)
         raise HTTPException(status_code=500, detail={"error": {"code": "ENGINE_ERROR", "message": str(e)[:400]}})
