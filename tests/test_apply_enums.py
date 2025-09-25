@@ -1,3 +1,4 @@
+# tests/test_apply_enums.py
 import csv
 import json
 import subprocess
@@ -13,6 +14,8 @@ def _write_csv(path: Path, rows):
         w.writerow(["phrase", "decision", "anchor", "notes", "list_type", "intensity", "polarity"])
         w.writerows(rows)
 
+
+# --- existing feeder/rulebook smoke tests (keep as-is) -----------------------
 
 def test_bad_list_type_hard_fails(tmp_path):
     # minimal rulebook (empty is fine)
@@ -35,7 +38,7 @@ def test_bad_list_type_hard_fails(tmp_path):
     assert "unknown list_type" in (proc.stdout + proc.stderr).lower()
 
 
-def test_duplicate_phrase_warns_and_succeeds(tmp_path, capsys):
+def test_duplicate_phrase_warns_and_succeeds(tmp_path):
     rb = tmp_path / "rb.json"
     rb.write_text("{}", encoding="utf-8")
 
@@ -55,3 +58,22 @@ def test_duplicate_phrase_warns_and_succeeds(tmp_path, capsys):
     )
     assert proc.returncode == 0
     assert "duplicate approved phrase" in proc.stdout.lower()
+
+
+# --- new: Phase-1.5 packaging tiers — enum freeze ----------------------------
+
+def test_tiers_enum_is_frozen():
+    """
+    Freeze the public tiers to exactly these three values, in order:
+    ["Classic", "Signature", "Luxury"].
+    """
+    tiers_path = ROOT / "app" / "rules" / "tiers.json"
+    assert tiers_path.exists(), f"missing {tiers_path}"
+
+    data = json.loads(tiers_path.read_text(encoding="utf-8"))
+    assert isinstance(data, list), "tiers.json must be a JSON list"
+    # order + case sensitive
+    assert data == ["Classic", "Signature", "Luxury"], f"unexpected tiers: {data}"
+
+    # no dupes / no extras (belt + suspenders)
+    assert len(set(data)) == 3
