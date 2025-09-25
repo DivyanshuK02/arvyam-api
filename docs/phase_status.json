@@ -19,8 +19,12 @@
     "feeder_tools_ci_smoke": "complete"
   },
   "phase_1_5": {
-    "status": "ready_to_kickoff",
-    "notes": "Begin per Phase 1.5 handbook; no schema changes or rail relaxations."
+    "status": "complete",
+    "notes": "Packaging tiers delivered (internal-only): Classic→Box, Signature→Vase, Luxury→PremiumBox; LG is boolean inside Luxury; public API unchanged."
   },
-  "updated_at": "2025-09-23"
+  "phase_1_6_catalog": {
+    "status": "ready_to_kickoff",
+    "notes": "Catalog schema & JSON guards. DB rails optional — mirror enums/CHECKs if a DB exists; otherwise enforce via tests. No public API changes."
+  },
+  "updated_at": "2025-09-25"
 }
