@@ -19,6 +19,20 @@ Phase snapshot
 See: docs/phase_status.json for live ticks.
 
 Quickstart (local)
+Deploy (Render)
+We run this API as a Render Web Service.
+
+Build command:
+  pip install -r requirements.txt
+
+Start command:
+  uvicorn app.main:app --host 0.0.0.0 --port $PORT
+
+Notes:
+- Python 3.11; Render provides $PORT.
+- Public API remains packaging-blind (v1 contract) exactly as in this README.
+- Live status (what’s next): docs/phase_status.json
+
 # 1) Create venv (any Python 3.11+)
 python -m venv .venv && source .venv/bin/activate
 # 2) Install deps
