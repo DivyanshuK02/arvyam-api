@@ -20,7 +20,16 @@ GOLDEN_CASES = [
     ("edge_sympathy",            "I’m so sorry for your loss"),
 ]
 
-REQUIRED_PUBLIC_KEYS = ("id", "title", "desc", "image", "price", "currency", "emotion", "tier", "mono", "palette")
+REQUIRED_PUBLIC_KEYS = (
+    "id", "title", "desc", "image", "price", "currency",
+    "emotion", "tier", "mono", "palette"
+)
+FORBIDDEN_KEYS = {
+    "packaging","luxury_grand","image_url","price_inr","flowers","weight","tags"
+}
+
+# Editorial mapping (internal packaging stays hidden; UI label is derived from tier)
+DISPLAY_LABEL = {"Classic": "Box", "Signature": "Vase", "Luxury": "Premium Box"}
 
 
 def _save_json(path: Path, obj) -> None:
@@ -44,16 +53,36 @@ def test_golden_harness_writes_artifacts(client, evidence_dir):
         assert isinstance(items, list), "Public response must be a list"
         assert len(items) == 3, "Exactly 3 items (2 MIX + 1 MONO)"
 
-        # Guard: public fields only, no raw catalog fields
+        # Guard: public fields only, no raw catalog or private fields
         mono_count = 0
+        seen_tiers = set()
+        ui_labels = []
+
         for it in items:
+            # must-have keys
             for k in REQUIRED_PUBLIC_KEYS:
                 assert k in it, f"Missing public field '{k}'"
-            assert "image_url" not in it and "price_inr" not in it, "Raw catalog fields leaked"
+            # no forbidden or underscored keys
+            for fk in FORBIDDEN_KEYS:
+                assert fk not in it, f"forbidden key leaked: {fk}"
+            assert not any(str(k).startswith("_") for k in it.keys()), "underscored key leaked"
+            # palette shape + currency
             assert isinstance(it["palette"], list) and len(it["palette"]) > 0, "palette[] must be non-empty"
+            assert it["currency"] == "INR"
+
+            # editorial label (derived from tier)
+            tier = it["tier"]
+            assert tier in DISPLAY_LABEL, f"unexpected tier value: {tier}"
+            ui_labels.append(f"{tier} {DISPLAY_LABEL[tier]}")
+            seen_tiers.add(tier)
+
             if it.get("mono") is True:
                 mono_count += 1
         assert mono_count == 1, "There must be exactly 1 MONO card"
+
+        # If any Luxury appears, its label must be 'Premium Box' (with a space)
+        if "Luxury" in seen_tiers:
+            assert "Luxury Premium Box" in ui_labels
 
         # 2) Get context (for evidence only; runtime contract is API above)
         _, ctx, _ = selection_engine(prompt=prompt, context={})
@@ -77,6 +106,7 @@ def test_golden_harness_writes_artifacts(client, evidence_dir):
             "prompt": prompt,
             "timestamp_utc": ts,
             "items": items,
+            "ui_labels": ui_labels,  # editorial labels for auditors
         })
         _save_json(evidence_dir / f"{case_id}.context.json", {
             "prompt": prompt,
