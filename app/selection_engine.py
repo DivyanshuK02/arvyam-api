@@ -715,14 +715,12 @@ def selection_engine(prompt: str, context: Dict[str, Any]) -> Tuple[List[Dict[st
     # ---- Phase 1.5: attach internal-only fields (underscored) ----
     for item in final_triad:  # keep your actual triad variable name
         item["_packaging"] = PACKAGING_BY_TIER.get(item.get("tier"))
-        item["_luxury_grand"] = _lg(item)
-        # Optional hardening: prevent raw LG from riding further
-        item.pop("luxury_grand", None)
+        item["luxury_grand"] = _lg(item)
 
     # Optional micro-smoke (dev-only): verify internals exist, then delete later or gate by env
     import os as _os
     if _os.getenv("PHASE15_SMOKE_ASSERT") == "1":
-        assert all(("_packaging" in it and "_luxury_grand" in it) for it in final_triad), \
+        assert all(("_packaging" in it and "luxury_grand" in it) for it in final_triad), \
             "Phase-1.5 micro-smoke failed: internal fields missing"
     # ----------------------------------------------------------------
 
