@@ -5,7 +5,7 @@
     "pr_3_policy_sync": "complete",
     "pr_4_golden_harness_and_contract_tests": "complete"
   },
-  "phase_2": {
+  "phase_1_4a(2)": {
     "b1_family_boundaries_default": "complete",
     "b2_apology_relationship_context": "complete",
     "b3_pool_size_telemetry": "complete",
