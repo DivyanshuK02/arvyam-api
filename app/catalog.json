@@ -55,7 +55,7 @@
     "price_inr": 4299,
     "emotion": "Affection/Support",
     "tier": "Luxury",
-    "packaging": "Vase",
+    "packaging": "PremiumBox",
     "mono": false,
     "palette": [
       "deep-red",
@@ -79,7 +79,7 @@
     "price_inr": 2599,
     "emotion": "Affection/Support",
     "tier": "Signature",
-    "packaging": "Box",
+    "packaging": "Vase",
     "mono": true,
     "palette": [
       "red",
@@ -102,7 +102,7 @@
     "price_inr": 5099,
     "emotion": "Affection/Support",
     "tier": "Luxury",
-    "packaging": "Vase",
+    "packaging": "PremiumBox",
     "mono": true,
     "palette": [
       "deep-red",
@@ -125,7 +125,7 @@
     "price_inr": 4999,
     "emotion": "Affection/Support",
     "tier": "Luxury",
-    "packaging": "Vase",
+    "packaging": "PremiumBox",
     "mono": false,
     "palette": [
       "deep-red",
@@ -197,7 +197,7 @@
     "price_inr": 4099,
     "emotion": "Strength/Resilience",
     "tier": "Luxury",
-    "packaging": "Vase",
+    "packaging": "PremiumBox",
     "mono": false,
     "palette": [
       "white",
@@ -221,7 +221,7 @@
     "price_inr": 2599,
     "emotion": "Strength/Resilience",
     "tier": "Signature",
-    "packaging": "Box",
+    "packaging": "Vase",
     "mono": true,
     "palette": [
       "white",
@@ -293,7 +293,7 @@
     "price_inr": 4099,
     "emotion": "Encouragement/Positivity",
     "tier": "Luxury",
-    "packaging": "Vase",
+    "packaging": "PremiumBox",
     "mono": false,
     "palette": [
       "white",
@@ -317,7 +317,7 @@
     "price_inr": 2599,
     "emotion": "Encouragement/Positivity",
     "tier": "Signature",
-    "packaging": "Box",
+    "packaging": "Vase",
     "mono": true,
     "palette": [
       "white",
@@ -339,7 +339,7 @@
     "price_inr": 5099,
     "emotion": "Encouragement/Positivity",
     "tier": "Luxury",
-    "packaging": "Vase",
+    "packaging": "PremiumBox",
     "mono": true,
     "palette": [
       "white",
@@ -410,7 +410,7 @@
     "price_inr": 4099,
     "emotion": "Loyalty/Dependability",
     "tier": "Luxury",
-    "packaging": "Vase",
+    "packaging": "PremiumBox",
     "mono": false,
     "palette": [
       "cream",
@@ -433,7 +433,7 @@
     "price_inr": 2599,
     "emotion": "Loyalty/Dependability",
     "tier": "Signature",
-    "packaging": "Box",
+    "packaging": "Vase",
     "mono": true,
     "palette": [
       "peach",
@@ -455,7 +455,7 @@
     "price_inr": 5099,
     "emotion": "Loyalty/Dependability",
     "tier": "Luxury",
-    "packaging": "Vase",
+    "packaging": "PremiumBox",
     "mono": true,
     "palette": [
       "cream",
@@ -524,7 +524,7 @@
     "price_inr": 4099,
     "emotion": "Affection/Support",
     "tier": "Luxury",
-    "packaging": "Vase",
+    "packaging": "PremiumBox",
     "mono": false,
     "palette": [
       "deep-red",
@@ -548,7 +548,7 @@
     "price_inr": 2599,
     "emotion": "Affection/Support",
     "tier": "Signature",
-    "packaging": "Box",
+    "packaging": "Vase",
     "mono": true,
     "palette": [
       "red",
@@ -570,7 +570,7 @@
     "price_inr": 5099,
     "emotion": "Affection/Support",
     "tier": "Luxury",
-    "packaging": "Vase",
+    "packaging": "PremiumBox",
     "mono": true,
     "palette": [
       "deep-red",
@@ -640,7 +640,7 @@
     "price_inr": 4099,
     "emotion": "Fun/Humor",
     "tier": "Luxury",
-    "packaging": "Vase",
+    "packaging": "PremiumBox",
     "mono": false,
     "palette": [
       "gold",
@@ -664,7 +664,7 @@
     "price_inr": 2599,
     "emotion": "Fun/Humor",
     "tier": "Signature",
-    "packaging": "Box",
+    "packaging": "Vase",
     "mono": true,
     "palette": [
       "white",
@@ -686,7 +686,7 @@
     "price_inr": 5099,
     "emotion": "Fun/Humor",
     "tier": "Luxury",
-    "packaging": "Vase",
+    "packaging": "PremiumBox",
     "mono": false,
     "palette": [
       "gold",
@@ -757,7 +757,7 @@
     "price_inr": 4099,
     "emotion": "Selflessness/Generosity",
     "tier": "Luxury",
-    "packaging": "Vase",
+    "packaging": "PremiumBox",
     "mono": false,
     "palette": [
       "pearl",
@@ -781,7 +781,7 @@
     "price_inr": 2599,
     "emotion": "Selflessness/Generosity",
     "tier": "Signature",
-    "packaging": "Box",
+    "packaging": "Vase",
     "mono": true,
     "palette": [
       "white",
@@ -851,7 +851,7 @@
     "price_inr": 4099,
     "emotion": "Loyalty/Dependability",
     "tier": "Luxury",
-    "packaging": "Vase",
+    "packaging": "PremiumBox",
     "mono": false,
     "palette": [
       "pearl",
@@ -875,7 +875,7 @@
     "price_inr": 2599,
     "emotion": "Loyalty/Dependability",
     "tier": "Signature",
-    "packaging": "Box",
+    "packaging": "Vase",
     "mono": true,
     "palette": [
       "peach",
@@ -945,7 +945,7 @@
     "price_inr": 4099,
     "emotion": "Strength/Resilience",
     "tier": "Luxury",
-    "packaging": "Vase",
+    "packaging": "PremiumBox",
     "mono": false,
     "palette": [
       "white",
@@ -969,7 +969,7 @@
     "price_inr": 2599,
     "emotion": "Strength/Resilience",
     "tier": "Signature",
-    "packaging": "Box",
+    "packaging": "Vase",
     "mono": true,
     "palette": [
       "white",
@@ -1039,7 +1039,7 @@
     "price_inr": 4099,
     "emotion": "Encouragement/Positivity",
     "tier": "Luxury",
-    "packaging": "Vase",
+    "packaging": "PremiumBox",
     "mono": false,
     "palette": [
       "pearl",
@@ -1063,7 +1063,7 @@
     "price_inr": 2599,
     "emotion": "Encouragement/Positivity",
     "tier": "Signature",
-    "packaging": "Box",
+    "packaging": "Vase",
     "mono": true,
     "palette": [
       "white",
@@ -1133,7 +1133,7 @@
     "price_inr": 4099,
     "emotion": "Fun/Humor",
     "tier": "Luxury",
-    "packaging": "Vase",
+    "packaging": "PremiumBox",
     "mono": false,
     "palette": [
       "gold",
@@ -1157,7 +1157,7 @@
     "price_inr": 2599,
     "emotion": "Fun/Humor",
     "tier": "Signature",
-    "packaging": "Box",
+    "packaging": "Vase",
     "mono": true,
     "palette": [
       "peach",
@@ -1233,7 +1233,7 @@
     "price_inr": 4099,
     "emotion": "Intellect/Wisdom",
     "tier": "Luxury",
-    "packaging": "Vase",
+    "packaging": "PremiumBox",
     "mono": true,
     "palette": [
       "white",
@@ -1333,7 +1333,7 @@
     "price_inr": 4099,
     "emotion": "Adventurous/Creativity",
     "tier": "Luxury",
-    "packaging": "Vase",
+    "packaging": "PremiumBox",
     "mono": false,
     "palette": [
       "peach",
@@ -1406,7 +1406,7 @@
     "price_inr": 4099,
     "emotion": "Intellect/Wisdom",
     "tier": "Luxury",
-    "packaging": "Vase",
+    "packaging": "PremiumBox",
     "mono": false,
     "palette": [
       "pearl",
@@ -1478,7 +1478,7 @@
     "price_inr": 4099,
     "emotion": "Adventurous/Creativity",
     "tier": "Luxury",
-    "packaging": "Vase",
+    "packaging": "PremiumBox",
     "mono": false,
     "palette": [
       "crimson",
@@ -1686,7 +1686,7 @@
     "price_inr": 4499,
     "emotion": "Strength/Resilience",
     "tier": "Luxury",
-    "packaging": "Premium Box",
+    "packaging": "PremiumBox",
     "mono": true,
     "palette": [
       "white",
@@ -1709,7 +1709,7 @@
     "price_inr": 4499,
     "emotion": "Fun/Humor",
     "tier": "Luxury",
-    "packaging": "Premium Box",
+    "packaging": "PremiumBox",
     "mono": true,
     "palette": [
       "gold",
@@ -1732,7 +1732,7 @@
     "price_inr": 4499,
     "emotion": "Selflessness/Generosity",
     "tier": "Luxury",
-    "packaging": "Premium Box",
+    "packaging": "PremiumBox",
     "mono": true,
     "palette": [
       "white",
@@ -1755,7 +1755,7 @@
     "price_inr": 4499,
     "emotion": "Adventurous/Creativity",
     "tier": "Luxury",
-    "packaging": "Premium Box",
+    "packaging": "PremiumBox",
     "mono": true,
     "palette": [
       "peach",
