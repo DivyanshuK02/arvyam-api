@@ -37,6 +37,17 @@ def _load_json(path: str, default: Any) -> Any:
 
 CATALOG = _load_json(_p("catalog.json"), [])
 CAT_BY_ID = {item['id']: item for item in CATALOG if 'id' in item}
+
+# ---- Phase 1.5: internal packaging & LG rails (do not expose) ----
+PACKAGING_BY_TIER = {"Classic": "Box", "Signature": "Vase", "Luxury": "PremiumBox"}
+# Build a tiny id→LG map once (fallback if internals change later)
+LG_INDEX = {row["id"]: bool(row.get("luxury_grand", False)) for row in CATALOG if "id" in row}
+
+def _lg(item: dict) -> bool:
+    # A (preferred today) with B-style fallback if field is missing later
+    return bool(item.get("luxury_grand", LG_INDEX.get(item.get("id"), False)))
+# ------------------------------------------------------------------
+
 RULES_DIR = _p("rules")
 EMOTION_KEYWORDS = _load_json(os.path.join(RULES_DIR, "emotion_keywords.json"), {})
 EDGES = (EMOTION_KEYWORDS.get("edges", {}) or {})
@@ -701,9 +712,24 @@ def selection_engine(prompt: str, context: Dict[str, Any]) -> Tuple[List[Dict[st
     }
     log.info("SELECTION_EVIDENCE: %s", json.dumps(log_record, ensure_ascii=False))
 
+    # ---- Phase 1.5: attach internal-only fields (underscored) ----
+    for item in final_triad:  # keep your actual triad variable name
+        item["_packaging"] = PACKAGING_BY_TIER.get(item.get("tier"))
+        item["_luxury_grand"] = _lg(item)
+        # Optional hardening: prevent raw LG from riding further
+        item.pop("luxury_grand", None)
+
+    # Optional micro-smoke (dev-only): verify internals exist, then delete later or gate by env
+    import os as _os
+    if _os.getenv("PHASE15_SMOKE_ASSERT") == "1":
+        assert all(("_packaging" in it and "_luxury_grand" in it) for it in final_triad), \
+            "Phase-1.5 micro-smoke failed: internal fields missing"
+    # ----------------------------------------------------------------
+
     for c in final_triad:
         c["emotion"] = c.get("emotion") or context.get("resolved_anchor") or "general"
         
     meta = {"detected_emotions": meta_detected}
 
     return final_triad, context, meta
+}
