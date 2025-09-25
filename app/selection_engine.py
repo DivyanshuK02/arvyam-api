@@ -732,4 +732,3 @@ def selection_engine(prompt: str, context: Dict[str, Any]) -> Tuple[List[Dict[st
     meta = {"detected_emotions": meta_detected}
 
     return final_triad, context, meta
-}
