@@ -6,7 +6,7 @@ import json
 PALETTE_ALLOWLIST: dict[str, set[str]] = {
     "Affection/Support": set({
         "blush", "cream", "crimson", "deep-red", "gold", "pearl", "pink", "red", "rose-gold", "soft-pink",
-        "soft-rose"
+        "soft-rose", "soft-green"
     }),
     "Loyalty/Dependability": set({
         "blue", "cream", "navy", "peach", "pearl", "soft-green", "soft-grey", "steel", "white", "yellow"
@@ -20,14 +20,14 @@ PALETTE_ALLOWLIST: dict[str, set[str]] = {
         "white"
     }),
     "Intellect/Wisdom": set({
-        "cream", "eucalyptus", "ivory", "lavender", "linen", "pearl", "soft-beige", "soft-green", "soft-purple", "white"
+        "cream", "eucalyptus", "ivory", "lavender", "linen", "pearl", "soft-beige", "soft-green", "soft-purple", "white", "gold"
     }),
     "Adventurous/Creativity": set({
         "accent", "blush", "contrast", "coral", "cream", "crimson", "gold", "multicolor", "peach", "pearl",
-        "soft-green", "soft-pink", "vibrant", "white"
+        "soft-green", "soft-pink", "vibrant", "white", "gold"
     }),
     "Selflessness/Generosity": set({
-        "amber", "caramel", "cream", "honey", "peach", "pearl", "soft-gold", "soft-green", "warm", "white"
+        "amber", "caramel", "cream", "honey", "peach", "pearl", "soft-gold", "soft-green", "warm", "white", "gold"
     }),
     "Fun/Humor": set({
         "bright-yellow", "citrus", "cream", "gold", "green", "marigold", "peach", "pearl", "sunny", "white",
