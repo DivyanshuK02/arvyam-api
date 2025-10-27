@@ -1,0 +1,1828 @@
+[
+  {
+    "id": "affection_mix_c_a",
+    "title": "Crimson Serenade",
+    "desc": "An elegant dome of crimson roses cushioned by white gerberas and spray carnations in a matte off-white Classic box with a satin gold rim.",
+    "image_url": "https://cdn.jsdelivr.net/gh/DivyanshuK02/arvyam-api@main/assets/img/affection_mix_c_a_v1.webp",
+    "price_inr": 1499,
+    "emotion": "Affection/Support",
+    "tier": "Classic",
+    "packaging": "Box",
+    "mono": false,
+    "palette": [
+      "crimson",
+      "soft-green",
+      "cream"
+    ],
+    "luxury_grand": false,
+    "seasonal": false,
+    "flowers": [
+      "rose",
+      "gerbera",
+      "spray carnations"
+    ],
+    "weight": 60,
+    "sentiment_family": "romantic_passion"
+  },
+  {
+    "id": "affection_mix_c_b",
+    "title": "Scarlet & Ivory Duet",
+    "desc": "An elegant, subtly lifted dome of crimson roses with gerberas in a matte off-white Classic box with a satin gold rim.",
+    "image_url": "https://cdn.jsdelivr.net/gh/DivyanshuK02/arvyam-api@main/assets/img/affection_mix_c_b_v1.webp",
+    "price_inr": 1699,
+    "emotion": "Affection/Support",
+    "tier": "Classic",
+    "packaging": "Box",
+    "mono": false,
+    "palette": [
+      "red",
+      "gold",
+      "cream"
+    ],
+    "luxury_grand": false,
+    "seasonal": false,
+    "flowers": [
+      "rose",
+      "gerbera"
+    ],
+    "weight": 80,
+    "sentiment_family": "romantic_passion"
+  },
+  {
+    "id": "affection_mix_c_c",
+    "title": "Blush Constellation",
+    "desc": "An elegant mound of blush roses laced with gerberas in a matte off-white Classic box with a satin gold rim.",
+    "image_url": "https://cdn.jsdelivr.net/gh/DivyanshuK02/arvyam-api@main/assets/img/affection_mix_c_c_v1.webp",
+    "price_inr": 1499,
+    "emotion": "Affection/Support",
+    "tier": "Classic",
+    "packaging": "Box",
+    "mono": false,
+    "palette": [
+      "blush",
+      "gold",
+      "cream"
+    ],
+    "luxury_grand": false,
+    "seasonal": false,
+    "flowers": [
+      "rose",
+      "gerbera"
+    ],
+    "weight": 75,
+    "sentiment_family": "romantic_passion"
+  },
+  {
+    "id": "affection_mono_s_1",
+    "title": "Pebbled Rose Reverie",
+    "desc": "A compact dome of crimson and ivory roses arranged in a clear glass cylinder with neat stems over natural pebbles.",
+    "image_url": "https://cdn.jsdelivr.net/gh/DivyanshuK02/arvyam-api@main/assets/img/affection_mono_s_1_v1.webp",
+    "price_inr": 2499,
+    "emotion": "Affection/Support",
+    "tier": "Signature",
+    "packaging": "Vase",
+    "mono": true,
+    "palette": [
+      "red",
+      "blush",
+      "cream"
+    ],
+    "luxury_grand": false,
+    "seasonal": false,
+    "flowers": [
+      "rose"
+    ],
+    "weight": 80,
+    "sentiment_family": "romantic_passion"
+  },
+  {
+    "id": "affection_mono_s_2",
+    "title": "Blush Lily Zephyr",
+    "desc": "An airy bouquet of blush and cream lilies with fresh buds in a clear hourglass vase.",
+    "image_url": "https://cdn.jsdelivr.net/gh/DivyanshuK02/arvyam-api@main/assets/img/affection_mono_s_2_v1.webp",
+    "price_inr": 2699,
+    "emotion": "Affection/Support",
+    "tier": "Signature",
+    "packaging": "Vase",
+    "mono": true,
+    "palette": [
+      "blush",
+      "cream",
+      "soft-green"
+    ],
+    "luxury_grand": false,
+    "seasonal": false,
+    "flowers": [
+      "lily"
+    ],
+    "weight": 85,
+    "sentiment_family": "romantic_passion"
+  },
+  {
+    "id": "affection_mono_s_3",
+    "title": "Blush Lily Sweep",
+    "desc": "A grand statement arrangement of blush-cream lilies with generous buds and a gentle asymmetric sweep in a clear hourglass vase.",
+    "image_url": "https://cdn.jsdelivr.net/gh/DivyanshuK02/arvyam-api@main/assets/img/affection_mono_s_3_v1.webp",
+    "price_inr": 2599,
+    "emotion": "Affection/Support",
+    "tier": "Signature",
+    "packaging": "Vase",
+    "mono": true,
+    "palette": [
+      "blush",
+      "soft-green",
+      "soft-pink"
+    ],
+    "luxury_grand": false,
+    "seasonal": false,
+    "flowers": [
+      "lily"
+    ],
+    "weight": 75,
+    "sentiment_family": "romantic_passion"
+  },
+  {
+    "id": "affection_mix_l_a",
+    "title": "Gilded Rose & Lily Aria",
+    "desc": "An elegantly layered dome of roses, lilies and tiny orchid accents—in a luxurious box.",
+    "image_url": "https://cdn.jsdelivr.net/gh/DivyanshuK02/arvyam-api@main/assets/img/affection_mix_l_a_v2.webp",
+    "price_inr": 4799,
+    "emotion": "Affection/Support",
+    "tier": "Luxury",
+    "packaging": "PremiumBox",
+    "mono": false,
+    "palette": [
+      "blush",
+      "cream",
+      "crimson"
+    ],
+    "luxury_grand": false,
+    "seasonal": false,
+    "flowers": [
+      "rose",
+      "lily",
+      "orchid"
+    ],
+    "weight": 75,
+    "sentiment_family": "romantic_passion"
+  },
+  {
+    "id": "affection_mix_l_b",
+    "title": "Aureate Rose Tapestry",
+    "desc": "An elegant arrangement of blush and ivory roses with delicately tucked gypsophila in a Premium Box.",
+    "image_url": "https://cdn.jsdelivr.net/gh/DivyanshuK02/arvyam-api@main/assets/img/affection_mix_l_b_v2.webp",
+    "price_inr": 4899,
+    "emotion": "Affection/Support",
+    "tier": "Luxury",
+    "packaging": "PremiumBox",
+    "mono": false,
+    "palette": [
+      "white",
+      "soft-pink",
+      "blush"
+    ],
+    "luxury_grand": false,
+    "seasonal": false,
+    "flowers": [
+      "rose",
+      "gypsophila"
+    ],
+    "weight": 60,
+    "sentiment_family": "romantic_passion"
+  },
+  {
+    "id": "affection_mix_l_lg",
+    "title": "Gilded Rose Constellation — Grand",
+    "desc": "A lux-dense grand dome of crimson and ivory roses, arranged in a matte black Premium Box.",
+    "image_url": "https://cdn.jsdelivr.net/gh/DivyanshuK02/arvyam-api@main/assets/img/affection_mix_l_lg_v2.webp",
+    "price_inr": 5299,
+    "emotion": "Affection/Support",
+    "tier": "Luxury",
+    "packaging": "PremiumBox",
+    "mono": false,
+    "palette": [
+      "white",
+      "cream",
+      "crimson"
+    ],
+    "luxury_grand": true,
+    "seasonal": false,
+    "flowers": [
+      "rose",
+      "rose"
+    ],
+    "weight": 85,
+    "sentiment_family": "romantic_passion"
+  },
+  {
+    "id": "encouragement_mix_c_a",
+    "title": "Sunlit Cheer Dome",
+    "desc": "A compact dome of sunny yellow roses with daisies in a matte off-white Classic box, perfect for any occasion.",
+    "image_url": "https://cdn.jsdelivr.net/gh/DivyanshuK02/arvyam-api@main/assets/img/encouragement_mix_c_a_v1.webp",
+    "price_inr": 1499,
+    "emotion": "Encouragement/Positivity",
+    "tier": "Classic",
+    "packaging": "Box",
+    "mono": false,
+    "palette": [
+      "gold",
+      "ivory",
+      "soft-green"
+    ],
+    "luxury_grand": false,
+    "seasonal": false,
+    "flowers": [
+      "rose",
+      "gerbera"
+    ],
+    "weight": 85,
+    "sentiment_family": "reconciliation"
+  },
+  {
+    "id": "encouragement_mix_c_b",
+    "title": "Ivory Uplift",
+    "desc": "A gentle and thoughtful mix of cream roses interlaced with yellow and white daisies in a matte off-white Classic box.",
+    "image_url": "https://cdn.jsdelivr.net/gh/DivyanshuK02/arvyam-api@main/assets/img/encouragement_mix_c_b_v1.webp",
+    "price_inr": 1599,
+    "emotion": "Encouragement/Positivity",
+    "tier": "Classic",
+    "packaging": "Box",
+    "mono": false,
+    "palette": [
+      "white",
+      "gold",
+      "soft-green"
+    ],
+    "luxury_grand": false,
+    "seasonal": false,
+    "flowers": [
+      "rose",
+      "gerbera",
+      "rose"
+    ],
+    "weight": 75,
+    "sentiment_family": "reconciliation"
+  },
+  {
+    "id": "encouragement_mix_c_c",
+    "title": "Citrus Meadow Mound",
+    "desc": "A composed arrangement in serene tones with sunny yellow roses with peach carnations and soft white mums in a matte off-white Classic box.",
+    "image_url": "https://cdn.jsdelivr.net/gh/DivyanshuK02/arvyam-api@main/assets/img/encouragement_mix_c_c_v1.webp",
+    "price_inr": 1499,
+    "emotion": "Encouragement/Positivity",
+    "tier": "Classic",
+    "packaging": "Box",
+    "mono": false,
+    "palette": [
+      "white",
+      "gold",
+      "peach"
+    ],
+    "luxury_grand": false,
+    "seasonal": false,
+    "flowers": [
+      "rose",
+      "spray carnations"
+    ],
+    "weight": 55,
+    "sentiment_family": "reconciliation"
+  },
+  {
+    "id": "encouragement_mono_s_1",
+    "title": "Sunlit Rose Chorus",
+    "desc": "A refined dome of bright yellow and white roses in a clear glass cylinder.",
+    "image_url": "https://cdn.jsdelivr.net/gh/DivyanshuK02/arvyam-api@main/assets/img/encouragement_mono_s_1_v1.webp",
+    "price_inr": 2099,
+    "emotion": "Encouragement/Positivity",
+    "tier": "Signature",
+    "packaging": "Vase",
+    "mono": true,
+    "palette": [
+      "white",
+      "gold",
+      "soft-green"
+    ],
+    "luxury_grand": false,
+    "seasonal": false,
+    "flowers": [
+      "rose"
+    ],
+    "weight": 75,
+    "sentiment_family": "reconciliation"
+  },
+  {
+    "id": "encouragement_mono_s_2",
+    "title": "Sunburst Lily Lift",
+    "desc": "A graceful and bright bouquet of sunny yellow and cream lilies with lively buds in a clear hourglass vase.",
+    "image_url": "https://cdn.jsdelivr.net/gh/DivyanshuK02/arvyam-api@main/assets/img/encouragement_mono_s_2_v1.webp",
+    "price_inr": 2599,
+    "emotion": "Encouragement/Positivity",
+    "tier": "Signature",
+    "packaging": "Vase",
+    "mono": true,
+    "palette": [
+      "white",
+      "gold"
+    ],
+    "luxury_grand": false,
+    "seasonal": false,
+    "flowers": [
+      "lily"
+    ],
+    "weight": 85,
+    "sentiment_family": "reconciliation"
+  },
+  {
+    "id": "encouragement_mono_s_3",
+    "title": "Ivory Rose Poise",
+    "desc": "A refined dome of all-white roses arranged in a clear glass cylinder.",
+    "image_url": "https://cdn.jsdelivr.net/gh/DivyanshuK02/arvyam-api@main/assets/img/encouragement_mono_s_3_v1.webp",
+    "price_inr": 2199,
+    "emotion": "Encouragement/Positivity",
+    "tier": "Signature",
+    "packaging": "Vase",
+    "mono": true,
+    "palette": [
+      "white",
+      "soft-green",
+      "cream"
+    ],
+    "luxury_grand": false,
+    "seasonal": false,
+    "flowers": [
+      "rose"
+    ],
+    "weight": 70,
+    "sentiment_family": "reconciliation"
+  },
+  {
+    "id": "encouragement_mix_l_a",
+    "title": "Dawnbound Lilies & Orchids",
+    "desc": "A lifted layered dome of butter-yellow lilies—buds and half-opens—graced by white mini-orchid accents in a Premium Box.",
+    "image_url": "https://cdn.jsdelivr.net/gh/DivyanshuK02/arvyam-api@main/assets/img/encouragement_mix_l_a_v1.webp",
+    "price_inr": 4099,
+    "emotion": "Encouragement/Positivity",
+    "tier": "Luxury",
+    "packaging": "PremiumBox",
+    "mono": false,
+    "palette": [
+      "cream",
+      "gold",
+      "soft-green"
+    ],
+    "luxury_grand": false,
+    "seasonal": false,
+    "flowers": [
+      "lily",
+      "orchid"
+    ],
+    "weight": 65,
+    "sentiment_family": "reconciliation"
+  },
+  {
+    "id": "encouragement_mix_l_b",
+    "title": "Uplifted Lily Crescendo",
+    "desc": "An elegant collection of blush-peach, butter lilies—buds and half-opens—in a Premium Box.",
+    "image_url": "https://cdn.jsdelivr.net/gh/DivyanshuK02/arvyam-api@main/assets/img/encouragement_mix_l_b_v1.webp",
+    "price_inr": 3599,
+    "emotion": "Encouragement/Positivity",
+    "tier": "Luxury",
+    "packaging": "PremiumBox",
+    "mono": false,
+    "palette": [
+      "gold",
+      "blush",
+      "soft-green"
+    ],
+    "luxury_grand": false,
+    "seasonal": false,
+    "flowers": [
+      "lily",
+      "lily"
+    ],
+    "weight": 75,
+    "sentiment_family": "reconciliation"
+  },
+  {
+    "id": "encouragement_mix_l_lg",
+    "title": "Sunlit Lily Grand Opera",
+    "desc": "A graceful and luxurious grand dome of blush and cream lilies—buds and open faces—arranged in a Premium Box.",
+    "image_url": "https://cdn.jsdelivr.net/gh/DivyanshuK02/arvyam-api@main/assets/img/encouragement_mix_l_lg_v1.webp",
+    "price_inr": 4099,
+    "emotion": "Encouragement/Positivity",
+    "tier": "Luxury",
+    "packaging": "PremiumBox",
+    "mono": false,
+    "palette": [
+      "gold",
+      "soft-green"
+    ],
+    "luxury_grand": true,
+    "seasonal": false,
+    "flowers": [
+      "lily",
+      "lily"
+    ],
+    "weight": 85,
+    "sentiment_family": "reconciliation"
+  },
+  {
+    "id": "fun_mix_c_a",
+    "title": "Pink Confetti Dome",
+    "desc": "A classic, playful dome of gerberas and spray carnations with a touch of ivory roses in a Classic box.",
+    "image_url": "https://cdn.jsdelivr.net/gh/DivyanshuK02/arvyam-api@main/assets/img/fun_mix_c_a_v1.webp",
+    "price_inr": 1599,
+    "emotion": "Fun/Humor",
+    "tier": "Classic",
+    "packaging": "Box",
+    "mono": false,
+    "palette": [
+      "soft-pink",
+      "cream"
+    ],
+    "luxury_grand": false,
+    "seasonal": false,
+    "flowers": [
+      "rose",
+      "spray carnations",
+      "gerbera"
+    ],
+    "weight": 70,
+    "sentiment_family": "celebration"
+  },
+  {
+    "id": "fun_mix_c_b",
+    "title": "Butter Pop Lift",
+    "desc": "A lightly lifted dome of buttery yellow and white gerberas with lemon-tinted roses in a Classic box.",
+    "image_url": "https://cdn.jsdelivr.net/gh/DivyanshuK02/arvyam-api@main/assets/img/fun_mix_c_b_v1.webp",
+    "price_inr": 1499,
+    "emotion": "Fun/Humor",
+    "tier": "Classic",
+    "packaging": "Box",
+    "mono": false,
+    "palette": [
+      "cream",
+      "gold"
+    ],
+    "luxury_grand": false,
+    "seasonal": false,
+    "flowers": [
+      "rose",
+      "gerbera"
+    ],
+    "weight": 85,
+    "sentiment_family": "celebration"
+  },
+  {
+    "id": "fun_mix_c_c",
+    "title": "Citrus Carnival Mound",
+    "desc": "A playful low, wider mound of tangerine gerberas and spray carnations with ivory roses in a matte off-white Classic box.",
+    "image_url": "https://cdn.jsdelivr.net/gh/DivyanshuK02/arvyam-api@main/assets/img/fun_mix_c_c_v1.webp",
+    "price_inr": 1599,
+    "emotion": "Fun/Humor",
+    "tier": "Classic",
+    "packaging": "Box",
+    "mono": false,
+    "palette": [
+      "coral",
+      "blush",
+      "gold"
+    ],
+    "luxury_grand": false,
+    "seasonal": false,
+    "flowers": [
+      "rose",
+      "spray carnations",
+      "gerbera"
+    ],
+    "weight": 75,
+    "sentiment_family": "celebration"
+  },
+  {
+    "id": "fun_mono_s_1",
+    "title": "Tangerine Fizz Rose Arc",
+    "desc": "A jaunty mono arc of hot-pink and tangerine roses in a clear glass cylinder over natural pebbles for a bright, energetic finish.",
+    "image_url": "https://cdn.jsdelivr.net/gh/DivyanshuK02/arvyam-api@main/assets/img/fun_mono_s_1_v1.webp",
+    "price_inr": 2499,
+    "emotion": "Fun/Humor",
+    "tier": "Signature",
+    "packaging": "Vase",
+    "mono": true,
+    "palette": [
+      "coral",
+      "blush",
+      "soft-green"
+    ],
+    "luxury_grand": false,
+    "seasonal": false,
+    "flowers": [
+      "rose"
+    ],
+    "weight": 70,
+    "sentiment_family": "celebration"
+  },
+  {
+    "id": "fun_mono_s_2",
+    "title": "Citrus Lily Spark",
+    "desc": "A lively, free-bloom bouquet of lemon-and-tangerine lilies with fresh buds in a clear hourglass vase.",
+    "image_url": "https://cdn.jsdelivr.net/gh/DivyanshuK02/arvyam-api@main/assets/img/fun_mono_s_2_v1.webp",
+    "price_inr": 2599,
+    "emotion": "Fun/Humor",
+    "tier": "Signature",
+    "packaging": "Vase",
+    "mono": true,
+    "palette": [
+      "coral",
+      "gold",
+      "soft-green"
+    ],
+    "luxury_grand": false,
+    "seasonal": false,
+    "flowers": [
+      "lily"
+    ],
+    "weight": 75,
+    "sentiment_family": "celebration"
+  },
+  {
+    "id": "fun_mono_s_3",
+    "title": "Marmalade Lily Pop",
+    "desc": "The iconic free-bloom bouquet of vivid tangerine lilies with lively buds in a clear hourglass vase and a bright, energetic Fun-lane finish.",
+    "image_url": "https://cdn.jsdelivr.net/gh/DivyanshuK02/arvyam-api@main/assets/img/fun_mono_s_3_v1.webp",
+    "price_inr": 2499,
+    "emotion": "Fun/Humor",
+    "tier": "Signature",
+    "packaging": "Vase",
+    "mono": true,
+    "palette": [
+      "soft-green",
+      "coral"
+    ],
+    "luxury_grand": false,
+    "seasonal": false,
+    "flowers": [
+      "lily"
+    ],
+    "weight": 85,
+    "sentiment_family": "celebration"
+  },
+  {
+    "id": "fun_mix_l_a",
+    "title": "Sunburst Rose Parade",
+    "desc": "An opulent luxury dome of lemon-yellow roses leading over crisp white daisies, set in a black premium cylinder —bright, energetic, and joyfully bold.",
+    "image_url": "https://cdn.jsdelivr.net/gh/DivyanshuK02/arvyam-api@main/assets/img/fun_mix_l_a_v1.webp",
+    "price_inr": 4299,
+    "emotion": "Fun/Humor",
+    "tier": "Luxury",
+    "packaging": "PremiumBox",
+    "mono": false,
+    "palette": [
+      "gold",
+      "cream"
+    ],
+    "luxury_grand": false,
+    "seasonal": false,
+    "flowers": [
+      "rose",
+      "gerbera"
+    ],
+    "weight": 70,
+    "sentiment_family": "celebration"
+  },
+  {
+    "id": "fun_mix_l_b",
+    "title": "Lemon Confetti Rose Crown",
+    "desc": "A bright and cheerful luxury dome of ivory and sunny yellow roses with a soft lily crown, set in a black premium cylinder to celebrate big moments.",
+    "image_url": "https://cdn.jsdelivr.net/gh/DivyanshuK02/arvyam-api@main/assets/img/fun_mix_l_b_v1.webp",
+    "price_inr": 4599,
+    "emotion": "Fun/Humor",
+    "tier": "Luxury",
+    "packaging": "PremiumBox",
+    "mono": false,
+    "palette": [
+      "gold",
+      "cream",
+      "soft-green"
+    ],
+    "luxury_grand": false,
+    "seasonal": false,
+    "flowers": [
+      "rose",
+      "lily"
+    ],
+    "weight": 75,
+    "sentiment_family": "celebration"
+  },
+  {
+    "id": "fun_mix_l_lg",
+    "title": "Lemon Jubilee Lily Fête",
+    "desc": "A festive and opulent dome of sunny yellow roses with lily stars, set in a black premium cylinder for any celebration.",
+    "image_url": "https://cdn.jsdelivr.net/gh/DivyanshuK02/arvyam-api@main/assets/img/fun_mix_l_lg_v1.webp",
+    "price_inr": 4699,
+    "emotion": "Fun/Humor",
+    "tier": "Luxury",
+    "packaging": "PremiumBox",
+    "mono": false,
+    "palette": [
+      "gold",
+      "coral",
+      "white"
+    ],
+    "luxury_grand": true,
+    "seasonal": false,
+    "flowers": [
+      "rose",
+      "lily"
+    ],
+    "weight": 80,
+    "sentiment_family": "celebration"
+  },
+  {
+    "id": "intellect_mix_c_a",
+    "title": "Butter Rose Axiom",
+    "desc": "A composed dome of butter-yellow roses with crisp white gerberas and spray chrysanthemums in an off-white cylinder with a gold rim—disciplined greens and a clean, intelligent finish.",
+    "image_url": "https://cdn.jsdelivr.net/gh/DivyanshuK02/arvyam-api@main/assets/img/intellect_mix_c_a_v1.webp",
+    "price_inr": 1499,
+    "emotion": "Intellect/Wisdom",
+    "tier": "Classic",
+    "packaging": "Box",
+    "mono": false,
+    "palette": [
+      "ivory",
+      "gold",
+      "white"
+    ],
+    "luxury_grand": false,
+    "seasonal": false,
+    "flowers": [
+      "rose",
+      "gerbera"
+    ],
+    "weight": 65,
+    "sentiment_family": "intellectual_appreciation"
+  },
+  {
+    "id": "intellect_mix_c_b",
+    "title": "Gerbera Corollary",
+    "desc": "A composed classic dome of lemon gerberas leading with white gerberas and ivory roses in an off-white cylinder with a gold rim.",
+    "image_url": "https://cdn.jsdelivr.net/gh/DivyanshuK02/arvyam-api@main/assets/img/intellect_mix_c_b_v1.webp",
+    "price_inr": 1499,
+    "emotion": "Intellect/Wisdom",
+    "tier": "Classic",
+    "packaging": "Box",
+    "mono": false,
+    "palette": [
+      "white",
+      "gold"
+    ],
+    "luxury_grand": false,
+    "seasonal": false,
+    "flowers": [
+      "rose",
+      "gerbera"
+    ],
+    "weight": 70,
+    "sentiment_family": "intellectual_appreciation"
+  },
+  {
+    "id": "intellect_mix_c_c",
+    "title": "Butter Rose Theorem",
+    "desc": "A composed classic dome of butter-yellow roses with quiet white and yellow gerberas in an off-white cylinder with a gold rim—disciplined greens.",
+    "image_url": "https://cdn.jsdelivr.net/gh/DivyanshuK02/arvyam-api@main/assets/img/intellect_mix_c_c_v1.webp",
+    "price_inr": 1499,
+    "emotion": "Intellect/Wisdom",
+    "tier": "Classic",
+    "packaging": "Box",
+    "mono": false,
+    "palette": [
+      "gold",
+      "white"
+    ],
+    "luxury_grand": false,
+    "seasonal": false,
+    "flowers": [
+      "rose",
+      "gerbera"
+    ],
+    "weight": 85,
+    "sentiment_family": "intellectual_appreciation"
+  },
+  {
+    "id": "intellect_mono_s_1",
+    "title": "Butter & Ivory Rose Thesis",
+    "desc": "A warm, appreciative dome of butter-yellow and ivory roses in a clear glass cylinder with honest, lively stems.",
+    "image_url": "https://cdn.jsdelivr.net/gh/DivyanshuK02/arvyam-api@main/assets/img/intellect_mono_s_1_v1.webp",
+    "price_inr": 2499,
+    "emotion": "Intellect/Wisdom",
+    "tier": "Signature",
+    "packaging": "Vase",
+    "mono": true,
+    "palette": [
+      "gold",
+      "cream",
+      "soft-green"
+    ],
+    "luxury_grand": false,
+    "seasonal": false,
+    "flowers": [
+      "rose"
+    ],
+    "weight": 70,
+    "sentiment_family": "intellectual_appreciation"
+  },
+  {
+    "id": "intellect_mono_s_2",
+    "title": "Ivory Lily Lemma",
+    "desc": "An elegantly composed bouquet of snow-white oriental lilies and buds—gathered in a clear glass vase with disciplined greens.",
+    "image_url": "https://cdn.jsdelivr.net/gh/DivyanshuK02/arvyam-api@main/assets/img/intellect_mono_s_2_v1.webp",
+    "price_inr": 2599,
+    "emotion": "Intellect/Wisdom",
+    "tier": "Signature",
+    "packaging": "Vase",
+    "mono": true,
+    "palette": [
+      "white",
+      "cream",
+      "soft-green"
+    ],
+    "luxury_grand": false,
+    "seasonal": false,
+    "flowers": [
+      "lily"
+    ],
+    "weight": 65,
+    "sentiment_family": "intellectual_appreciation"
+  },
+  {
+    "id": "intellect_mono_s_3",
+    "title": "Butter Lily Corollary",
+    "desc": "A refined bloom of buttery yellow oriental lilies—opens and buds—with natural leaf flare in a clear hourglass vase.",
+    "image_url": "https://cdn.jsdelivr.net/gh/DivyanshuK02/arvyam-api@main/assets/img/intellect_mono_s_3_v1.webp",
+    "price_inr": 2599,
+    "emotion": "Intellect/Wisdom",
+    "tier": "Signature",
+    "packaging": "Vase",
+    "mono": true,
+    "palette": [
+      "gold",
+      "cream",
+      "soft-green"
+    ],
+    "luxury_grand": false,
+    "seasonal": false,
+    "flowers": [
+      "lily"
+    ],
+    "weight": 85,
+    "sentiment_family": "intellectual_appreciation"
+  },
+  {
+    "id": "intellect_mix_l_a",
+    "title": "Orchid Lily Postulate",
+    "desc": "A luxury bud-led curation of buttery lilies with white phalaenopsis, gathered in a black premium cylinder —disciplined greens, calm tonality, and an intelligent, quietly refined finish.",
+    "image_url": "https://cdn.jsdelivr.net/gh/DivyanshuK02/arvyam-api@main/assets/img/intellect_mix_l_a_v1.webp",
+    "price_inr": 3699,
+    "emotion": "Intellect/Wisdom",
+    "tier": "Luxury",
+    "packaging": "PremiumBox",
+    "mono": false,
+    "palette": [
+      "white",
+      "gold"
+    ],
+    "luxury_grand": false,
+    "seasonal": false,
+    "flowers": [
+      "orchid",
+      "lily"
+    ],
+    "weight": 70,
+    "sentiment_family": "intellectual_appreciation"
+  },
+  {
+    "id": "intellect_mix_l_b",
+    "title": "White Orchid Lily Corollary",
+    "desc": "A bright mix of bud-led white lilies with white phalaenopsis, seated in a black premium cylinder.",
+    "image_url": "https://cdn.jsdelivr.net/gh/DivyanshuK02/arvyam-api@main/assets/img/intellect_mix_l_b_v1.webp",
+    "price_inr": 3599,
+    "emotion": "Intellect/Wisdom",
+    "tier": "Luxury",
+    "packaging": "PremiumBox",
+    "mono": false,
+    "palette": [
+      "cream",
+      "white",
+      "soft-green"
+    ],
+    "luxury_grand": false,
+    "seasonal": false,
+    "flowers": [
+      "orchid",
+      "lily"
+    ],
+    "weight": 60,
+    "sentiment_family": "intellectual_appreciation"
+  },
+  {
+    "id": "intellect_mix_l_lg",
+    "title": "Butter Rose Grand Theorem",
+    "desc": "A rose-led luxury grand dome of butter and ivory roses with graceful white lilies and tucked phalaenopsis, seated in a black premium cylinder —calm, composed, and intelligently refined.",
+    "image_url": "https://cdn.jsdelivr.net/gh/DivyanshuK02/arvyam-api@main/assets/img/intellect_mix_l_lg_v1.webp",
+    "price_inr": 4299,
+    "emotion": "Intellect/Wisdom",
+    "tier": "Luxury",
+    "packaging": "PremiumBox",
+    "mono": false,
+    "palette": [
+      "gold",
+      "white",
+      "soft-green"
+    ],
+    "luxury_grand": true,
+    "seasonal": false,
+    "flowers": [
+      "rose",
+      "lily",
+      "orchid"
+    ],
+    "weight": 80,
+    "sentiment_family": "intellectual_appreciation"
+  },
+  {
+    "id": "loyalty_mix_c_a",
+    "title": "Butter Rose Gratitude Dome",
+    "desc": "A classic dome of butter-yellow roses with white gerberas and spray chrysanthemums in an off-white cylinder topped with a gold rim—warm, sincere, and quietly elegant.",
+    "image_url": "https://cdn.jsdelivr.net/gh/DivyanshuK02/arvyam-api@main/assets/img/loyalty_mix_c_a_v1.webp",
+    "price_inr": 1499,
+    "emotion": "Loyalty/Dependability",
+    "tier": "Classic",
+    "packaging": "Box",
+    "mono": false,
+    "palette": [
+      "gold",
+      "cream",
+      "soft-green"
+    ],
+    "luxury_grand": false,
+    "seasonal": false,
+    "flowers": [
+      "rose",
+      "gerbera"
+    ],
+    "weight": 75,
+    "sentiment_family": "parting_respect"
+  },
+  {
+    "id": "loyalty_mix_c_b",
+    "title": "Gentle Thanks Dome",
+    "desc": "A warm classic mix of butter roses with white and yellow gerberas in an off-white cylinder with a gold rim—calm, sincere, and quietly elegant.",
+    "image_url": "https://cdn.jsdelivr.net/gh/DivyanshuK02/arvyam-api@main/assets/img/loyalty_mix_c_b_v1.webp",
+    "price_inr": 1599,
+    "emotion": "Loyalty/Dependability",
+    "tier": "Classic",
+    "packaging": "Box",
+    "mono": false,
+    "palette": [
+      "gold",
+      "cream"
+    ],
+    "luxury_grand": false,
+    "seasonal": false,
+    "flowers": [
+      "rose",
+      "gerbera"
+    ],
+    "weight": 80,
+    "sentiment_family": "professional_achievement"
+  },
+  {
+    "id": "loyalty_mix_c_c",
+    "title": "Ivory Halo of Thanks",
+    "desc": "A warm classic dome of Ivory roses with white and yellow gerberas set in an off-white cylinder with a gold rim—gracious, tender, and quietly elegant.",
+    "image_url": "https://cdn.jsdelivr.net/gh/DivyanshuK02/arvyam-api@main/assets/img/loyalty_mix_c_c_v1.webp",
+    "price_inr": 1599,
+    "emotion": "Loyalty/Dependability",
+    "tier": "Classic",
+    "packaging": "Box",
+    "mono": false,
+    "palette": [
+      "white",
+      "soft-green",
+      "gold"
+    ],
+    "luxury_grand": false,
+    "seasonal": false,
+    "flowers": [
+      "gerbera",
+      "rose"
+    ],
+    "weight": 70,
+    "sentiment_family": "parting_respect"
+  },
+  {
+    "id": "loyalty_mono_s_1",
+    "title": "Butter & Ivory Thank-You Roses",
+    "desc": "A bouquet of comforting tones with butter-yellow and ivory roses in a clear glass cylinder.",
+    "image_url": "https://cdn.jsdelivr.net/gh/DivyanshuK02/arvyam-api@main/assets/img/loyalty_mono_s_1_v1.webp",
+    "price_inr": 2499,
+    "emotion": "Loyalty/Dependability",
+    "tier": "Signature",
+    "packaging": "Vase",
+    "mono": true,
+    "palette": [
+      "white",
+      "pearl",
+      "soft-green"
+    ],
+    "luxury_grand": false,
+    "seasonal": false,
+    "flowers": [
+      "rose"
+    ],
+    "weight": 80,
+    "sentiment_family": "parting_respect"
+  },
+  {
+    "id": "loyalty_mono_s_2",
+    "title": "Butter Lily Gratitude",
+    "desc": "A calming luxury bouquet with elegant butter-yellow and ivory lilies—opens and buds—gathered in a clear hourglass vase to wish them well.",
+    "image_url": "https://cdn.jsdelivr.net/gh/DivyanshuK02/arvyam-api@main/assets/img/loyalty_mono_s_2_v1.webp",
+    "price_inr": 2699,
+    "emotion": "Loyalty/Dependability",
+    "tier": "Signature",
+    "packaging": "Vase",
+    "mono": true,
+    "palette": [
+      "gold",
+      "cream",
+      "soft-green"
+    ],
+    "luxury_grand": false,
+    "seasonal": false,
+    "flowers": [
+      "lily"
+    ],
+    "weight": 75,
+    "sentiment_family": "professional_achievement"
+  },
+  {
+    "id": "loyalty_mono_s_3",
+    "title": "Ivory Lily Thank-You",
+    "desc": "A pure and serene bouquet of snow-white oriental lilies—open faces and soft buds—in a clear glass hourglass vase.",
+    "image_url": "https://cdn.jsdelivr.net/gh/DivyanshuK02/arvyam-api@main/assets/img/loyalty_mono_s_3_v1.webp",
+    "price_inr": 2599,
+    "emotion": "Loyalty/Dependability",
+    "tier": "Signature",
+    "packaging": "Vase",
+    "mono": true,
+    "palette": [
+      "white",
+      "soft-green"
+    ],
+    "luxury_grand": false,
+    "seasonal": false,
+    "flowers": [
+      "lily"
+    ],
+    "weight": 60,
+    "sentiment_family": "parting_respect"
+  },
+  {
+    "id": "loyalty_mix_l_a",
+    "title": "Butter & Ivory Rose Tribute",
+    "desc": "A lifted luxury dome of butter-yellow and ivory roses in a black premium cylinder, sincere, and impeccably composed.",
+    "image_url": "https://cdn.jsdelivr.net/gh/DivyanshuK02/arvyam-api@main/assets/img/loyalty_mix_l_a_v1.webp",
+    "price_inr": 4899,
+    "emotion": "Loyalty/Dependability",
+    "tier": "Luxury",
+    "packaging": "PremiumBox",
+    "mono": false,
+    "palette": [
+      "gold",
+      "cream",
+      "soft-green"
+    ],
+    "luxury_grand": false,
+    "seasonal": false,
+    "flowers": [
+      "rose",
+      "rose"
+    ],
+    "weight": 70,
+    "sentiment_family": "parting_respect"
+  },
+  {
+    "id": "loyalty_mix_l_b",
+    "title": "Butter Rose Devotion",
+    "desc": "A mono-butter luxury dome of tightly gathered roses in a black premium cylinder —warm, sincere, and quietly opulent.",
+    "image_url": "https://cdn.jsdelivr.net/gh/DivyanshuK02/arvyam-api@main/assets/img/loyalty_mix_l_b_v1.webp",
+    "price_inr": 4999,
+    "emotion": "Loyalty/Dependability",
+    "tier": "Luxury",
+    "packaging": "PremiumBox",
+    "mono": false,
+    "palette": [
+      "gold",
+      "soft-green"
+    ],
+    "luxury_grand": false,
+    "seasonal": false,
+    "flowers": [
+      "rose",
+      "rose"
+    ],
+    "weight": 65,
+    "sentiment_family": "professional_achievement"
+  },
+  {
+    "id": "loyalty_mix_l_lg",
+    "title": "Grand Gratitude Rose Ensemble",
+    "desc": "A rose-led luxury grand dome of butter and ivory roses with graceful white lilies and tucked phalaenopsis, seated in a black premium cylinder, composed, and generously thankful.",
+    "image_url": "https://cdn.jsdelivr.net/gh/DivyanshuK02/arvyam-api@main/assets/img/loyalty_mix_l_lg_v1.webp",
+    "price_inr": 4499,
+    "emotion": "Loyalty/Dependability",
+    "tier": "Luxury",
+    "packaging": "PremiumBox",
+    "mono": false,
+    "palette": [
+      "gold",
+      "cream",
+      "soft-green"
+    ],
+    "luxury_grand": true,
+    "seasonal": false,
+    "flowers": [
+      "lily",
+      "rose",
+      "orchid"
+    ],
+    "weight": 80,
+    "sentiment_family": "parting_respect"
+  },
+  {
+    "id": "generosity_mix_c_a",
+    "title": "Open-Hand Bouquet",
+    "desc": "A generous classic dome of butter roses with daisies and white spray chrysanthemums in a classic box —warm offer of encouragement.",
+    "image_url": "https://cdn.jsdelivr.net/gh/DivyanshuK02/arvyam-api@main/assets/img/generosity_mix_c_a_v1.webp",
+    "price_inr": 1599,
+    "emotion": "Selflessness/Generosity",
+    "tier": "Classic",
+    "packaging": "Box",
+    "mono": false,
+    "palette": [
+      "white",
+      "gold"
+    ],
+    "luxury_grand": false,
+    "seasonal": false,
+    "flowers": [
+      "rose",
+      "gerbera"
+    ],
+    "weight": 75,
+    "sentiment_family": "professional_achievement"
+  },
+  {
+    "id": "generosity_mix_c_b",
+    "title": "Selfless Sunlight",
+    "desc": "A generous classic dome of butter roses with blush daisies and white spray chrysanthemums in an off-white cylinder crowned by a gold rim—warm, abundant.",
+    "image_url": "https://cdn.jsdelivr.net/gh/DivyanshuK02/arvyam-api@main/assets/img/generosity_mix_c_b_v1.webp",
+    "price_inr": 1499,
+    "emotion": "Selflessness/Generosity",
+    "tier": "Classic",
+    "packaging": "Box",
+    "mono": false,
+    "palette": [
+      "peach",
+      "gold",
+      "cream"
+    ],
+    "luxury_grand": false,
+    "seasonal": false,
+    "flowers": [
+      "rose",
+      "gerbera"
+    ],
+    "weight": 65,
+    "sentiment_family": "professional_achievement"
+  },
+  {
+    "id": "generosity_mix_c_c",
+    "title": "Peach & Butter Offering",
+    "desc": "A generous classic dome of peach daisies, butter roses, and white sprays in an off-white cylinder with a gold rim—warm, abundant, and beautifully composed.",
+    "image_url": "https://cdn.jsdelivr.net/gh/DivyanshuK02/arvyam-api@main/assets/img/generosity_mix_c_c_v1.webp",
+    "price_inr": 1699,
+    "emotion": "Selflessness/Generosity",
+    "tier": "Classic",
+    "packaging": "Box",
+    "mono": false,
+    "palette": [
+      "gold",
+      "peach",
+      "white"
+    ],
+    "luxury_grand": false,
+    "seasonal": false,
+    "flowers": [
+      "rose",
+      "gerbera"
+    ],
+    "weight": 50,
+    "sentiment_family": "professional_achievement"
+  },
+  {
+    "id": "generosity_mono_s_1",
+    "title": "Butter Lily Benediction",
+    "desc": "A lavish bouquet of butter-and-ivory lilies—opens and buds—gathered in a clear hourglass vase.",
+    "image_url": "https://cdn.jsdelivr.net/gh/DivyanshuK02/arvyam-api@main/assets/img/generosity_mono_s_1_v1.webp",
+    "price_inr": 2599,
+    "emotion": "Selflessness/Generosity",
+    "tier": "Signature",
+    "packaging": "Vase",
+    "mono": true,
+    "palette": [
+      "gold",
+      "soft-green",
+      "white"
+    ],
+    "luxury_grand": false,
+    "seasonal": false,
+    "flowers": [
+      "lily"
+    ],
+    "weight": 85,
+    "sentiment_family": "professional_achievement"
+  },
+  {
+    "id": "generosity_mono_s_2",
+    "title": "Open-Hand Roses",
+    "desc": "A beautiful bouquet of butter and ivory roses arranged in a clear glass cylinder with honest stems—warm and welcoming.",
+    "image_url": "https://cdn.jsdelivr.net/gh/DivyanshuK02/arvyam-api@main/assets/img/generosity_mono_s_2_v1.webp",
+    "price_inr": 2399,
+    "emotion": "Selflessness/Generosity",
+    "tier": "Signature",
+    "packaging": "Vase",
+    "mono": true,
+    "palette": [
+      "gold",
+      "cream"
+    ],
+    "luxury_grand": false,
+    "seasonal": false,
+    "flowers": [
+      "rose"
+    ],
+    "weight": 75,
+    "sentiment_family": "professional_achievement"
+  },
+  {
+    "id": "generosity_mono_s_3",
+    "title": "Sunlit Lily Tribute",
+    "desc": "A generous mono of lilies—opens and buds in warm tones—gathered in a clear hourglass vase and disciplined greens, for thoughtful messages.",
+    "image_url": "https://cdn.jsdelivr.net/gh/DivyanshuK02/arvyam-api@main/assets/img/generosity_mono_s_3_v1.webp",
+    "price_inr": 2599,
+    "emotion": "Selflessness/Generosity",
+    "tier": "Signature",
+    "packaging": "Vase",
+    "mono": true,
+    "palette": [
+      "white",
+      "cream",
+      "soft-green",
+      "coral",
+      "orange"
+    ],
+    "luxury_grand": false,
+    "seasonal": false,
+    "flowers": [
+      "lily"
+    ],
+    "weight": 70,
+    "sentiment_family": "professional_achievement"
+  },
+  {
+    "id": "generosity_mix_l_a",
+    "title": "Open-Hand Rose Ensemble",
+    "desc": "A rose-led luxury mix of butter and ivory roses with graceful white lilies and tucked phalaenopsis, seated in a black premium cylinder —warm, welcoming, and generously composed.",
+    "image_url": "https://cdn.jsdelivr.net/gh/DivyanshuK02/arvyam-api@main/assets/img/generosity_mix_l_a_v1.webp",
+    "price_inr": 4499,
+    "emotion": "Selflessness/Generosity",
+    "tier": "Luxury",
+    "packaging": "PremiumBox",
+    "mono": false,
+    "palette": [
+      "white",
+      "ivory",
+      "gold",
+      "soft-green"
+    ],
+    "luxury_grand": false,
+    "seasonal": false,
+    "flowers": [
+      "orchid",
+      "rose",
+      "lily"
+    ],
+    "weight": 85,
+    "sentiment_family": "professional_achievement"
+  },
+  {
+    "id": "generosity_mix_l_b",
+    "title": "Apricot Rose Benediction",
+    "desc": "A luxurious mix of apricot and ivory roses with graceful white lilies and tucked phalaenopsis in a black premium cylinder—warm, welcoming, and generously composed.",
+    "image_url": "https://cdn.jsdelivr.net/gh/DivyanshuK02/arvyam-api@main/assets/img/generosity_mix_l_b_v1.webp",
+    "price_inr": 4699,
+    "emotion": "Selflessness/Generosity",
+    "tier": "Luxury",
+    "packaging": "PremiumBox",
+    "mono": false,
+    "palette": [
+      "white",
+      "coral",
+      "soft-pink"
+    ],
+    "luxury_grand": false,
+    "seasonal": false,
+    "flowers": [
+      "orchid",
+      "rose",
+      "lily"
+    ],
+    "weight": 95,
+    "sentiment_family": "professional_achievement"
+  },
+  {
+    "id": "adventurous_mix_c_a",
+    "title": "Ember Whisper Mound",
+    "desc": "Low, wider mound of peach roses and tangerine carnations with restrained celosia tips, set in a matte off-white Classic box.",
+    "image_url": "https://cdn.jsdelivr.net/gh/DivyanshuK02/arvyam-api@main/assets/img/adventurous_mix_c_a_v1.webp",
+    "price_inr": 1599,
+    "emotion": "Adventurous/Creativity",
+    "tier": "Classic",
+    "packaging": "Box",
+    "mono": false,
+    "palette": [
+      "peach",
+      "coral",
+      "soft-pink",
+      "soft-green"
+    ],
+    "luxury_grand": false,
+    "seasonal": false,
+    "flowers": [
+      "spray carnations",
+      "rose",
+      "celosia"
+    ],
+    "weight": 70,
+    "sentiment_family": "creative_expression"
+  },
+  {
+    "id": "adventurous_mix_c_b",
+    "title": "Coral Crescendo",
+    "desc": "Balanced dome of peach roses with tangerine carnations and neat celosia pops, a cleaner edge, in a matte off-white Classic box.",
+    "image_url": "https://cdn.jsdelivr.net/gh/DivyanshuK02/arvyam-api@main/assets/img/adventurous_mix_c_b_v1.webp",
+    "price_inr": 1499,
+    "emotion": "Adventurous/Creativity",
+    "tier": "Classic",
+    "packaging": "Box",
+    "mono": false,
+    "palette": [
+      "peach",
+      "blush",
+      "soft-pink",
+      "soft-green"
+    ],
+    "luxury_grand": false,
+    "seasonal": false,
+    "flowers": [
+      "rose",
+      "gerbera",
+      "spray carnations"
+    ],
+    "weight": 85,
+    "sentiment_family": "creative_expression"
+  },
+  {
+    "id": "adventurous_mix_c_c",
+    "title": "Peachfire Prelude",
+    "desc": "Compact dome of peach roses and tangerine carnations, lifted by hot-pink celosia and tiny baby’s-breath in a matte off-beige Classic box.",
+    "image_url": "https://cdn.jsdelivr.net/gh/DivyanshuK02/arvyam-api@main/assets/img/adventurous_mix_c_c_v1.webp",
+    "price_inr": 1599,
+    "emotion": "Adventurous/Creativity",
+    "tier": "Classic",
+    "packaging": "Box",
+    "mono": false,
+    "palette": [
+      "peach",
+      "coral",
+      "soft-pink"
+    ],
+    "luxury_grand": false,
+    "seasonal": false,
+    "flowers": [
+      "gypsophila",
+      "rose",
+      "spray carnations"
+    ],
+    "tags": [
+      "temp_p1_coverage"
+    ],
+    "sentiment_family": "creative_expression"
+  },
+  {
+    "id": "adventurous_mono_s_1",
+    "title": "Coral Tide Rose Dome",
+    "desc": "Tight dome of coral and blush roses set over natural pebbles in a clear glass cylinder; aligned stems, modern finish with an artistic flair.",
+    "image_url": "https://cdn.jsdelivr.net/gh/DivyanshuK02/arvyam-api@main/assets/img/adventurous_mono_s_1_v1.webp",
+    "price_inr": 2499,
+    "emotion": "Adventurous/Creativity",
+    "tier": "Signature",
+    "packaging": "Vase",
+    "mono": true,
+    "palette": [
+      "peach",
+      "blush",
+      "coral"
+    ],
+    "luxury_grand": false,
+    "seasonal": false,
+    "flowers": [
+      "rose"
+    ],
+    "weight": 75,
+    "sentiment_family": "creative_expression"
+  },
+  {
+    "id": "adventurous_mono_s_2",
+    "title": "Ember Roses over Riverstone",
+    "desc": "Compact dome of vivid orange roses above smooth river pebbles in a clear glass cylinder; neat stems, clean waterline.",
+    "image_url": "https://cdn.jsdelivr.net/gh/DivyanshuK02/arvyam-api@main/assets/img/adventurous_mono_s_2_v1.webp",
+    "price_inr": 2499,
+    "emotion": "Adventurous/Creativity",
+    "tier": "Signature",
+    "packaging": "Vase",
+    "mono": true,
+    "palette": [
+      "peach",
+      "blush",
+      "coral"
+    ],
+    "luxury_grand": false,
+    "seasonal": false,
+    "flowers": [
+      "rose"
+    ],
+    "weight": 60,
+    "sentiment_family": "creative_expression"
+  },
+  {
+    "id": "adventurous_mono_s_3",
+    "title": "Saffron Lily Surge",
+    "desc": "Elegant, Sculpted bouquet of amber Asiatic lilies—open blooms with buds—in a clear hourglass vase.",
+    "image_url": "https://cdn.jsdelivr.net/gh/DivyanshuK02/arvyam-api@main/assets/img/adventurous_mono_s_3_v1.webp",
+    "price_inr": 2699,
+    "emotion": "Adventurous/Creativity",
+    "tier": "Signature",
+    "packaging": "Vase",
+    "mono": true,
+    "palette": [
+      "peach",
+      "blush",
+      "coral"
+    ],
+    "luxury_grand": false,
+    "seasonal": false,
+    "flowers": [
+      "lily"
+    ],
+    "weight": 90,
+    "sentiment_family": "creative_expression"
+  },
+  {
+    "id": "adventurous_mix_l_a",
+    "title": "Saffron Palisade",
+    "desc": "A luxurious arrangement, an architectural ring of saffron lilies encircling roses and orchid accents, composed in a wide luxury box.",
+    "image_url": "https://cdn.jsdelivr.net/gh/DivyanshuK02/arvyam-api@main/assets/img/adventurous_mix_l_a_v2.webp",
+    "price_inr": 4099,
+    "emotion": "Adventurous/Creativity",
+    "tier": "Luxury",
+    "packaging": "PremiumBox",
+    "mono": false,
+    "palette": [
+      "coral",
+      "peach",
+      "soft-green"
+    ],
+    "luxury_grand": false,
+    "seasonal": false,
+    "flowers": [
+      "lily",
+      "rose",
+      "orchid"
+    ],
+    "weight": 75,
+    "sentiment_family": "creative_expression"
+  },
+  {
+    "id": "adventurous_mix_l_b",
+    "title": "Saffron Halo",
+    "desc": "A lively and adventurous mix in saffron-lily collar with blush roses cluster, orchid accents and tidy greens, finished in a luxury box with a gentle crown.",
+    "image_url": "https://cdn.jsdelivr.net/gh/DivyanshuK02/arvyam-api@main/assets/img/adventurous_mix_l_b_v2.webp",
+    "price_inr": 4299,
+    "emotion": "Adventurous/Creativity",
+    "tier": "Luxury",
+    "packaging": "PremiumBox",
+    "mono": false,
+    "palette": [
+      "peach",
+      "gold",
+      "coral"
+    ],
+    "luxury_grand": false,
+    "seasonal": false,
+    "flowers": [
+      "rose",
+      "lily"
+    ],
+    "weight": 70,
+    "sentiment_family": "creative_expression"
+  },
+  {
+    "id": "adventurous_mix_l_lg",
+    "title": "Saffron Opera",
+    "desc": "A lavish dome of saffron lilies woven with roses and orchids, arranged in a matte luxury box with elegant depth.",
+    "image_url": "https://cdn.jsdelivr.net/gh/DivyanshuK02/arvyam-api@main/assets/img/adventurous_mix_l_lg_v2.webp",
+    "price_inr": 4699,
+    "emotion": "Adventurous/Creativity",
+    "tier": "Luxury",
+    "packaging": "PremiumBox",
+    "mono": false,
+    "palette": [
+      "gold",
+      "peach",
+      "coral"
+    ],
+    "luxury_grand": true,
+    "seasonal": false,
+    "flowers": [
+      "lily",
+      "rose"
+    ],
+    "weight": 90,
+    "sentiment_family": "creative_expression"
+  },
+  {
+    "id": "generosity_mix_l_lg",
+    "title": "Grand Gift of Light",
+    "desc": "An opulent arrangement of butter and ivory roses with apricot lilies and tucked phalaenopsis, seated in a black cylinder—radiant, abundant, and impeccably composed.",
+    "image_url": "https://cdn.jsdelivr.net/gh/DivyanshuK02/arvyam-api@main/assets/img/generosity_mix_l_lg_v1.webp",
+    "price_inr": 4999,
+    "emotion": "Selflessness/Generosity",
+    "tier": "Luxury",
+    "packaging": "PremiumBox",
+    "mono": false,
+    "palette": [
+      "coral",
+      "cream",
+      "gold"
+    ],
+    "luxury_grand": true,
+    "seasonal": false,
+    "flowers": [
+      "rose",
+      "orchid",
+      "lily"
+    ],
+    "weight": 90,
+    "sentiment_family": "professional_achievement"
+  },
+  {
+    "id": "strength_mix_c_a",
+    "title": "Quiet Resolve",
+    "desc": "A soft and caring dome of ivory lilies and blush roses in our off-white, gold-rim box—quiet, balanced, and meant to comfort.",
+    "image_url": "https://cdn.jsdelivr.net/gh/DivyanshuK02/arvyam-api@main/assets/img/strength_mix_c_a_v1.webp",
+    "price_inr": 1499,
+    "emotion": "Strength/Resilience",
+    "tier": "Classic",
+    "packaging": "Box",
+    "mono": false,
+    "palette": [
+      "soft-pink",
+      "white",
+      "soft-green"
+    ],
+    "luxury_grand": false,
+    "seasonal": false,
+    "flowers": [
+      "rose",
+      "lily"
+    ],
+    "weight": 70,
+    "sentiment_family": "grief_support"
+  },
+  {
+    "id": "strength_mix_c_b",
+    "title": "White Solace",
+    "desc": "A calm, respectful bouquet of Ivory lilies with tender ivory roses, gathered in our off-white cylinder with a fine gold rim, offering quiet support.",
+    "image_url": "https://cdn.jsdelivr.net/gh/DivyanshuK02/arvyam-api@main/assets/img/strength_mix_c_b_v1.webp",
+    "price_inr": 1499,
+    "emotion": "Strength/Resilience",
+    "tier": "Classic",
+    "packaging": "Box",
+    "mono": false,
+    "palette": [
+      "white",
+      "cream",
+      "ivory"
+    ],
+    "luxury_grand": false,
+    "seasonal": false,
+    "flowers": [
+      "lily",
+      "rose"
+    ],
+    "weight": 60,
+    "sentiment_family": "grief_support"
+  },
+  {
+    "id": "strength_mix_c_c",
+    "title": "Quiet Benediction",
+    "desc": "Lilies with soft roses, arranged with restrained greens in our off-white, gold-rim box—calm, consoling, and thoughtfully composed.",
+    "image_url": "https://cdn.jsdelivr.net/gh/DivyanshuK02/arvyam-api@main/assets/img/strength_mix_c_c_v1.webp",
+    "price_inr": 1499,
+    "emotion": "Strength/Resilience",
+    "tier": "Classic",
+    "packaging": "Box",
+    "mono": false,
+    "palette": [
+      "soft-pink",
+      "soft-green",
+      "white"
+    ],
+    "luxury_grand": false,
+    "seasonal": false,
+    "flowers": [
+      "rose",
+      "lily"
+    ],
+    "weight": 65,
+    "sentiment_family": "parting_respect"
+  },
+  {
+    "id": "strength_mono_s_1",
+    "title": "Lily Stillness",
+    "desc": "A grounded gathering of white oriental lilies in a clear glass vase—greens kept tidy, crown gentle—made to offer steadiness and quiet comfort.",
+    "image_url": "https://cdn.jsdelivr.net/gh/DivyanshuK02/arvyam-api@main/assets/img/strength_mono_s_1_v1.webp",
+    "price_inr": 2599,
+    "emotion": "Strength/Resilience",
+    "tier": "Signature",
+    "packaging": "Vase",
+    "mono": true,
+    "palette": [
+      "white",
+      "cream",
+      "soft-green"
+    ],
+    "luxury_grand": false,
+    "seasonal": false,
+    "flowers": [
+      "lily"
+    ],
+    "weight": 60,
+    "sentiment_family": "grief_support"
+  },
+  {
+    "id": "strength_mono_s_2",
+    "title": "Soft Daybreak",
+    "desc": "A bouquet with Butter-cream and white lilies gathered in a clear glass vase—greens tucked—offering a quiet, steady brightness.",
+    "image_url": "https://cdn.jsdelivr.net/gh/DivyanshuK02/arvyam-api@main/assets/img/strength_mono_s_2_v1.webp",
+    "price_inr": 2699,
+    "emotion": "Strength/Resilience",
+    "tier": "Signature",
+    "packaging": "Vase",
+    "mono": true,
+    "palette": [
+      "soft-green",
+      "gold",
+      "white"
+    ],
+    "luxury_grand": false,
+    "seasonal": false,
+    "flowers": [
+      "lily"
+    ],
+    "weight": 65,
+    "sentiment_family": "parting_respect"
+  },
+  {
+    "id": "strength_mono_s_3",
+    "title": "Ivory Comfort",
+    "desc": "A warm and giving bouquet of white and cream roses offering steady, quiet comfort.",
+    "image_url": "https://cdn.jsdelivr.net/gh/DivyanshuK02/arvyam-api@main/assets/img/strength_mono_s_3_v1.webp",
+    "price_inr": 2499,
+    "emotion": "Strength/Resilience",
+    "tier": "Signature",
+    "packaging": "Vase",
+    "mono": true,
+    "palette": [
+      "white",
+      "cream",
+      "soft-green"
+    ],
+    "luxury_grand": false,
+    "seasonal": false,
+    "flowers": [
+      "rose"
+    ],
+    "weight": 80,
+    "sentiment_family": "grief_support"
+  },
+  {
+    "id": "strength_mix_l_a",
+    "title": "Lily Benediction",
+    "desc": "A calm and thoughtful luxury dome of ivory lilies with white phalaenopsis accents—greens restrained, crown soft—set in a black cylinder.",
+    "image_url": "https://cdn.jsdelivr.net/gh/DivyanshuK02/arvyam-api@main/assets/img/strength_mix_l_a_v1.webp",
+    "price_inr": 3799,
+    "emotion": "Strength/Resilience",
+    "tier": "Luxury",
+    "packaging": "PremiumBox",
+    "mono": false,
+    "palette": [
+      "white",
+      "cream",
+      "soft-green"
+    ],
+    "luxury_grand": false,
+    "seasonal": false,
+    "flowers": [
+      "lily",
+      "orchid"
+    ],
+    "weight": 65,
+    "sentiment_family": "grief_support"
+  },
+  {
+    "id": "strength_mix_l_b",
+    "title": "Ivory Vigil",
+    "desc": "An opulent dome of ivory roses with calm white lilies and a whisper of phalaenopsis—greens restrained, crown soft—set in a black cylinder.",
+    "image_url": "https://cdn.jsdelivr.net/gh/DivyanshuK02/arvyam-api@main/assets/img/strength_mix_l_b_v1.webp",
+    "price_inr": 4499,
+    "emotion": "Strength/Resilience",
+    "tier": "Luxury",
+    "packaging": "PremiumBox",
+    "mono": false,
+    "palette": [
+      "cream",
+      "white",
+      "soft-green"
+    ],
+    "luxury_grand": false,
+    "seasonal": false,
+    "flowers": [
+      "rose",
+      "lily",
+      "orchid"
+    ],
+    "weight": 90,
+    "sentiment_family": "grief_support"
+  },
+  {
+    "id": "strength_mix_l_c",
+    "title": "Ivory Citadel",
+    "desc": "A ceremonial luxury dome of pure white roses—densely pavéd, crown serene and greens nearly unseen—seated in a black cylinder, offering profound support.",
+    "image_url": "https://cdn.jsdelivr.net/gh/DivyanshuK02/arvyam-api@main/assets/img/strength_mix_l_c_v1.webp",
+    "price_inr": 5299,
+    "emotion": "Strength/Resilience",
+    "tier": "Luxury",
+    "packaging": "PremiumBox",
+    "mono": false,
+    "palette": [
+      "white",
+      "cream",
+      "ivory"
+    ],
+    "luxury_grand": false,
+    "seasonal": false,
+    "flowers": [
+      "rose"
+    ],
+    "weight": 70,
+    "sentiment_family": "grief_support"
+  },
+  {
+    "id": "affection_mono_s_apol_romantic",
+    "title": "Blush of Forgiveness",
+    "desc": "A tender low-dome of blush and ivory roses—calm crown, greens barely tucked—held in a clear glass cylinder.",
+    "image_url": "https://cdn.jsdelivr.net/gh/DivyanshuK02/arvyam-api@main/assets/img/affection_mono_s_apol_romantic_v1.webp",
+    "price_inr": 2699,
+    "emotion": "Affection/Support",
+    "tier": "Signature",
+    "packaging": "Vase",
+    "mono": true,
+    "palette": [
+      "cream",
+      "blush",
+      "white"
+    ],
+    "luxury_grand": false,
+    "seasonal": false,
+    "flowers": [
+      "rose"
+    ],
+    "weight": 70,
+    "sentiment_family": "reconciliation"
+  },
+  {
+    "id": "intellect_mono_s_apol_professional",
+    "title": "Ivory Truce",
+    "desc": "A poised duo of white phalaenopsis stems in a clean ceramic—open blooms with patient buds and composed greens.",
+    "image_url": "https://cdn.jsdelivr.net/gh/DivyanshuK02/arvyam-api@main/assets/img/intellect_mono_s_apol_professional_v1.webp",
+    "price_inr": 2899,
+    "emotion": "Intellect/Wisdom",
+    "tier": "Signature",
+    "packaging": "Vase",
+    "mono": true,
+    "palette": [
+      "white",
+      "cream",
+      "soft-green"
+    ],
+    "luxury_grand": false,
+    "seasonal": false,
+    "flowers": [
+      "orchid"
+    ],
+    "weight": 75,
+    "sentiment_family": "reconciliation"
+  },
+  {
+    "id": "fun_mono_s_apol_friendship",
+    "title": "Bright-Side Truce",
+    "desc": "A cheerful dome of roses—blush, lemon, tangerine, and snow—gathered in a clean glass cylinder to say a heartfelt “my bad” with a smile.",
+    "image_url": "https://cdn.jsdelivr.net/gh/DivyanshuK02/arvyam-api@main/assets/img/fun_mono_s_apol_friendship_v1.webp",
+    "price_inr": 2599,
+    "emotion": "Fun/Humor",
+    "tier": "Signature",
+    "packaging": "Vase",
+    "mono": true,
+    "palette": [
+      "soft-pink",
+      "coral",
+      "cream"
+    ],
+    "luxury_grand": false,
+    "seasonal": false,
+    "flowers": [
+      "rose"
+    ],
+    "weight": 80,
+    "sentiment_family": "reconciliation"
+  },
+  {
+    "id": "generosity_mono_s_apol_professional",
+    "title": "Ivory Accord",
+    "desc": "A poised duo of white phalaenopsis stems in a clean ceramic—open blooms with patient buds and composed greens to recognize true generosity.",
+    "image_url": "https://cdn.jsdelivr.net/gh/DivyanshuK02/arvyam-api@main/assets/img/generosity_mono_s_apol_professional_v1.webp",
+    "price_inr": 2799,
+    "emotion": "Selflessness/Generosity",
+    "tier": "Signature",
+    "packaging": "Vase",
+    "mono": true,
+    "palette": [
+      "white",
+      "cream",
+      "soft-green"
+    ],
+    "luxury_grand": false,
+    "seasonal": false,
+    "flowers": [
+      "orchid"
+    ],
+    "weight": 70,
+    "sentiment_family": "reconciliation"
+  },
+  {
+    "id": "strength_mono_s_apol_professional",
+    "title": "Ivory Spirit",
+    "desc": "A signature arrangement of white phalaenopsis stems in a clean ceramic—open blooms with patient buds and composed greens.",
+    "image_url": "https://cdn.jsdelivr.net/gh/DivyanshuK02/arvyam-api@main/assets/img/strength_mono_s_apol_professional_v1.webp",
+    "price_inr": 2699,
+    "emotion": "Strength/Resilience",
+    "tier": "Signature",
+    "packaging": "Vase",
+    "mono": true,
+    "palette": [
+      "white",
+      "cream",
+      "soft-green"
+    ],
+    "luxury_grand": false,
+    "seasonal": false,
+    "flowers": [
+      "orchid"
+    ],
+    "weight": 65,
+    "sentiment_family": "reconciliation"
+  }
+]
