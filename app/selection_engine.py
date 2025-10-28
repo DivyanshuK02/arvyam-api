@@ -625,7 +625,7 @@ def selection_engine(prompt: str, context: Dict[str, Any]) -> Tuple[List[Dict[st
     context["sentiment_over_ladder"] = sentiment_over_ladder
     
     available_catalog = list(CATALOG)
-    emotion_pool = _fallback_boundary_path(available_catalog, target_family, context, SENTIMENT_FAMILIES, need_count=6)
+    emotion_pool = _fallback_boundary_path(available_catalog, target_family, context, SENTIMENT_FAMILIES, need_count=3)
 
     # B3: Pool-size telemetry (pre-suppression)
     pool_sizes = {
