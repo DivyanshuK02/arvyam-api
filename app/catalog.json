@@ -97,8 +97,8 @@
   },
   {
     "id": "affection_mono_s_2",
-    "title": "Blush Lily Zephyr",
-    "desc": "An airy bouquet of blush and cream lilies with fresh buds in a clear hourglass vase.",
+    "title": "Blush Rose Zephyr",
+    "desc": "An airy bouquet of blush and cream roses with fresh buds in a clear vase.",
     "image_url": "https://cdn.jsdelivr.net/gh/DivyanshuK02/arvyam-api@main/assets/img/affection_mono_s_2_v1.webp",
     "price_inr": 2699,
     "emotion": "Affection/Support",
@@ -113,15 +113,15 @@
     "luxury_grand": false,
     "seasonal": false,
     "flowers": [
-      "lily"
+      "rose"
     ],
     "weight": 85,
     "sentiment_family": "romantic_passion"
   },
   {
     "id": "affection_mono_s_3",
-    "title": "Blush Lily Sweep",
-    "desc": "A grand statement arrangement of blush-cream lilies with generous buds and a gentle asymmetric sweep in a clear hourglass vase.",
+    "title": "Crimson Rose Sweep",
+    "desc": "A grand statement arrangement of crimson-cream roses with a gentle dome in a clear vase.",
     "image_url": "https://cdn.jsdelivr.net/gh/DivyanshuK02/arvyam-api@main/assets/img/affection_mono_s_3_v1.webp",
     "price_inr": 2599,
     "emotion": "Affection/Support",
@@ -129,14 +129,14 @@
     "packaging": "Vase",
     "mono": true,
     "palette": [
-      "blush",
+      "crimson",
       "soft-green",
-      "soft-pink"
+      "cream"
     ],
     "luxury_grand": false,
     "seasonal": false,
     "flowers": [
-      "lily"
+      "rose"
     ],
     "weight": 75,
     "sentiment_family": "romantic_passion"
