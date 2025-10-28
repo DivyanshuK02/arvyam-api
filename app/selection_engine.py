@@ -170,7 +170,19 @@ _validate_catalog_families_on_startup()
 
 TIER_ORDER = ["Classic", "Signature", "Luxury"]
 TIER_RANK = {t: i for i, t in enumerate(TIER_ORDER)}
-TIER_SALTS = {"Classic": 0xA11CE, "Signature": 0xBEEEF, "Luxury": 0xCAFE5} # For deterministic rotation
+
+# ---- P1.6 START: Updated Constants ----
+FAMILY_SCARCITY_THRESHOLD = 3  # 6 → 3 for MVP variety
+
+TIER_SALTS = {                 # per-tier variety on same prompt
+    "Classic":   0xA11CE,      # Kept original valid hex values
+    "Signature": 0xBEEEF,
+    "Luxury":    0xCAFE5,
+}
+# ---- celebration pops (gold NOT included) ----
+CELEBRATION_BLOCK = {"crimson", "deep-red", "hot-pink", "neon", "fuchsia"}
+# ---- P1.6 END: Updated Constants ----
+
 
 ICONIC_SPECIES = { "lily": ["lily", "lilies"], "rose": ["rose", "roses"], "orchid": ["orchid", "orchids"] }
 ONLY_ICONIC_RE = re.compile(r"\bonly\s+(lil(?:y|ies)|roses?|orchids?)\b", re.I)
@@ -224,25 +236,30 @@ def _has_proximity(text: str, a: str, b: str, window: int) -> bool:
     pos_b = [i for i,w in enumerate(tokens) if w == b.lower()]
     return any(abs(i-j) <= window for i in pos_a for j in pos_b)
 
+# ---- P1.6 START: Updated Helpers ----
+
 def _stable_hash_u32(s: str) -> int:
     """simple, fast, repeatable (murmur/xxh would be fine too, this keeps deps zero)"""
     return zlib.crc32((s or "").encode("utf-8")) & 0xFFFFFFFF
 
 def _mix(seed: int, salt: int) -> int:
-    """Deterministic mix to vary rotation index per tier"""
-    return (1103515245 * (seed ^ salt) + 12345) & 0x7fffffff
+    return (seed ^ salt) & 0xFFFFFFFF
 
-def _rotation_index(seed: int, salt: int, k: int) -> int:
+def _rotation_index(seed: int, salt: int, n: int) -> int:
     """Get a deterministic rotation index based on an int seed and salt"""
-    if k <= 1: return 0
-    return _mix(seed, salt) % k
+    if n <= 0:
+        return 0
+    mix = (seed ^ salt) * 2654435761 & 0xFFFFFFFF
+    return mix % n
 
-def _suppress_recent(items: list[dict], recent_set: set[str]) -> list[dict]:
+def _suppress_recent(pool: List[Dict[str, Any]], recent_ids: set) -> List[Dict[str, Any]]:
     """Filters list, falling back to original if all items would be suppressed"""
-    if not recent_set:
-        return items
-    suppressed = [it for it in items if _stable_id(it) not in recent_set]
-    return suppressed or items # fall back to original pool if all were suppressed
+    if not pool or not recent_ids:
+        return pool
+    filtered = [it for it in pool if it.get("id") not in recent_ids]
+    return filtered or pool  # fallback if suppression wipes the pool
+
+# ---- P1.6 END: Updated Helpers ----
 
 def _has_emotion_match(item: Dict[str, Any], emotion: str) -> bool:
     target = (emotion or "").lower()
@@ -343,7 +360,55 @@ def _ensure_one_mono_in_triad(triad: list[dict], context: dict) -> list[dict]:
             triad[0]["mono"] = True
     return triad
 
+# ---- P1.6 START: New Edge Guard Helper ----
+def _apply_edge_guards(pool: List[Dict[str, Any]], edge_type: str) -> List[Dict[str, Any]]:
+    if not edge_type or not pool:
+        return pool
+
+    # 1) Sympathy/Farewell: forbid only celebration pops (gold is allowed)
+    if edge_type in ("sympathy", "farewell"):
+        safe = []
+        for it in pool:
+            pal = {(p or "").strip().lower() for p in (it.get("palette") or []) if isinstance(p, str)}
+            if pal.isdisjoint(CELEBRATION_BLOCK):
+                safe.append(it)
+        pool = safe or pool  # do not over-prune
+
+    # 2) Valentine: bias to roses + red/blush
+    if edge_type == "valentine":
+        def _score(it):
+            flowers = {f.lower() for f in (it.get("flowers") or []) if isinstance(f, str)}
+            pal = {(p or "").strip().lower() for p in (it.get("palette") or []) if isinstance(p, str)}
+            s = 0
+            if "rose" in flowers: s += 3
+            if {"crimson", "deep-red", "blush"}.intersection(pal): s += 2
+            return s
+        pool = sorted(pool, key=_score, reverse=True)
+
+    # 3) Apology: bias to orchids + quiet neutrals
+    if edge_type == "apology":
+        def _score(it):
+            flowers = {f.lower() for f in (it.get("flowers") or []) if isinstance(f, str)}
+            pal = {(p or "").strip().lower() for p in (it.get("palette") or []) if isinstance(p, str)}
+            s = 0
+            if "orchid" in flowers: s += 3
+            if {"pearl", "ivory", "soft-purple", "lavender"}.intersection(pal): s += 1
+            return s
+        pool = sorted(pool, key=_score, reverse=True)
+
+    return pool
+# ---- P1.6 END: New Edge Guard Helper ----
+
+
 def _apply_edge_register_filters(pool: list[dict], edge_type: str) -> list[dict]:
+    # This function is NO LONGER USED, replaced by _apply_edge_guards
+    # Keeping it here to show it was intentionally replaced.
+    # ... (original function content) ...
+    #
+    # NOTE: The new _apply_edge_guards function has been added above.
+    # We will replace calls to this function with the new one.
+    
+    # Original content (for reference, but now unused):
     regs = EDGE_REGISTERS.get(edge_type) or {}
     if not regs: return pool
     lg_policy = regs.get("lg_policy", "allow")
@@ -374,6 +439,7 @@ def _apply_edge_register_filters(pool: list[dict], edge_type: str) -> list[dict]
         scored.append((score, it))
     scored.sort(key=lambda x: x[0], reverse=True)
     return [it for _, it in scored]
+
 
 def _ensure_triad_or_500(items: list[dict]) -> None:
     triad_ok = isinstance(items, list) and len(items) == 3
@@ -494,7 +560,10 @@ def _backfill_to_three(items: list[dict], catalog: list[dict], context: dict) ->
     family_pool = [it for it in catalog if (it.get("sentiment_family") == target_family or it.get("sentiment_family") == "UNSPECIFIED") and _stable_id(it) not in existing_ids]
 
     if context.get("edge_type"):
-        family_pool = _apply_edge_register_filters(family_pool, context["edge_type"])
+        # ---- P1.6 MODIFICATION ----
+        # family_pool = _apply_edge_register_filters(family_pool, context["edge_type"]) # OLD
+        family_pool = _apply_edge_guards(family_pool, context["edge_type"]) # NEW
+        # ---- P1.6 END ----
         
     missing_tiers = [TIER_ORDER[i] for i, item in enumerate(final_triad) if item is None]
 
@@ -665,16 +734,24 @@ def selection_engine(prompt: str, context: Dict[str, Any]) -> Tuple[List[Dict[st
 
     for tier in TIER_ORDER:
         tier_pool = [it for it in emotion_pool if it.get("tier") == tier and _stable_id(it) not in seen_ids]
-        tier_pool = _suppress_recent(tier_pool, recent_set) # Apply suppression
         
+        # ---- P1.6 MODIFICATIONS START ----
+        
+        # 1. Apply new edge guards first
         if edge_type:
-            tier_pool = _apply_edge_register_filters(tier_pool, edge_type)
+            # tier_pool = _apply_edge_register_filters(tier_pool, edge_type) # OLD
+            tier_pool = _apply_edge_guards(tier_pool, edge_type) # NEW
         
+        # 2. Apply suppression using the new helper function
+        tier_pool = _suppress_recent(tier_pool, recent_set)
+        
+        # ---- P1.6 MODIFICATIONS END ----
+
         selected_item = None
         if tier_pool:
-            # Use deterministic, tier-specific rotation
+            # Use deterministic, tier-specific rotation (using new P1.6 helpers)
             salt = TIER_SALTS.get(tier, 0xABCDE) # Get salt for the tier
-            idx = _rotation_index(seed, salt, len(tier_pool))
+            idx = _rotation_index(seed, salt, len(tier_pool)) # Use new rotation function
             selected_item = dict(tier_pool[idx])
         else:
             if context.get("fallback_reason") == "duplicate_tier" and triad:
@@ -716,7 +793,7 @@ def selection_engine(prompt: str, context: Dict[str, Any]) -> Tuple[List[Dict[st
             
     find_and_assign_note(final_triad, selected_species, resolved_anchor, prompt)
     if not _intent_clarity(prompt, len(_scores)):
-        _add_unclear_mix_note(final_ad)
+        _add_unclear_mix_note(final_triad) # final_ad was a typo, corrected to final_triad
     
     meta_detected = []
     if FEATURE_MULTI_ANCHOR_LOGGING:
