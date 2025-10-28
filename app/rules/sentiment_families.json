@@ -12,11 +12,11 @@
       "palette_constraints": {
         "required": ["white", "cream", "soft-green"],
         "preferred": ["ivory", "eucalyptus"],
-        "forbidden": ["neon", "bright-yellow", "electric", "gold"]
+        "forbidden": ["neon", "electric"]
       },
       "species_constraints": {
         "preferred": ["lily", "chrysanthemum", "orchid"],
-        "forbidden": ["sunflower", "gerbera"]
+        "forbidden": ["sunflower"]
       },
       "contamination_barriers": [
         "romantic_passion",
@@ -42,7 +42,7 @@
       },
       "species_constraints": {
         "preferred": ["rose", "lily", "orchid"],
-        "forbidden": ["sunflower", "gerbera"]
+        "forbidden": ["sunflower"]
       },
       "contamination_barriers": [
         "romantic_passion",
@@ -116,7 +116,7 @@
           "palette_constraints": {
             "required": ["white", "cream", "soft-green"],
             "preferred": ["pearl", "ivory"],
-            "forbidden": ["neon", "electric", "deep-red", "blush", "soft-pink"]
+            "forbidden": ["neon", "electric", "deep-red"]
           },
           "species_constraints": {
             "preferred": ["orchid", "lily", "rose"],
@@ -239,11 +239,11 @@
       "palette_constraints": {
         "required": ["white", "cream", "soft-green"],
         "preferred": ["lavender", "soft-purple", "ivory", "eucalyptus"],
-        "forbidden": ["neon", "electric", "bright-yellow"]
+        "forbidden": ["neon", "electric"]
       },
       "species_constraints": {
         "preferred": ["orchid", "chrysanthemum", "lily"],
-        "forbidden": ["sunflower", "gerbera"]
+        "forbidden": ["sunflower"]
       },
       "contamination_barriers": [
         "grief_support",
