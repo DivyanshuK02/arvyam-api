@@ -83,7 +83,6 @@ Repo layout
 │  ├─ test_golden_harness.py   # Canonical prompts; artifacts saved under evidence/
 │  ├─ test_sympathy_palette_guard.py
 │  ├─ test_apology_context.py
-│  ├─ test_palette_allowlist.py # Anchor → palette allowlist guard
 │  ├─ test_apply_enums.py      # Enum freeze / feeder smoke guards
 │  └─ test_packaging_tiers.py  # Catalog tier→packaging mapping + LG rule (Phase 1.5)
 ├─ tools/
