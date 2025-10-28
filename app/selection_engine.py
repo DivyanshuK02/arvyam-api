@@ -176,7 +176,7 @@ ICONIC_SPECIES = { "lily": ["lily", "lilies"], "rose": ["rose", "roses"], "orchi
 ONLY_ICONIC_RE = re.compile(r"\bonly\s+(lil(?:y|ies)|roses?|orchids?)\b", re.I)
 
 VAGUE_TERMS = {"nice", "beautiful", "pretty", "some", "any", "simple", "best", "good", "flowers", "flower"}
-GRAND_INTENT = {"grand","bigger","large","lavish","extravagant","50+","hundred","massive","most beautiful"}
+GRAND_INTENT = {"grand","bigger","large","lavish","extravagagnt","50+","hundred","massive","most beautiful"}
 
 def normalize(s: str) -> str:
     s = (s or "").strip().lower()
@@ -716,11 +716,11 @@ def selection_engine(prompt: str, context: Dict[str, Any]) -> Tuple[List[Dict[st
             
     find_and_assign_note(final_triad, selected_species, resolved_anchor, prompt)
     if not _intent_clarity(prompt, len(_scores)):
-        _add_unclear_mix_note(final_triad)
+        _add_unclear_mix_note(final_ad)
     
     meta_detected = []
     if FEATURE_MULTI_ANCHOR_LOGGING:
-        meta_detected = _compute_detec(ted_emotions(_scores or {})
+        meta_detected = _compute_detected_emotions(_scores or {})
     
     log_record = {
         "request_id": context.get("request_id"),
