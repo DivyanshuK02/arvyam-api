@@ -9,7 +9,7 @@
 from __future__ import annotations
 
 import json, os, re, zlib, logging
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple, Iterable, Set
 from fastapi import HTTPException # Kept for internal error signaling
 from collections import defaultdict
 
@@ -180,7 +180,7 @@ TIER_SALTS = {                 # per-tier variety on same prompt
     "Luxury":    0xCAFE5,
 }
 # ---- celebration pops (gold NOT included) ----
-CELEBRATION_BLOCK = {"crimson", "deep-red", "hot-pink", "neon", "fuchsia"}
+# (no hard-coded palette blocks; use JSON registers)
 # ---- P1.6 END: Updated Constants ----
 
 
@@ -197,6 +197,10 @@ def normalize(s: str) -> str:
 
 def _tokenize(s: str) -> List[str]:
     return re.findall(r"[a-z]+", normalize(s))
+
+def _contains_any(text: str, toks: Iterable[str]) -> bool:
+    t = text.lower()
+    return any((w or "").lower() in t for w in (toks or []))
 
 def _intent_clarity(prompt: str, matched_keywords: int) -> float:
     p = normalize(prompt)
@@ -283,6 +287,53 @@ def _match_edge(text: str, rules: dict) -> bool:
     for spec in (rules.get("proximity_pairs") or []):
         if _has_proximity(text, spec.get("a",""), spec.get("b",""), int(spec.get("window",2))): return True
     return False
+
+def _match_exact_map(text: str, exact: Dict[str, str]) -> Optional[str]:
+    """If any exact phrase matches, return mapped anchor."""
+    if not isinstance(exact, dict):
+        return None
+    t = text.lower()
+    for phrase, anchor in exact.items():
+        if phrase and phrase.lower() in t:
+            return anchor
+    return None
+
+def _match_combos(text: str, combos: List[Dict[str, Any]]) -> Optional[str]:
+    """
+    Each combo entry may have:
+      - {"all": ["romantic", "anniversary"], "anchor": "Affection/Support"}
+      - {"any": ["proposal", "engagement"], "anchor": "..."}
+      - {"proximity": {"a":"thank", "b":"you", "window":2}, "anchor":"..."}
+    Return first matching anchor.
+    """
+    if not isinstance(combos, list):
+        return None
+    t = text.lower()
+    for spec in combos:
+        if not isinstance(spec, dict):
+            continue
+        anchor = spec.get("anchor")
+        ok = False
+        if spec.get("all"):
+            ok = all((w or "").lower() in t for w in spec["all"])
+        elif spec.get("any"):
+            ok = _contains_any(t, spec["any"])
+        elif spec.get("proximity"):
+            px = spec["proximity"] or {}
+            ok = _has_proximity(t, px.get("a",""), px.get("b",""), int(px.get("window",2)))
+        if ok and anchor:
+            return anchor
+    return None
+
+def _apply_disambiguation(text: str, disambig: Dict[str, str], current: Optional[str]) -> Optional[str]:
+    """If a phrase is present in disambiguation map, override anchor."""
+    if not isinstance(disambig, dict):
+        return current
+    t = text.lower()
+    for phrase, anchor in disambig.items():
+        if phrase and phrase.lower() in t:
+            return anchor
+    return current
 
 def _stable_id(it: dict) -> str:
     return str(it.get("id", "unknown"))
@@ -400,45 +451,65 @@ def _apply_edge_guards(pool: List[Dict[str, Any]], edge_type: str) -> List[Dict[
 # ---- P1.6 END: New Edge Guard Helper ----
 
 
-def _apply_edge_register_filters(pool: list[dict], edge_type: str) -> list[dict]:
-    # This function is NO LONGER USED, replaced by _apply_edge_guards
-    # Keeping it here to show it was intentionally replaced.
-    # ... (original function content) ...
-    #
-    # NOTE: The new _apply_edge_guards function has been added above.
-    # We will replace calls to this function with the new one.
-    
-    # Original content (for reference, but now unused):
+def _apply_edge_register_filters(pool: List[Dict[str, Any]], edge_type: str) -> List[Dict[str, Any]]:
+    """
+    JSON-driven filters/biases restored. Reads EDGE_REGISTERS[edge_type] and
+    applies:
+      - palette_forbid (with *gold-neutral* for sympathy/farewell)
+      - avoid_species / prefer_species
+      - mono_must_include (if item is mono)
+      - lg_policy: "block" removes LG items
+    Never over-prunes: if a step empties the pool, it falls back to previous.
+    """
     regs = EDGE_REGISTERS.get(edge_type) or {}
-    if not regs: return pool
-    lg_policy = regs.get("lg_policy", "allow")
-    allow_lg_mix = bool(regs.get("allow_lg_in_mix", True))
-    allow_lg_mono = bool(regs.get("allow_lg_in_mono", True))
-    def _lg_ok(it, is_mono=False):
-        if not it.get("luxury_grand"): return True
-        if lg_policy == "block": return False
-        return allow_lg_mono if is_mono else allow_lg_mix
-    targets = set((regs.get("palette_targets") or []))
-    avoid   = set((regs.get("palette_avoid") or []))
-    prefer_species = set((regs.get("species_prefer") or []))
-    avoid_species  = set((regs.get("species_avoid") or []))
-    t_boost = float(regs.get("palette_target_boost", 1.0))
-    a_pen   = float(regs.get("palette_avoid_penalty", 1.0))
-    scored = []
-    for it in pool:
-        is_potential_mono = bool(it.get("mono"))
-        if not _lg_ok(it, is_mono=is_potential_mono):
-             continue
-        score = 1.0
-        pal = set(it.get("palette", []) or [])
-        if pal & targets: score *= t_boost
-        if pal & avoid:   score *= a_pen
-        flw = set((it.get("flowers") or []))
-        if flw & prefer_species: score *= 1.05
-        if flw & avoid_species:  score *= 0.95
-        scored.append((score, it))
-    scored.sort(key=lambda x: x[0], reverse=True)
-    return [it for _, it in scored]
+    if not regs or not pool:
+        return pool
+
+    # keep a working copy
+    working = list(pool)
+    previous = list(working)
+
+    # 1) palette forbid (with gold-neutral)
+    forbid: Set[str] = {str(p).lower() for p in (regs.get("palette_forbid") or []) if p}
+    if edge_type in ("sympathy", "farewell") and "gold" in forbid:
+        forbid.discard("gold")
+    if forbid:
+        pruned = []
+        for it in working:
+            pal = {(p or "").strip().lower() for p in (it.get("palette") or []) if isinstance(p, str)}
+            if pal.isdisjoint(forbid):
+                pruned.append(it)
+        if pruned:
+            previous, working = working, pruned
+
+    # 2) avoid species
+    avoid: Set[str] = {str(s).lower() for s in (regs.get("avoid_species") or []) if s}
+    if avoid:
+        pruned = [it for it in working if avoid.isdisjoint({f.lower() for f in (it.get("flowers") or [])})]
+        if pruned:
+            previous, working = working, pruned
+
+    # 3) mono must include
+    must: Set[str] = {str(s).lower() for s in (regs.get("mono_must_include") or []) if s}
+    if must:
+        pruned = []
+        for it in working:
+            if it.get("mono"):
+                fl = {f.lower() for f in (it.get("flowers") or []) if isinstance(f, str)}
+                if fl & must:
+                    pruned.append(it)
+            else:
+                pruned.append(it)
+        if pruned:
+            previous, working = working, pruned
+
+    # 4) lg policy
+    if regs.get("lg_policy") == "block":
+        pruned = [it for it in working if not bool(it.get("luxury_grand"))]
+        if pruned:
+            previous, working = working, pruned
+
+    return working or previous
 
 
 def _ensure_triad_or_500(items: list[dict]) -> None:
@@ -469,36 +540,63 @@ def _compute_detected_emotions(scores: dict[str,float]) -> list[dict]:
     return out[:max_entries]
 
 def detect_emotion(prompt: str, context: dict | None) -> Tuple[str, Optional[str], Dict[str, float]]:
+    """
+    Resolution order:
+      1) EDGE short-circuit (from emotion_keywords.json -> edges)
+      2) EXACT phrase map
+      3) COMBOS (all/any/proximity)
+      4) DISAMBIGUATION override
+      5) KEYWORDS scoring (fallback)
+      6) Grand-intent & LG policy mask
+    """
     p = normalize(prompt)
     scores: Dict[str, float] = {}
     edge_type: Optional[str] = None
-    for edge, rules in (EDGES or {}).items():
+
+    ek = EMOTION_KEYWORDS or {}
+
+    # (1) edges
+    for edge, rules in (ek.get("edges") or {}).items():
         if _match_edge(p, rules):
             edge_type = edge
-            edge_config = EDGE_REGISTERS.get(edge) or {}
-            resolved_anchor = edge_config.get("emotion_anchor") or "general"
-            log.info(f"Edge case detected: {edge_type} -> {resolved_anchor}")
+            resolved_anchor = (EDGE_REGISTERS.get(edge) or {}).get("emotion_anchor") or "general"
             return resolved_anchor, edge_type, scores
-    tokens = _tokenize(prompt)
-    buckets = EMOTION_KEYWORDS.get("keywords", {}) or {}
-    for anchor, words in buckets.items():
+
+    # (2) exact
+    exact_anchor = _match_exact_map(p, ek.get("exact") or {})
+    if exact_anchor:
+        return exact_anchor, None, scores
+
+    # (3) combos
+    combo_anchor = _match_combos(p, ek.get("combos") or [])
+    if combo_anchor:
+        return combo_anchor, None, scores
+
+    # (4) disambiguation (override later decision)
+    disambig = ek.get("disambiguation") or {}
+
+    # (5) keywords fallback
+    for anchor, words in (ek.get("keywords") or {}).items():
         hits = sum(1 for w in (words or []) if (w or "").lower() in p)
-        if hits > 0: scores[anchor] = float(hits)
+        if hits:
+            scores[anchor] = float(hits)
+
+    # (6) grand-intent & LG policy
     has_grand = _has_grand_intent(prompt)
     if has_grand:
         scores["luxury_grand"] = (scores.get("luxury_grand", 0.0) + 20.0) * 1.1
-    log.debug(f"Detected scores: {scores}, grand_intent: {has_grand}")
-    blocked = (TIER_POLICY.get("luxury_grand", {}) or {}).get("blocked_emotions") or []
-    if has_grand and blocked:
-        original_scores = dict(scores)
-        scores = {k: v for k, v in scores.items() if k not in blocked}
-        log.debug(f"Applied LG blocking for grand intent. Original: {original_scores}, After: {scores}")
-    if not scores: return "general", None, {}
-    sorted_scores = sorted(scores.items(), key=lambda kv: kv[1], reverse=True)
-    resolved_anchor = sorted_scores[0][0] if sorted_scores else "general"
-    if resolved_anchor == "general" and len(sorted_scores) > 1:
-        resolved_anchor = sorted_scores[1][0]
-    return resolved_anchor, edge_type, scores
+        blocked = (TIER_POLICY.get("luxury_grand", {}) or {}).get("blocked_emotions") or []
+        if blocked:
+            scores = {k: v for k, v in scores.items() if k not in blocked}
+
+    if not scores:
+        # last resort
+        resolved = _apply_disambiguation(p, disambig, "general")
+        return resolved or "general", None, {}
+
+    top = max(scores.items(), key=lambda kv: kv[1])[0]
+    top = _apply_disambiguation(p, disambig, top) or top
+    return top, edge_type, scores
 
 def detect_relationship_context(prompt_norm: str) -> tuple[str, bool]:
     p = prompt_norm
@@ -561,8 +659,7 @@ def _backfill_to_three(items: list[dict], catalog: list[dict], context: dict) ->
 
     if context.get("edge_type"):
         # ---- P1.6 MODIFICATION ----
-        # family_pool = _apply_edge_register_filters(family_pool, context["edge_type"]) # OLD
-        family_pool = _apply_edge_guards(family_pool, context["edge_type"]) # NEW
+        family_pool = _apply_edge_register_filters(family_pool, context["edge_type"]) # NEW
         # ---- P1.6 END ----
         
     missing_tiers = [TIER_ORDER[i] for i, item in enumerate(final_triad) if item is None]
@@ -724,6 +821,8 @@ def selection_engine(prompt: str, context: Dict[str, Any]) -> Tuple[List[Dict[st
             "luxury": sum(1 for x in emotion_pool if x.get("tier")=="Luxury"),
         }
     }
+    # expose for tests/telemetry
+    context["pool_size"] = pool_sizes
 
     context["duplication_used"] = False
     context["barriers_triggered"] = []
@@ -740,7 +839,7 @@ def selection_engine(prompt: str, context: Dict[str, Any]) -> Tuple[List[Dict[st
         # 1. Apply new edge guards first
         if edge_type:
             # tier_pool = _apply_edge_register_filters(tier_pool, edge_type) # OLD
-            tier_pool = _apply_edge_guards(tier_pool, edge_type) # NEW
+            tier_pool = _apply_edge_register_filters(tier_pool, edge_type) # NEW
         
         # 2. Apply suppression using the new helper function
         tier_pool = _suppress_recent(tier_pool, recent_set)
@@ -782,6 +881,7 @@ def selection_engine(prompt: str, context: Dict[str, Any]) -> Tuple[List[Dict[st
         "signature": sum(1 for x in post_pool if x.get("tier") == "Signature"),
         "luxury":    sum(1 for x in post_pool if x.get("tier") == "Luxury"),
     }
+    context["pool_size"] = pool_sizes
             
     final_triad = _ensure_one_mono_in_triad(final_triad, context)
     _ensure_triad_or_500(final_triad)
