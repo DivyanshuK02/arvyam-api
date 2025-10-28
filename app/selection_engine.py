@@ -3,10 +3,12 @@
 # All FastAPI routes and web-server code have been removed.
 # The main selection_engine function now returns a (items, context, meta) tuple.
 # The core selection algorithm has been preserved.
+# P1.6: Rotation is now deterministic based on prompt hash, applies recent_ids
+# suppression, and uses tier-specific salts for variety.
 
 from __future__ import annotations
 
-import json, os, re, hashlib, logging
+import json, os, re, zlib, logging
 from typing import Any, Dict, List, Optional, Tuple
 from fastapi import HTTPException # Kept for internal error signaling
 from collections import defaultdict
@@ -168,6 +170,7 @@ _validate_catalog_families_on_startup()
 
 TIER_ORDER = ["Classic", "Signature", "Luxury"]
 TIER_RANK = {t: i for i, t in enumerate(TIER_ORDER)}
+TIER_SALTS = {"Classic": 0xA11CE, "Signature": 0xBEEEF, "Luxury": 0xCAFE5} # For deterministic rotation
 
 ICONIC_SPECIES = { "lily": ["lily", "lilies"], "rose": ["rose", "roses"], "orchid": ["orchid", "orchids"] }
 ONLY_ICONIC_RE = re.compile(r"\bonly\s+(lil(?:y|ies)|roses?|orchids?)\b", re.I)
@@ -222,17 +225,24 @@ def _has_proximity(text: str, a: str, b: str, window: int) -> bool:
     return any(abs(i-j) <= window for i in pos_a for j in pos_b)
 
 def _stable_hash_u32(s: str) -> int:
-    h = hashlib.sha256((s or "").encode("utf-8")).hexdigest()
-    return int(h[:8], 16)
+    """simple, fast, repeatable (murmur/xxh would be fine too, this keeps deps zero)"""
+    return zlib.crc32((s or "").encode("utf-8")) & 0xFFFFFFFF
 
-def _rotation_index(seed: str, k: int) -> int:
+def _mix(seed: int, salt: int) -> int:
+    """Deterministic mix to vary rotation index per tier"""
+    return (1103515245 * (seed ^ salt) + 12345) & 0x7fffffff
+
+def _rotation_index(seed: int, salt: int, k: int) -> int:
+    """Get a deterministic rotation index based on an int seed and salt"""
     if k <= 1: return 0
-    return _stable_hash_u32(seed) % k
+    return _mix(seed, salt) % k
 
 def _suppress_recent(items: list[dict], recent_set: set[str]) -> list[dict]:
+    """Filters list, falling back to original if all items would be suppressed"""
     if not recent_set:
         return items
-    return [it for it in items if _stable_id(it) not in recent_set]
+    suppressed = [it for it in items if _stable_id(it) not in recent_set]
+    return suppressed or items # fall back to original pool if all were suppressed
 
 def _has_emotion_match(item: Dict[str, Any], emotion: str) -> bool:
     target = (emotion or "").lower()
@@ -587,6 +597,16 @@ def selection_engine(prompt: str, context: Dict[str, Any]) -> Tuple[List[Dict[st
         raise HTTPException(status_code=503, detail="Service temporarily unavailable")
     
     prompt_norm = normalize(prompt)
+    
+    # --- P1.6 Rotation Seed (from prompt) ---
+    norm_prompt_hash = _stable_hash_u32(prompt_norm)
+    # Use provided hash if present (for CI/testing), else use prompt's hash
+    seed = context.get("prompt_hash") 
+    if not isinstance(seed, int): # Check if it's missing or not an int
+        seed = norm_prompt_hash
+        context["prompt_hash"] = seed # Store the computed hash for logging
+    # --- End P1.6 ---
+    
     resolved_anchor, edge_type, _scores = detect_emotion(prompt, context or {})
     selected_species = find_iconic_species(prompt_norm)
     
@@ -639,19 +659,22 @@ def selection_engine(prompt: str, context: Dict[str, Any]) -> Tuple[List[Dict[st
     context["duplication_used"] = False
     context["barriers_triggered"] = []
     
-    seed = context.get("prompt_hash", "seed")
+    recent_set = set(context.get("recent_ids") or []) # Get recent IDs once
     triad = []
     seen_ids = set()
 
     for tier in TIER_ORDER:
         tier_pool = [it for it in emotion_pool if it.get("tier") == tier and _stable_id(it) not in seen_ids]
+        tier_pool = _suppress_recent(tier_pool, recent_set) # Apply suppression
         
         if edge_type:
             tier_pool = _apply_edge_register_filters(tier_pool, edge_type)
         
         selected_item = None
         if tier_pool:
-            idx = _rotation_index(f"{seed}:{tier}", len(tier_pool))
+            # Use deterministic, tier-specific rotation
+            salt = TIER_SALTS.get(tier, 0xABCDE) # Get salt for the tier
+            idx = _rotation_index(seed, salt, len(tier_pool))
             selected_item = dict(tier_pool[idx])
         else:
             if context.get("fallback_reason") == "duplicate_tier" and triad:
@@ -674,7 +697,7 @@ def selection_engine(prompt: str, context: Dict[str, Any]) -> Tuple[List[Dict[st
         final_triad = triad[:3]
 
     # compute a post-suppress view of the pool (exclude recent_ids)
-    recent_set = set(context.get("recent_ids") or [])
+    # Note: recent_set was already defined before the loop
     post_pool = [x for x in emotion_pool if _stable_id(x) not in recent_set]
 
     pool_sizes["post_suppress"] = {
@@ -697,7 +720,7 @@ def selection_engine(prompt: str, context: Dict[str, Any]) -> Tuple[List[Dict[st
     
     meta_detected = []
     if FEATURE_MULTI_ANCHOR_LOGGING:
-        meta_detected = _compute_detected_emotions(_scores or {})
+        meta_detected = _compute_detec(ted_emotions(_scores or {})
     
     log_record = {
         "request_id": context.get("request_id"),
@@ -709,7 +732,8 @@ def selection_engine(prompt: str, context: Dict[str, Any]) -> Tuple[List[Dict[st
         "sentiment_override_used": context.get("sentiment_over_ladder", False),
         "relationship_context": context.get("relationship_context"),
         "relationship_ambiguous": bool(context.get("relationship_ambiguous")),
-        "pool_size": pool_sizes
+        "pool_size": pool_sizes,
+        "prompt_hash": seed # Log the seed being used
     }
     log.info("SELECTION_EVIDENCE: %s", json.dumps(log_record, ensure_ascii=False))
 
