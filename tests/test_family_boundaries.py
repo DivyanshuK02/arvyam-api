@@ -17,6 +17,7 @@ def _load_catalog():
 # --- P1.6 Test Logic ---
 
 CELEBRATION_BLOCK = {"crimson", "deep-red", "hot-pink", "neon", "fuchsia"}  # gold allowed
+__all__ = ["CELEBRATION_BLOCK"]
 GRIEF_FAMILIES = {"grief", "farewell"}
 
 def test_grief_and_farewell_palettes_are_sober():
