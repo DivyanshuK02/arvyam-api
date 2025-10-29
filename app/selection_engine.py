@@ -646,7 +646,15 @@ def _backfill_to_three(items: list[dict], catalog: list[dict], context: dict) ->
                     
     if None in final_triad:
         _set_fallback_reason(context, "cross_family_last_resort")
-        any_pool = [it for it in catalog if _stable_id(it) not in existing_ids]
+        # --- PATCH START ---
+        # cross-family last resort pool but anchor-coherent
+        anchor = context.get("resolved_anchor")
+        allowed = {anchor, "general"} if anchor else None
+        any_pool = [
+            it for it in catalog
+            if _stable_id(it) not in existing_ids and (allowed is None or it.get("emotion") in allowed)
+        ]
+        # --- PATCH END ---
         for i in range(3):
             if final_triad[i] is None:
                 tier_to_fill = TIER_ORDER[i]
@@ -717,9 +725,15 @@ def _fallback_boundary_path(available_catalog: list[dict], target_family: str, c
         _set_fallback_reason(context, "duplicate_tier")
         return p2
 
-    # 4) last resort cross-family
+    # --- PATCH START ---
+    # 4) last resort: allow cross-family picks BUT keep anchor coherence
     _set_fallback_reason(context, "cross_family_last_resort")
+    anchor = context.get("resolved_anchor")
+    if anchor:
+        allowed = {anchor, "general"}
+        return [it for it in available_catalog if it.get("emotion") in allowed]
     return available_catalog
+    # --- PATCH END ---
 
 def selection_engine(prompt: str, context: Dict[str, Any]) -> Tuple[List[Dict[str, Any]], Dict[str, Any], Dict[str, Any]]:
     if not CATALOG:
