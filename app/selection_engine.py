@@ -411,44 +411,7 @@ def _ensure_one_mono_in_triad(triad: list[dict], context: dict) -> list[dict]:
             triad[0]["mono"] = True
     return triad
 
-# ---- P1.6 START: New Edge Guard Helper ----
-def _apply_edge_guards(pool: List[Dict[str, Any]], edge_type: str) -> List[Dict[str, Any]]:
-    if not edge_type or not pool:
-        return pool
-
-    # 1) Sympathy/Farewell: forbid only celebration pops (gold is allowed)
-    if edge_type in ("sympathy", "farewell"):
-        safe = []
-        for it in pool:
-            pal = {(p or "").strip().lower() for p in (it.get("palette") or []) if isinstance(p, str)}
-            if pal.isdisjoint(CELEBRATION_BLOCK):
-                safe.append(it)
-        pool = safe or pool  # do not over-prune
-
-    # 2) Valentine: bias to roses + red/blush
-    if edge_type == "valentine":
-        def _score(it):
-            flowers = {f.lower() for f in (it.get("flowers") or []) if isinstance(f, str)}
-            pal = {(p or "").strip().lower() for p in (it.get("palette") or []) if isinstance(p, str)}
-            s = 0
-            if "rose" in flowers: s += 3
-            if {"crimson", "deep-red", "blush"}.intersection(pal): s += 2
-            return s
-        pool = sorted(pool, key=_score, reverse=True)
-
-    # 3) Apology: bias to orchids + quiet neutrals
-    if edge_type == "apology":
-        def _score(it):
-            flowers = {f.lower() for f in (it.get("flowers") or []) if isinstance(f, str)}
-            pal = {(p or "").strip().lower() for p in (it.get("palette") or []) if isinstance(p, str)}
-            s = 0
-            if "orchid" in flowers: s += 3
-            if {"pearl", "ivory", "soft-purple", "lavender"}.intersection(pal): s += 1
-            return s
-        pool = sorted(pool, key=_score, reverse=True)
-
-    return pool
-# ---- P1.6 END: New Edge Guard Helper ----
+# (removed) old _apply_edge_guards implementation – JSON-driven registers are authoritative
 
 
 def _apply_edge_register_filters(pool: List[Dict[str, Any]], edge_type: str) -> List[Dict[str, Any]]:
@@ -762,6 +725,10 @@ def selection_engine(prompt: str, context: Dict[str, Any]) -> Tuple[List[Dict[st
     if not CATALOG:
         raise HTTPException(status_code=503, detail="Service temporarily unavailable")
     
+    # --- Robustness: initialize defaults ---
+    context.setdefault("fallback_reason", "none")
+    context.setdefault("pool_size", {"pre_suppress": {}, "post_suppress": {}})
+    
     prompt_norm = normalize(prompt)
     
     # --- P1.6 Rotation Seed (from prompt) ---
@@ -822,7 +789,8 @@ def selection_engine(prompt: str, context: Dict[str, Any]) -> Tuple[List[Dict[st
         }
     }
     # expose for tests/telemetry
-    context["pool_size"] = pool_sizes
+    context["pool_size"] = pool_sizes        # legacy (kept for tests)
+    context["pool_sizes"] = pool_sizes       # new (used by logging/artifacts)
 
     context["duplication_used"] = False
     context["barriers_triggered"] = []
@@ -881,7 +849,9 @@ def selection_engine(prompt: str, context: Dict[str, Any]) -> Tuple[List[Dict[st
         "signature": sum(1 for x in post_pool if x.get("tier") == "Signature"),
         "luxury":    sum(1 for x in post_pool if x.get("tier") == "Luxury"),
     }
+    # keep legacy + new aliases in sync after post-suppress counts
     context["pool_size"] = pool_sizes
+    context["pool_sizes"] = pool_sizes
             
     final_triad = _ensure_one_mono_in_triad(final_triad, context)
     _ensure_triad_or_500(final_triad)
@@ -893,12 +863,18 @@ def selection_engine(prompt: str, context: Dict[str, Any]) -> Tuple[List[Dict[st
             
     find_and_assign_note(final_triad, selected_species, resolved_anchor, prompt)
     if not _intent_clarity(prompt, len(_scores)):
-        _add_unclear_mix_note(final_triad) # final_ad was a typo, corrected to final_triad
+        _add_unclear_mix_note(final_triad) # FIX: final_ad was a typo, corrected to final_triad
     
     meta_detected = []
     if FEATURE_MULTI_ANCHOR_LOGGING:
         meta_detected = _compute_detected_emotions(_scores or {})
     
+    # compute extra observability fields
+    _pre_total  = sum(pool_sizes["pre_suppress"].values())
+    _post_total = sum(pool_sizes["post_suppress"].values())
+    suppressed_recent_count = max(0, _pre_total - _post_total)
+    final_ids = [_stable_id(it) for it in final_triad]
+
     log_record = {
         "request_id": context.get("request_id"),
         "resolved_anchor": context.get("resolved_anchor"),
@@ -910,7 +886,9 @@ def selection_engine(prompt: str, context: Dict[str, Any]) -> Tuple[List[Dict[st
         "relationship_context": context.get("relationship_context"),
         "relationship_ambiguous": bool(context.get("relationship_ambiguous")),
         "pool_size": pool_sizes,
-        "prompt_hash": seed # Log the seed being used
+        "prompt_hash": seed,                    # deterministic seed used
+        "suppressed_recent_count": suppressed_recent_count,
+        "final_ids": final_ids
     }
     log.info("SELECTION_EVIDENCE: %s", json.dumps(log_record, ensure_ascii=False))
 
@@ -922,6 +900,14 @@ def selection_engine(prompt: str, context: Dict[str, Any]) -> Tuple[List[Dict[st
     for c in final_triad:
         c["emotion"] = c.get("emotion") or context.get("resolved_anchor") or "general"
         
-    meta = {"detected_emotions": meta_detected}
+    meta = {
+        "detected_emotions": meta_detected,
+        "prompt_hash": context.get("prompt_hash"),
+        "pool_sizes": pool_sizes,
+        "resolved_anchor": context.get("resolved_anchor"),
+        "edge_type": context.get("edge_type"),
+        "fallback_reason": context.get("fallback_reason"),
+    }
 
     return final_triad, context, meta
+}
