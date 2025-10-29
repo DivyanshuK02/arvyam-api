@@ -861,7 +861,7 @@ def selection_engine(prompt: str, context: Dict[str, Any]) -> Tuple[List[Dict[st
             it["edge_case"] = True
             it["edge_type"] = edge_type
             
-    find_and_assign_note(final_triad, selected_species, resolved_anchor, prompt)
+    find_and_assign_note(.py
     if not _intent_clarity(prompt, len(_scores)):
         _add_unclear_mix_note(final_triad) # FIX: final_ad was a typo, corrected to final_triad
     
