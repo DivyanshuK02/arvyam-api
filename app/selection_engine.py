@@ -109,26 +109,26 @@ def _validate_catalog_on_startup():
     if not CATALOG:
         log.critical("CATALOG is empty - service cannot start")
         raise RuntimeError("Invalid catalog configuration")
-    
+
     if not isinstance(CATALOG, list):
         log.critical("CATALOG must be a list")
         raise RuntimeError("Invalid catalog format")
-    
+
     for i, item in enumerate(CATALOG):
         if not isinstance(item, dict):
             log.critical(f"Catalog item {i} is not a dictionary")
             raise RuntimeError("Invalid catalog item format")
-        
+
         has_image = bool(item.get("image") or item.get("image_url"))
         has_price = bool(item.get("price") is not None or item.get("price_inr") is not None)
-        
+
         if not item.get("id"):
             log.critical(f"Catalog item {i} missing 'id' field")
             raise RuntimeError("Invalid catalog schema: missing id")
-            
+
         if not has_image:
             log.warning(f"Catalog item {item.get('id')} missing image field")
-            
+
         if not has_price:
             log.warning(f"Catalog item {item.get('id')} missing price field")
 
@@ -150,7 +150,7 @@ def _validate_catalog_families_on_startup():
         else:
             for emotion in fconfig.get("emotions", []):
                 emotion_to_family[emotion] = fname
-    
+
     for item in CATALOG:
         item_id = item.get("id", "Unknown")
         family = item.get("sentiment_family")
@@ -616,7 +616,7 @@ def _backfill_to_three(items: list[dict], catalog: list[dict], context: dict) ->
         if tier_idx is not None and final_triad[tier_idx] is None:
             final_triad[tier_idx] = item
             existing_ids.add(_stable_id(item))
-            
+
     target_family = context.get("target_family")
     family_pool = [it for it in catalog if (it.get("sentiment_family") == target_family or it.get("sentiment_family") == "UNSPECIFIED") and _stable_id(it) not in existing_ids]
 
@@ -624,7 +624,7 @@ def _backfill_to_three(items: list[dict], catalog: list[dict], context: dict) ->
         # ---- P1.6 MODIFICATION ----
         family_pool = _apply_edge_register_filters(family_pool, context["edge_type"]) # NEW
         # ---- P1.6 END ----
-        
+
     missing_tiers = [TIER_ORDER[i] for i, item in enumerate(final_triad) if item is None]
 
     for tier in missing_tiers:
@@ -634,7 +634,7 @@ def _backfill_to_three(items: list[dict], catalog: list[dict], context: dict) ->
             final_triad[TIER_RANK[tier]] = selected
             existing_ids.add(_stable_id(selected))
             family_pool = [it for it in family_pool if _stable_id(it) != _stable_id(selected)]
-            
+
     if None in final_triad and context.get("sentiment_over_ladder"):
         filled_items = [it for it in final_triad if it is not None]
         if filled_items:
@@ -643,7 +643,7 @@ def _backfill_to_three(items: list[dict], catalog: list[dict], context: dict) ->
                 if final_triad[i] is None:
                     final_triad[i] = dict(filler)
                     final_triad[i]['tier'] = TIER_ORDER[i]
-                    
+
     if None in final_triad:
         _set_fallback_reason(context, "cross_family_last_resort")
         any_pool = [it for it in catalog if _stable_id(it) not in existing_ids]
@@ -654,11 +654,11 @@ def _backfill_to_three(items: list[dict], catalog: list[dict], context: dict) ->
                 if candidate:
                     final_triad[i] = candidate
                     existing_ids.add(_stable_id(candidate))
-                    
+
     final_triad = [it for it in final_triad if it is not None]
     while len(final_triad) < 3:
         final_triad.append(final_triad[-1] if final_triad else catalog[0])
-        
+
     return final_triad[:3]
 
 def _family_for_anchor(anchor: str, families_json: dict) -> str:
@@ -682,7 +682,7 @@ def _filter_in_family(catalog: list[dict], fam: str, families_json: dict) -> lis
             if isinstance(main_fam, dict) and "subfamilies" in main_fam and fam in main_fam["subfamilies"]:
                 spec = main_fam["subfamilies"][fam]
                 break
-    
+
     if isinstance(spec, dict):
         fam_emos.update(spec.get("emotions") or [])
 
@@ -698,7 +698,7 @@ def _fallback_boundary_path(available_catalog: list[dict], target_family: str, c
 
     # Build a barrier-aware base pool once
     base_pool = _filter_by_family(available_catalog, target_family, context)
-    
+
     # 1) in-family (emotion-specific)
     p1 = [x for x in base_pool if x.get("emotion") in set((_get_family_config(target_family) or {}).get("emotions") or [])]
     if len(p1) >= need_count:
@@ -724,28 +724,28 @@ def _fallback_boundary_path(available_catalog: list[dict], target_family: str, c
 def selection_engine(prompt: str, context: Dict[str, Any]) -> Tuple[List[Dict[str, Any]], Dict[str, Any], Dict[str, Any]]:
     if not CATALOG:
         raise HTTPException(status_code=503, detail="Service temporarily unavailable")
-    
+
     # --- Robustness: initialize defaults ---
     context.setdefault("fallback_reason", "none")
     context.setdefault("pool_size", {"pre_suppress": {}, "post_suppress": {}})
-    
+
     prompt_norm = normalize(prompt)
-    
+
     # --- P1.6 Rotation Seed (from prompt) ---
     norm_prompt_hash = _stable_hash_u32(prompt_norm)
     # Use provided hash if present (for CI/testing), else use prompt's hash
-    seed = context.get("prompt_hash") 
+    seed = context.get("prompt_hash")
     if not isinstance(seed, int): # Check if it's missing or not an int
         seed = norm_prompt_hash
         context["prompt_hash"] = seed # Store the computed hash for logging
     # --- End P1.6 ---
-    
+
     resolved_anchor, edge_type, _scores = detect_emotion(prompt, context or {})
     selected_species = find_iconic_species(prompt_norm)
-    
+
     context["resolved_anchor"] = resolved_anchor
     context["edge_type"] = edge_type
-    
+
     ctx, amb = detect_relationship_context(prompt_norm)
     context["relationship_context"] = ctx
     context["relationship_ambiguous"] = amb
@@ -758,7 +758,7 @@ def selection_engine(prompt: str, context: Dict[str, Any]) -> Tuple[List[Dict[st
             context["sentiment_family"] = f"{rc}_repair"
         else:
             context["sentiment_family"] = "friendship_repair"
-            
+
         # Honor anchor override for relationship-specific apology subfamilies (rails: romantic → Affection/Support)
         try:
             overrides = EDGE_REGISTERS.get("apology", {}).get("relationship_overrides", {})
@@ -776,7 +776,7 @@ def selection_engine(prompt: str, context: Dict[str, Any]) -> Tuple[List[Dict[st
     context["target_family"] = target_family
     sentiment_over_ladder = bool(EDGE_REGISTERS.get(edge_type, {}).get("sentiment_over_ladder", False))
     context["sentiment_over_ladder"] = sentiment_over_ladder
-    
+
     available_catalog = list(CATALOG)
     emotion_pool = _fallback_boundary_path(available_catalog, target_family, context, SENTIMENT_FAMILIES, need_count=3)
 
@@ -794,24 +794,24 @@ def selection_engine(prompt: str, context: Dict[str, Any]) -> Tuple[List[Dict[st
 
     context["duplication_used"] = False
     context["barriers_triggered"] = []
-    
+
     recent_set = set(context.get("recent_ids") or []) # Get recent IDs once
     triad = []
     seen_ids = set()
 
     for tier in TIER_ORDER:
         tier_pool = [it for it in emotion_pool if it.get("tier") == tier and _stable_id(it) not in seen_ids]
-        
+
         # ---- P1.6 MODIFICATIONS START ----
-        
+
         # 1. Apply new edge guards first
         if edge_type:
             # tier_pool = _apply_edge_register_filters(tier_pool, edge_type) # OLD
             tier_pool = _apply_edge_register_filters(tier_pool, edge_type) # NEW
-        
+
         # 2. Apply suppression using the new helper function
         tier_pool = _suppress_recent(tier_pool, recent_set)
-        
+
         # ---- P1.6 MODIFICATIONS END ----
 
         selected_item = None
@@ -826,14 +826,14 @@ def selection_engine(prompt: str, context: Dict[str, Any]) -> Tuple[List[Dict[st
                 if tier == "Signature" and triad[0]: selected_item = dict(triad[0])
                 elif tier == "Luxury" and len(triad) > 1 and triad[1]: selected_item = dict(triad[1])
                 elif triad[0]: selected_item = dict(triad[0])
-        
+
         if selected_item:
             selected_item["tier"] = tier
             triad.append(selected_item)
             seen_ids.add(_stable_id(selected_item))
         else:
             triad.append(None)
-            
+
     if any(item is None for item in triad):
         triad_no_none = [item for item in triad if item is not None]
         final_triad = _backfill_to_three(triad_no_none, available_catalog, context)
@@ -852,23 +852,23 @@ def selection_engine(prompt: str, context: Dict[str, Any]) -> Tuple[List[Dict[st
     # keep legacy + new aliases in sync after post-suppress counts
     context["pool_size"] = pool_sizes
     context["pool_sizes"] = pool_sizes
-            
+
     final_triad = _ensure_one_mono_in_triad(final_triad, context)
     _ensure_triad_or_500(final_triad)
-    
+
     if edge_type:
         for it in final_triad:
             it["edge_case"] = True
             it["edge_type"] = edge_type
-            
+
     find_and_assign_note(final_triad, selected_species, resolved_anchor, prompt)
     if not _intent_clarity(prompt, len(_scores)):
         _add_unclear_mix_note(final_triad) # FIX: final_ad was a typo, corrected to final_triad
-    
+
     meta_detected = []
     if FEATURE_MULTI_ANCHOR_LOGGING:
         meta_detected = _compute_detected_emotions(_scores or {})
-    
+
     # compute extra observability fields
     _pre_total  = sum(pool_sizes["pre_suppress"].values())
     _post_total = sum(pool_sizes["post_suppress"].values())
@@ -878,7 +878,7 @@ def selection_engine(prompt: str, context: Dict[str, Any]) -> Tuple[List[Dict[st
     log_record = {
         "request_id": context.get("request_id"),
         "resolved_anchor": context.get("resolved_anchor"),
-        "edge_case": bool(context.get("edge_type")),
+        "edge_case": bool(context.get("edge_type")), # <-- CORRECTED LINE
         "edge_type": context.get("edge_type"),
         "fallback_reason": context.get("fallback_reason", "none"),
         "duplication_used": context.get("duplication_used", False),
@@ -896,10 +896,10 @@ def selection_engine(prompt: str, context: Dict[str, Any]) -> Tuple[List[Dict[st
     for it in final_triad:
         it["_packaging"] = PACKAGING_BY_TIER.get(it.get("tier"))
         it["_luxury_grand"] = _lg(it)
-        
+
     for c in final_triad:
         c["emotion"] = c.get("emotion") or context.get("resolved_anchor") or "general"
-        
+
     meta = {
         "detected_emotions": meta_detected,
         "prompt_hash": context.get("prompt_hash"),
@@ -910,4 +910,5 @@ def selection_engine(prompt: str, context: Dict[str, Any]) -> Tuple[List[Dict[st
     }
 
     return final_triad, context, meta
+}
 }
