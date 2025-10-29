@@ -159,22 +159,39 @@ def sanitize_text(s: str) -> str:
 def write_golden_artifact(
     request_id: str,
     persona: str,
+    prompt: str, # Added prompt
     context: Dict[str, Any],
-    items: List[Dict[str, Any]]
+    meta: Dict[str, Any], # Added meta
+    items: List[Dict[str, Any]],
 ) -> None:
     """Writes a single-line JSON artifact to a date-stamped log file."""
     try:
         log_dir = GOLDEN_ARTIFACTS_DIR
         os.makedirs(log_dir, exist_ok=True)
         log_file = os.path.join(log_dir, f"{datetime.utcnow().strftime('%Y%m%d')}.log")
+        
+        # Compute suppressed_recent_count robustly
+        ps = (context.get("pool_sizes") or context.get("pool_size") or {})
+        pre  = (ps.get("pre_suppress")  or {})
+        post = (ps.get("post_suppress") or {})
+        pre_total  = sum(int(pre.get(k, 0))  for k in ("classic","signature","luxury"))
+        post_total = sum(int(post.get(k, 0)) for k in ("classic","signature","luxury"))
+        suppressed_recent_count = meta.get("suppressed_recent_count", max(0, pre_total - post_total))
+
+        # Combine context and meta for richer logging
         artifact = {
             "ts": datetime.utcnow().isoformat(),
+            "prompt": prompt,
             "request_id": request_id,
             "persona": persona,
             "resolved_anchor": context.get("resolved_anchor"),
             "item_ids": [item.get("id") for item in items],
             "fallback_reason": context.get("fallback_reason"),
-            "pool_sizes": context.get("pool_sizes"),
+            "pool_sizes": context.get("pool_sizes") or context.get("pool_size"), # Use the one already exposed in context
+            "edge_type": meta.get("edge_type"),
+            "relationship_context": context.get("relationship_context"),
+            "prompt_hash": meta.get("prompt_hash"),
+            "suppressed_recent_count": int(suppressed_recent_count),
         }
         with open(log_file, "a", encoding="utf-8") as f:
             f.write(json.dumps(artifact) + "\n")
@@ -334,13 +351,15 @@ async def curate_post(body: CurateRequest, request: Request, response: Response)
     latency_ms = int((time.time() - started) * 1000)
     logger.info("[%s] CURATE ip=%s emotion=%s latency_ms=%s prompt_len=%s",
                  PERSONA, get_remote_address(request), items[0].get("emotion",""), latency_ms, len(prompt))
-    
+
     append_selection_log(items, request_id, latency_ms, len(prompt), path="/api/curate")
     analytics_guard_check()
-    write_golden_artifact(request_id, PERSONA, context, items)
+    # Pass prompt, context, and meta to the artifact writer
+    write_golden_artifact(request_id, PERSONA, prompt, context, meta, items)
 
     emit_header = ANCHOR_THRESHOLDS.get("multi_anchor_logging", {}).get("emit_header", False)
     if FEATURE_MULTI_ANCHOR_LOGGING and emit_header:
+        # Re-detect emotion to get scores (avoid passing scores back from engine)
         _, _, scores = detect_emotion(normalize(prompt), context or {})
         if scores:
             top = sorted(scores.items(), key=lambda kv: kv[1], reverse=True)
@@ -349,6 +368,7 @@ async def curate_post(body: CurateRequest, request: Request, response: Response)
             if len(top) > 1:
                 th = ANCHOR_THRESHOLDS.get("multi_anchor_logging", {})
                 s2 = round(top[1][1], 2)
+                # Check if second score is high enough and close enough to the first
                 if s2 >= float(th.get("score2_min", 0.25)) and (s1 - s2) <= float(th.get("delta_max", 0.15)):
                     header_vals.append(f"{top[1][0]}:{s2}")
             response.headers["X-Detected-Emotions"] = ",".join(header_vals)
@@ -365,11 +385,12 @@ async def _curate_flexible(request: Request) -> JSONResponse:
     prompt = await _coerce_prompt(request)
     if not prompt:
         return error_json("PROMPT_REQUIRED", "Provide a non-empty 'prompt'.", 400, request_id)
-    
+
     prompt = sanitize_text(prompt)
     req_context = {"request_id": request_id}
 
     try:
+        # --> This line already gets the meta object correctly
         final_triad, context, meta = selection_engine(prompt=prompt, context=req_context)
         items = _transform_for_api(final_triad, context.get("resolved_anchor"))
         items = [_sanitize_item(it) for it in items]
@@ -382,29 +403,32 @@ async def _curate_flexible(request: Request) -> JSONResponse:
                  PERSONA, get_remote_address(request), items[0].get("emotion",""), latency_ms, len(prompt))
     append_selection_log(items, request_id, latency_ms, len(prompt), path="/curate(shim)")
     analytics_guard_check()
-    write_golden_artifact(request_id, PERSONA, context, items)
-    
+    # Pass prompt, context, and the ACTUAL meta object to the artifact writer
+    # --- THIS IS THE FIX ---
+    write_golden_artifact(request_id, PERSONA, prompt, context, meta, items) # Was passing {} for meta
+
     return JSONResponse(items)
 
 @app.get("/api/curate")
 @limiter.limit(f"{RATE_LIMIT_PER_MIN}/minute")
 async def curate_get(request: Request):
-    # This endpoint retains its original seed-mode logic, which was previously removed by mistake.
     started = time.time()
     request_id = str(uuid.uuid4())
     prompt = await _coerce_prompt(request)
     if not isinstance(prompt, str) or len(prompt.strip()) < 3:
         return JSONResponse({"error": "Invalid input."}, status_code=400)
-    
+
     prompt = sanitize_text(prompt)
     if not prompt:
         return error_json("EMPTY_PROMPT", "Please write a short line.", 422, request_id)
-    
+
     req_context = {"request_id": request_id}
-    
+
     seed_state = seed_mode_status()
     items = None
     context = {}
+    meta = {} # Initialize meta for GET route
+
     if seed_state.get("enabled"):
         norm = normalize(prompt)
         emo, _, _ = detect_emotion(norm, req_context)
@@ -412,24 +436,30 @@ async def curate_get(request: Request):
         if len(seeds) == 3:
             seeded_items = map_ids_to_output(seeds)
             if seeded_items:
-                # In seed mode, context is minimal. We pass the detected emotion as the resolved anchor.
                 items = _transform_for_api(seeded_items, emo)
                 items = [_sanitize_item(it) for it in items]
-                context = {"resolved_anchor": emo} # Create a minimal context for logging
+                # Populate minimal context and meta for seed mode logging
+                context = {"resolved_anchor": emo, "request_id": request_id}
+                meta = {"resolved_anchor": emo} # Mimic some meta fields
 
-    if items is None:
-        final_triad, context, meta = selection_engine(prompt=prompt, context=req_context)
-        items = _transform_for_api(final_triad, context.get("resolved_anchor"))
-        items = [_sanitize_item(it) for it in items]
+    if items is None: # If not in seed mode or seed failed
+        try:
+            final_triad, context, meta = selection_engine(prompt=prompt, context=req_context)
+            items = _transform_for_api(final_triad, context.get("resolved_anchor"))
+            items = [_sanitize_item(it) for it in items]
+        except Exception as e:
+            logger.error(f"Engine error for request_id={request_id} (GET): {e}", exc_info=True)
+            return error_json("ENGINE_ERROR", str(e)[:400], 500, request_id)
 
     latency_ms = int((time.time() - started) * 1000)
-    logger.info("[%s] CURATE ip=%s emotion=%s latency_ms=%s prompt_len=%s%s",
+    logger.info("[%s] CURATE(GET) ip=%s emotion=%s latency_ms=%s prompt_len=%s%s",
                  PERSONA, get_remote_address(request), items[0].get("emotion",""), latency_ms, len(prompt),
                  " (seed-mode)" if seed_state.get("enabled") and items is not None else "")
-    
+
     append_selection_log(items, request_id, latency_ms, len(prompt), path="/api/curate_get")
     analytics_guard_check()
-    write_golden_artifact(request_id, PERSONA, context, items)
+    # Pass prompt, context, and meta (potentially empty/minimal for GET/seed) to the artifact writer
+    write_golden_artifact(request_id, PERSONA, prompt, context, meta, items)
 
     return JSONResponse(items)
 
@@ -454,6 +484,7 @@ async def curate_post_next(body: CurateRequest, request: Request):
     except Exception as e:
         logger.error(f"Engine error for request_id={request_id} (next): {e}", exc_info=True)
         raise HTTPException(status_code=500, detail={"error": {"code": "ENGINE_ERROR", "message": str(e)[:400]}})
+    # Note: /next endpoint does not write golden artifacts or standard logs currently
     return items
 
 # -------------------------
@@ -487,11 +518,14 @@ def _run_one(test: Dict[str, Any]) -> Dict[str, Any]:
         out["status"] = "FAIL"
         out["reasons"].append(f"engine_error: {repr(e)}")
         return out
-    
+
+    # Basic structural checks
     if len(items) != 3: out["status"] = "FAIL"; out["reasons"].append("triad_len != 3")
     if sum(1 for it in items if it.get("mono")) != 1: out["status"] = "FAIL"; out["reasons"].append("mono_count != 1")
     if any(not isinstance(it.get("palette"), list) or len(it["palette"]) == 0 for it in items): out["status"] = "FAIL"; out["reasons"].append("palette missing")
     if sum(1 for it in items if it.get("luxury_grand")) > 1: out["status"] = "FAIL"; out["reasons"].append(">1 luxury_grand")
+
+    # Specific test expectations
     if test.get("expect_lily_mono"):
         mono_item = next((it for it in items if it.get("mono")), None)
         if not mono_item: out["status"] = "FAIL"; out["reasons"].append("no mono item")
@@ -499,6 +533,8 @@ def _run_one(test: Dict[str, Any]) -> Dict[str, Any]:
             cat = CAT_BY_ID.get(mono_item["id"]) or {}
             if "lily" not in [s.lower() for s in (cat.get("flowers") or [])]: out["status"] = "FAIL"; out["reasons"].append("mono is not lily")
     if test.get("expect_note") and not any(it.get("note") for it in items): out["status"] = "FAIL"; out["reasons"].append("redirection note missing")
+
+    # Record results
     out["emotion"] = items[0].get("emotion", ""); out["ids"] = [it.get("id") for it in items]
     out["tiers"] = [it.get("tier") for it in items]; out["mono_id"] = next((it.get("id") for it in items if it.get("mono")), "")
     return out
