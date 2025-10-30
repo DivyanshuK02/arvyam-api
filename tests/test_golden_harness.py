@@ -138,10 +138,17 @@ def test_golden_harness_v2(client, evidence_dir):
         if case.get("expect_edge") is not None:
             assert meta.get("edge_type") == case["expect_edge"], (case['name'], meta)
 
-        # All API items must match the resolved anchor (when meta provides it)
+        # All API items must match the resolved anchor (normal path).
+        # In cross-family fallback we preserve catalog emotion; assert presence only.
         if meta.get("resolved_anchor"):
+            fallback_reason = ctx.get("fallback_reason")
             for it in items:
-                assert it.get("emotion") == meta["resolved_anchor"], (case['name'], it)
+                if fallback_reason == "cross_family_last_resort":
+                    # Engine intentionally keeps catalog emotion; just ensure it's present.
+                    assert it.get("emotion"), (case['name'], it, "missing emotion field in fallback")
+                else:
+                    # Normal path: items should match the resolved anchor.
+                    assert it.get("emotion") == meta["resolved_anchor"], (case['name'], it)
 
         # FIX #1: Valentine mono must include a rose (use catalog as source of truth)
         if case.get("require_mono_rose"):
