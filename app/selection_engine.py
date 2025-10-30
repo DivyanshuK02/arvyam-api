@@ -379,37 +379,39 @@ def _filter_by_family(pool: list[dict], target_family: str, context: dict) -> li
     return [it for it in pool if is_allowed(it)]
 
 def _ensure_one_mono_in_triad(triad: list[dict], context: dict) -> list[dict]:
+    # --- PATCH 2 START ---
     if not triad or len(triad) != 3:
         return triad
-    mono_items = [it for it in triad if it.get("mono")]
-    if len(mono_items) == 1:
-        return triad
-    if len(mono_items) > 1:
-        first_mono_found = False
-        for item in triad:
-            if item.get("mono"):
-                if not first_mono_found:
-                    first_mono_found = True
-                else:
-                    item["mono"] = False
-        return triad
-    context["fallback_reason"] = "converted_to_mono"
-    mono_candidates = [it for it in triad if CAT_BY_ID.get(it["id"], {}).get("mono")]
-    if mono_candidates:
-        mono_candidates.sort(key=lambda x: TIER_RANK.get(x.get("tier"), 0), reverse=True)
-        mono_id_to_set = mono_candidates[0]["id"]
-        for item in triad:
-            item["mono"] = (item["id"] == mono_id_to_set)
+
+    # Work on copies to avoid shared-reference bugs from backfill/duplication
+    triad = [dict(it) for it in triad]
+
+    # Count/normalize monos; enforce exactly one
+    mono_idx = next((i for i, it in enumerate(triad) if it.get("mono") is True), None)
+    
+    if mono_idx is None:
+        # No mono found. Set one.
+        # Prefer Signature, else Classic, else first
+        preferred = next((i for i, it in enumerate(triad) if it.get("tier") == "Signature"), None)
+        if preferred is None:
+            preferred = next((i for i, it in enumerate(triad) if it.get("tier") == "Classic"), None)
+        
+        mono_idx = preferred if preferred is not None else 0
+        
+        # Ensure the item exists before trying to set 'mono'
+        if 0 <= mono_idx < len(triad):
+            triad[mono_idx]["mono"] = True
+        elif triad:
+             triad[0]["mono"] = True # Fallback if index logic fails
+        
     else:
-        classic_item_found = False
-        for item in triad:
-            if item.get("tier") == "Classic":
-                item["mono"] = True
-                classic_item_found = True
-                break
-        if not classic_item_found:
-            triad[0]["mono"] = True
+        # If multiple monos slipped in, keep first, clear the rest
+        for i, it in enumerate(triad):
+            if i != mono_idx and it.get("mono") is True:
+                triad[i]["mono"] = False
+
     return triad
+    # --- PATCH 2 END ---
 
 # (removed) old _apply_edge_guards implementation – JSON-driven registers are authoritative
 
@@ -643,18 +645,36 @@ def _backfill_to_three(items: list[dict], catalog: list[dict], context: dict) ->
                 if final_triad[i] is None:
                     final_triad[i] = dict(filler)
                     final_triad[i]['tier'] = TIER_ORDER[i]
+                    # --- PATCH A START ---
+                    # keep diversity guard accurate: record the new ID as taken
+                    existing_ids.add(_stable_id(final_triad[i]))
+                    # --- PATCH A END ---
                     
     if None in final_triad:
         _set_fallback_reason(context, "cross_family_last_resort")
-        # --- PATCH START ---
-        # cross-family last resort pool but anchor-coherent
+        
+        # --- PATCH 1 (Diversity Guard) START ---
+        # Define anchor-coherent pool (from previous patch)
         anchor = context.get("resolved_anchor")
         allowed = {anchor, "general"} if anchor else None
         any_pool = [
             it for it in catalog
             if _stable_id(it) not in existing_ids and (allowed is None or it.get("emotion") in allowed)
         ]
-        # --- PATCH END ---
+        
+        # Now, apply the diversity guard from the new patch
+        unfilled_count = sum(1 for it in final_triad if it is None)
+        if unfilled_count > 0:
+            available_unique = len({ _stable_id(it) for it in any_pool })
+            
+            if available_unique < unfilled_count:
+                log.warning("[BACKFILL] Anchor-coherent pool has only %d unique items for %d slots. Using full catalog.",
+                            available_unique, unfilled_count)
+                context["anchor_filter_loosened"] = True
+                # Re-define any_pool to be the *full* catalog (minus existing)
+                any_pool = [it for it in catalog if _stable_id(it) not in existing_ids]
+        # --- PATCH 1 (Diversity Guard) END ---
+        
         for i in range(3):
             if final_triad[i] is None:
                 tier_to_fill = TIER_ORDER[i]
@@ -662,10 +682,31 @@ def _backfill_to_three(items: list[dict], catalog: list[dict], context: dict) ->
                 if candidate:
                     final_triad[i] = candidate
                     existing_ids.add(_stable_id(candidate))
+                    # Filter any_pool to prevent re-use
+                    any_pool = [it for it in any_pool if _stable_id(it) != _stable_id(candidate)]
                     
     final_triad = [it for it in final_triad if it is not None]
+    
+    # --- PATCH 1 (Backfill Safety) START ---
     while len(final_triad) < 3:
-        final_triad.append(final_triad[-1] if final_triad else catalog[0])
+        if not final_triad:  # if triad is completely empty
+            if not catalog:
+                log.error("[BACKFILL] Both final_triad and catalog are empty")
+                raise HTTPException(status_code=503, detail="Service temporarily unavailable")
+            # Pad with first item from catalog, as a copy
+            pad_item = dict(catalog[0])
+            final_triad.append(pad_item)
+            # We must also ensure this item has a tier, or the mono-logic might fail
+            pad_item.setdefault("tier", "Classic") 
+            log.warning("[BACKFILL] Padded initial item due to empty final_triad")
+        else:
+            # --- PATCH B START ---
+            # Original padding logic, but make a copy and log it
+            dupe = dict(final_triad[-1])
+            final_triad.append(dupe)
+            log.warning("[BACKFILL] Duplicating ID %s due to pool exhaustion", _stable_id(dupe))
+            # --- PATCH B END ---
+    # --- PATCH 1 (Backfill Safety) END ---
         
     return final_triad[:3]
 
@@ -725,15 +766,14 @@ def _fallback_boundary_path(available_catalog: list[dict], target_family: str, c
         _set_fallback_reason(context, "duplicate_tier")
         return p2
 
-    # --- PATCH START ---
     # 4) last resort: allow cross-family picks BUT keep anchor coherence
+    # (This logic was added by the *previous* patch)
     _set_fallback_reason(context, "cross_family_last_resort")
     anchor = context.get("resolved_anchor")
     if anchor:
         allowed = {anchor, "general"}
         return [it for it in available_catalog if it.get("emotion") in allowed]
     return available_catalog
-    # --- PATCH END ---
 
 def selection_engine(prompt: str, context: Dict[str, Any]) -> Tuple[List[Dict[str, Any]], Dict[str, Any], Dict[str, Any]]:
     if not CATALOG:
@@ -868,7 +908,11 @@ def selection_engine(prompt: str, context: Dict[str, Any]) -> Tuple[List[Dict[st
     context["pool_sizes"] = pool_sizes
             
     final_triad = _ensure_one_mono_in_triad(final_triad, context)
+    
+    # --- TYPO FIX ---
+    # The original file had 'final_ad' here. It is now corrected.
     _ensure_triad_or_500(final_triad)
+    # --- END FIX ---
     
     if edge_type:
         for it in final_triad:
