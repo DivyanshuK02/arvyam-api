@@ -22,6 +22,7 @@ What's new in Phase 1.6A (PR-1 → PR-8)
 - PR-8: Tests & docs refresh (Golden Harness v2, boundary fallback tests, sobriety via single source of truth)
 
 Cross-family fallback (rare): items keep their catalog emotions; we do not forcibly stamp them to the resolved anchor. Tests reflect this contract.
+Backfill duplication is logged with [BACKFILL]; exactly 1 MONO enforced.
 
 Phase snapshot
 1.4a — Stabilization: ✅ complete
