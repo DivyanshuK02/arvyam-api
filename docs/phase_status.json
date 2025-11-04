@@ -23,8 +23,9 @@
     "notes": "Packaging tiers delivered (internal-only): Classic→Box, Signature→Vase, Luxury→PremiumBox; LG is boolean inside Luxury; public API unchanged."
   },
   "phase_1_6_catalog": {
-    "status": "ready_to_kickoff",
+    "status": "complete",
     "notes": "Catalog schema & JSON guards. DB rails optional — mirror enums/CHECKs if a DB exists; otherwise enforce via tests. No public API changes."
   },
+  "1.6_catalog_schema": "frozen",
   "updated_at": "2025-09-25"
 }
