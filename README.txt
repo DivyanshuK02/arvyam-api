@@ -1,7 +1,6 @@
-ARVYAM — API (Beginner-Safe, Zero-Drift Rails) — Phase 1.6A Snapshot
+ARVYAM — API (Beginner-Safe, Zero-Drift Rails) — Phase 1.6 Snapshot
 
 Deterministic curation API that turns a short user prompt into exactly three products (2 MIX + 1 MONO) from the catalog, each mapped to one of 8 emotional anchors with an explicit palette[].
-
 Stabilized rails (Phase 1.4a + 1.4)
 - Single public schema (one return path)
 - Family boundaries ON
@@ -22,14 +21,12 @@ What's new in Phase 1.6A (PR-1 → PR-8)
 - PR-8: Tests & docs refresh (Golden Harness v2, boundary fallback tests, sobriety via single source of truth)
 
 Cross-family fallback (rare): items keep their catalog emotions; we do not forcibly stamp them to the resolved anchor. Tests reflect this contract.
-Backfill duplication is logged with [BACKFILL]; exactly 1 MONO enforced.
-
 Phase snapshot
 1.4a — Stabilization: ✅ complete
 1.4 — Emotions & Palettes (Enrichment): ✅ complete
 1.5 — Packaging Tiers (internal-only): ✅ complete
-1.6A — Selection Engine Corrections & Observability (PRs 1-8): ✅ complete
-1.6 — (rolled into 1.6A for this release)
+1.6 — Catalog Schema Freeze (JSON Schema + CI check): ✅ complete
+1.6A — Selection Engine Corrections & Observability (PRs 1–8): ✅ complete
 
 Quickstart (local)
 # Python 3.11+
@@ -43,7 +40,8 @@ uvicorn app.main:app --reload
 
 Public API (contract is frozen by tests)
 POST /api/curate
-{ "prompt": "Happy birthday to you!" }
+{ "prompt": "Happy birthday to you!"
+}
 
 Response (always an array of 3 public items):
 [
@@ -63,9 +61,9 @@ Response (always an array of 3 public items):
 ]
 
 Never returns internal fields (e.g., raw image URLs, packaging, luxury_grand, internal costs).
-
 Evidence & Observability (PR-7)
-Each request writes a single JSON-line evidence record. Keys (superset across context+meta):
+Each request writes a single JSON-line evidence record.
+Keys (superset across context+meta):
 - request_id (UUID4), prompt_hash
 - resolved_anchor (one of 8), edge_type (e.g., valentine, apology, sympathy…)
 - relationship_context = romantic|familial|friendship|professional|unknown
@@ -81,6 +79,7 @@ Zero-drift acceptance floor
 - Grief/Farewell palette sobriety: no celebratory tokens (gold is allowed)
 - Deterministic rotation per prompt; recent-ID suppression
 - Evidence line stable; CI must be green before merge
+- Catalog validates against docs/catalog.schema.json in CI before tests
 
 Repo layout
 .
@@ -106,10 +105,12 @@ Repo layout
 │  ├─ make_review_sheet.py     # Feeder: candidates/proposals → review.csv
 │  ├─ apply_tokens.py          # Feeder: add-only to emotion_keywords.json (+ .bak)
 │  ├─ validate_rulebook.py     # Schema/enum validator for rulebook
+│  ├─ validate_catalog.py      # Validates app/catalog.json against docs/catalog.schema.json
 │  └─ rotate_backups.py        # Keep newest N .bak files (local hygiene)
 ├─ docs/
 │  ├─ llm_feeder.md            # Offline feeder guide (no runtime LLM)
-│  └─ phase_status.json        # Live phase ticks
+│  ├─ phase_status.json        # Live phase ticks
+│  └─ catalog.schema.json      # Frozen catalog JSON Schema (P1.6)
 ├─ evidence/                   # Golden harness artifacts (gitignored)
 ├─ requirements.txt
 └─ dev-requirements.txt
@@ -118,12 +119,17 @@ Tests & CI
 Local:
 pytest -q
 
-CI runs:
-- Contract + schema tests (public fields, 3-card rule)
-- Golden Harness v2 (artifacts saved under evidence/)
-- Boundary fallback suite (reasons exposure, pool size monotonicity, 1 MONO invariant)
-- Palette sobriety using CELEBRATION_BLOCK from test_family_boundaries.py
-- Enums & feeder smokes (no runtime LLM)
+CI runs (order):
+- Rulebook schema check (tools/validate_rulebook.py)
+- Feeder smoke dry-run (tools/apply_tokens.py on tests/data/review_smoke.csv)
+- Catalog JSON Schema check (tools/validate_catalog.py against docs/catalog.schema.json)
+- Pytest suite:
+  • Contract + public-shape (3-card rule)  
+  • Golden Harness v2 (artifacts under evidence/)  
+  • Boundary fallbacks (reasons, pool size monotonicity, 1 MONO invariant)  
+  • Palette sobriety using CELEBRATION_BLOCK  
+  • Enums & feeder smokes (no runtime LLM)
+- Artifacts uploaded: evidence-bundle, review_smoke_csv
 
 Removed legacy test_palette_allowlist.py and redundant sympathy guard file; sobriety is enforced via test_family_boundaries.py and used by Golden Harness v2.
 
@@ -132,7 +138,6 @@ Behavior notes (for reviewers)
 - Edges (valentine/apology/sympathy/…) read from edge_registers.json (gold-neutral grief/farewell).
 - Rotation is deterministic per prompt (CRC32 prompt hash + tier salts).
 - Cross-family fallback: when anchor pools are exhausted, we prefer anchor-coherent items; if still insufficient, we may loosen—items keep catalog emotions (we don't restamp to the resolved anchor). Tests assert the contract.
-
 Offline feeder (docs + tools)
 Guide: docs/llm_feeder.md (beginner-proof; add-only; no runtime LLM).
 Reproduce CI's smoke locally (sanity-check headers/enums):
@@ -150,11 +155,10 @@ Troubleshooting
 - Import error in tests (cannot find app): run from repo root with an active venv.
 - CI fails on feeder smoke: verify tests/data/review_smoke.csv headers and anchor enums.
 - Engine behavior: confirm edge overrides (e.g., romantic apology → Affection/Support) are honored in selection_engine.py per edge_registers.json.
-
 Contribution notes
 - Keep changes additive in app/rules/emotion_keywords.json (Phase 1.4 policy).
 - Do not weaken the rails (public schema, 3 cards, boundaries, apology context).
 - If you touch rules or tests, run the feeder smoke command above before pushing.
-
 Release tags
+v1.6 — Catalog Schema Freeze (p1.6-schema-freeze)
 v1.6A — Selection Engine Corrections & Observability (PRs 1–8)
