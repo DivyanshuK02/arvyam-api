@@ -1,0 +1,46 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Arvyam Catalog v1 (P1.6)",
+  "type": "array",
+  "minItems": 1,
+  "items": {
+    "type": "object",
+    "required": ["id","title","desc","emotion","tier","mono","palette"],
+    "properties": {
+      "id":   { "type": "string", "minLength": 1 },
+      "title":{ "type": "string", "minLength": 1 },
+      "desc": { "type": "string", "minLength": 1 },
+      "emotion": { "type": "string", "enum": [
+        "Affection/Support","Loyalty/Dependability","Encouragement/Positivity",
+        "Strength/Resilience","Intellect/Wisdom","Adventurous/Creativity",
+        "Selflessness/Generosity","Fun/Humor"
+      ]},
+      "tier": { "type": "string", "enum": ["Classic","Signature","Luxury"] },
+      "mono": { "type": "boolean" },
+      "palette": {
+        "type": "array",
+        "minItems": 1,
+        "items": { "type": "string", "minLength": 1 }
+      },
+      "sentiment_family": { "type": "string", "minLength": 1 },
+      "image_url": { "type": "string" },
+      "image": { "type": "string" },
+      "price_inr": { "type": "number" },
+      "price": { "type": "number" },
+      "packaging": { "type": "string" },
+      "luxury_grand": { "type": "boolean" },
+      "seasonal": { "type": "boolean" },
+      "flowers": { "type": "array", "items": { "type": "string" } },
+      "weight": { "type": "number" },
+      "tags": { "type": "array", "items": { "type": "string" } }
+    },
+    "anyOf": [
+      { "required": ["image_url"] },
+      { "required": ["image"] }
+    ],
+    "allOf": [
+      { "anyOf": [ { "required": ["price_inr"] }, { "required": ["price"] } ] }
+    ],
+    "additionalProperties": true
+  }
+}
