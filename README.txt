@@ -63,6 +63,7 @@ Response (always an array of 3 public items):
 Never returns internal fields (e.g., raw image URLs, packaging, luxury_grand, internal costs).
 Evidence & Observability (PR-7)
 Each request writes a single JSON-line evidence record.
+Error JSON shape & rate-limit policy: see docs/deploy.md.
 Keys (superset across context+meta):
 - request_id (UUID4), prompt_hash
 - resolved_anchor (one of 8), edge_type (e.g., valentine, apology, sympathy…)
