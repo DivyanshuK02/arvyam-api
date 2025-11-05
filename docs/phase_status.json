@@ -20,12 +20,25 @@
   },
   "phase_1_5": {
     "status": "complete",
-    "notes": "Packaging tiers delivered (internal-only): Classic→Box, Signature→Vase, Luxury→PremiumBox; LG is boolean inside Luxury; public API unchanged."
+    "notes": "Packaging tiers delivered (internal-only): Classic→Box, Signature→Vase, Luxury→PremiumBox; LG boolean inside Luxury; public API unchanged."
   },
   "phase_1_6_catalog": {
     "status": "complete",
-    "notes": "Catalog schema & JSON guards. DB rails optional — mirror enums/CHECKs if a DB exists; otherwise enforce via tests. No public API changes."
+    "notes": "Catalog schema frozen + JSON-schema guard in CI before tests. Public API unchanged."
   },
   "1.6_catalog_schema": "frozen",
-  "updated_at": "2025-09-25"
+
+  "phase_1_7_backend_api": {
+    "status": "complete",
+    "notes": "Backend surfaces live: GET /health (persona visible), POST /api/curate (3 public items; allow-list only), POST /api/checkout (stub returns checkout_url). Unified error JSON + request_id; per-IP rate-limit active; tests/CI green."
+  },
+  "1.7_backend_api": "frozen",
+
+  "phase_1_8_evidence": {
+    "status": "complete",
+    "notes": "Evidence 2.0: authoritative store is device vault (not repo). Each phase folder has manifest.sha256 + meta note; CI artifacts optional mirrors; monthly audit cadence documented."
+  },
+  "1.8_evidence": "frozen",
+
+  "updated_at": "2025-11-06"
 }
