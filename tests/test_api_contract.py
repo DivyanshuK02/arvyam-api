@@ -46,3 +46,26 @@ def test_curate_contract():
 
         # forbid any underscored/private keys
         assert not any(str(k).startswith("_") for k in it.keys()), "underscored key leaked in public payload"
+
+def test_health_ok_persona():
+    r = client.get("/health")
+    assert r.status_code == 200
+    payload = r.json()
+    assert isinstance(payload, dict)
+    # Minimal health contract for P1.7+
+    assert payload.get("status") == "ok"
+    assert payload.get("persona") == "ARVY"  # persona must be present
+    assert "version" in payload               # optional but useful for UI/debug
+
+def test_checkout_stub_url():
+    # Minimal accepted payload (MVP): product_id only
+    body = {"product_id": "SKU_TEST"}
+    r = client.post("/api/checkout", json=body)
+    assert r.status_code == 200
+    payload = r.json()
+    assert isinstance(payload, dict)
+    # P1.7 keeps the stub URL shape (Handbook allows stub URL or accepted:true)
+    url = payload.get("checkout_url")
+    assert isinstance(url, str) and len(url) > 0
+    # helpful invariant check for our stub implementation
+    assert "pid=SKU_TEST" in url
