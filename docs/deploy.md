@@ -42,6 +42,8 @@ Optional: `note`, `edge_case`, `edge_type`
 ### Strictly forbidden to leak
 `packaging`, `luxury_grand`, `image_url`, `price_inr`, `flowers`, `weight`, `tags`, and any private/underscored keys.
 
+**LLM Feeder Note:** Fields like `tags/flowers/packaging/...` are for **LLM feeder and internal tooling only**. They are not part of the public API and must **never** be surfaced by `/api/curate`.
+
 ### Sobriety note — grief/farewell
 For sympathy/farewell families, palettes must stay muted and respectful.
 Gold accents are acceptable in moderation; celebratory/neon tones are blocked by tests/policy.
