@@ -27,6 +27,9 @@ Phase snapshot
 1.5 — Packaging Tiers (internal-only): ✅ complete
 1.6 — Catalog Schema Freeze (JSON Schema + CI check): ✅ complete
 1.6A — Selection Engine Corrections & Observability (PRs 1–8): ✅ complete
+1.7 - BACKEND API: ✅ complete
+1.8 - Evidence & Observability (Evidence 2.0) frozen : ✅ complete
+Evidence source of truth: stored on device at …/Evidence/ — see Phase-1 §1.8 for structure & manifest rules
 
 Quickstart (local)
 # Python 3.11+
