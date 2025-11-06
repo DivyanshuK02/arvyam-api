@@ -39,6 +39,8 @@
     "notes": "Evidence 2.0: authoritative store is device vault (not repo). Each phase folder has manifest.sha256 + meta note; CI artifacts optional mirrors; monthly audit cadence documented."
   },
   "1.8_evidence": "frozen",
+  "1.8_evidence_enforcement": "complete",
+  "evidence_base_path": "device",
 
   "updated_at": "2025-11-06"
 }
