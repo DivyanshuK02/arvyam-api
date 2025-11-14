@@ -163,6 +163,9 @@ Contribution notes
 - Keep changes additive in app/rules/emotion_keywords.json (Phase 1.4 policy).
 - Do not weaken the rails (public schema, 3 cards, boundaries, apology context).
 - If you touch rules or tests, run the feeder smoke command above before pushing.
+
+Working Rules:
+Active doc rule: When multiple versions exist in this project thread, the last uploaded file with the same base name is the authoritative version unless a different version is explicitly referenced in the task.
 Release tags
 v1.6 — Catalog Schema Freeze (p1.6-schema-freeze)
 v1.6A — Selection Engine Corrections & Observability (PRs 1–8)
