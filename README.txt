@@ -166,6 +166,13 @@ Contribution notes
 
 Working Rules:
 Active doc rule: When multiple versions exist in this project thread, the last uploaded file with the same base name is the authoritative version unless a different version is explicitly referenced in the task.
+### One-Pass Review Policy (Skills & Specs)
+- All reviewer feedback must be consolidated into **a single, comprehensive package per revision** (MUST-FIX + Polishes + Nits).
+- Subsequent feedback is allowed **only** for:
+  1) P0 correctness/security/privacy issues, or
+  2) Conflicts with constitutional rails (1.6, 1.7, 2.1, 2.3, 2.5).
+- Otherwise, the artifact ships and iteration moves to the next version tag.
+
 Release tags
 v1.6 — Catalog Schema Freeze (p1.6-schema-freeze)
 v1.6A — Selection Engine Corrections & Observability (PRs 1–8)
