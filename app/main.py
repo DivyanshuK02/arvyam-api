@@ -2,8 +2,9 @@
 import os, json, logging, uuid, time, csv
 from datetime import datetime
 from typing import Any, Dict, List, Optional
+from collections import OrderedDict, defaultdict, deque
 
-from fastapi import FastAPI, HTTPException, Request, Response, Body
+from fastapi import FastAPI, HTTPException, Request, Response, Body, Cookie
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.exception_handlers import http_exception_handler
@@ -17,6 +18,86 @@ from slowapi.middleware import SlowAPIMiddleware
 from slowapi.errors import RateLimitExceeded
 
 from .selection_engine import selection_engine, normalize, detect_emotion, _transform_for_api
+
+# ---------------- Session rotation (bounded, TTL) ----------------
+SESSION_TTL = int(os.getenv("SESSION_TTL_SECONDS", "1800"))                 # 30m default
+MAX_SESSIONS = int(os.getenv("SESSION_MAX", "1000"))                        # LRU cap
+MAX_RECENT_PER_ANCHOR = int(os.getenv("SESSION_RECENT_PER_ANCHOR", "9"))    # remember last per-anchor
+
+class SessionStore:
+    """
+    In-memory session store with:
+      - sliding TTL per session
+      - LRU eviction (bounded memory)
+      - per-anchor ring buffer of recent SKU ids
+    """
+    def __init__(self):
+        # sid -> {"anchors": defaultdict(str->deque), "expires": ts}
+        self._store = OrderedDict()
+
+    def _cleanup_expired(self):
+        now = time.time()
+        expired = [k for k, v in self._store.items() if now > v["expires"]]
+        for k in expired:
+            del self._store[k]
+        if expired:
+            logger.info("[SESSION] cleaned %s expired sessions", len(expired))
+
+    def get_recent_ids(self, sid: str, anchor: str | None = None) -> list[str]:
+        self._cleanup_expired()
+        entry = self._store.get(sid)
+        if not entry or time.time() > entry["expires"]:
+            if entry:
+                del self._store[sid]
+            return []
+        # If anchor known, return that ring; else aggregate (capped)
+        if anchor:
+            dq = entry["anchors"].get(anchor)
+            return list(dq) if dq else []
+        acc = []
+        for dq in entry["anchors"].values():
+            acc.extend(list(dq))
+        return acc[-(MAX_RECENT_PER_ANCHOR * 2):]
+
+    def remember_shown(self, sid: str, anchor: str, new_ids: list[str]) -> None:
+        self._cleanup_expired()
+        entry = self._store.get(sid)
+        if not entry:
+            entry = {
+                "anchors": defaultdict(lambda: deque(maxlen=MAX_RECENT_PER_ANCHOR)),
+                "expires": 0,
+            }
+            self._store[sid] = entry
+        # refresh TTL & append ids
+        entry["expires"] = time.time() + SESSION_TTL
+        ring = entry["anchors"][anchor]
+        for _id in new_ids:
+            ring.append(str(_id))
+        # LRU
+        self._store.move_to_end(sid)
+        if len(self._store) > MAX_SESSIONS:
+            evicted = next(iter(self._store))
+            del self._store[evicted]
+            logger.info("[SESSION] evicted oldest session %s", evicted)
+
+    def get_session_stats(self) -> dict:
+        """Light metrics for /health."""
+        self._cleanup_expired()
+        active = len(self._store)
+        return {
+            "active_sessions": active,
+            "max_sessions": MAX_SESSIONS,
+            "utilization": round(active / MAX_SESSIONS, 3) if MAX_SESSIONS else 0.0,
+            "ttl_seconds": SESSION_TTL,
+            "recent_per_anchor": MAX_RECENT_PER_ANCHOR,
+        }
+
+SESSION_STORE = SessionStore()
+
+def _get_or_make_sid(cookie_value: str | None) -> tuple[str, bool]:
+    if cookie_value and isinstance(cookie_value, str) and 8 <= len(cookie_value) <= 64:
+        return cookie_value, False
+    return uuid.uuid4().hex, True
 
 # =========================
 # Environment & Constants
@@ -319,7 +400,13 @@ class ItemOut(BaseModel):
 # Routes
 # =========================
 @app.get("/health")
-def health(): return {"status": "ok", "persona": ERROR_PERSONA, "version": "v1"}
+def health():
+    body = {"status": "ok", "persona": PERSONA}
+    try:
+        body["session_stats"] = SESSION_STORE.get_session_stats()
+    except Exception:
+        pass
+    return body
 
 @app.get("/api/curate/seed_mode")
 def seed_status(): return seed_mode_status()
@@ -332,12 +419,29 @@ def seed_disable(): return disable_seed_mode()
 
 @app.post("/api/curate", summary="Curate", response_model=List[ItemOut])
 @limiter.limit(f"{RATE_LIMIT_PER_MIN}/minute")
-async def curate_post(body: CurateRequest, request: Request, response: Response):
+async def curate_post(
+    body: CurateRequest,
+    request: Request,
+    response: Response,
+    arvy_sid: str | None = Cookie(default=None, alias="arvy_sid"),
+):
     """JSON-only canonical endpoint. Returns items validated against the ItemOut schema."""
     started = time.time()
     request_id = str(uuid.uuid4())
     prompt = body.prompt.strip()
     req_context = body.context.dict() if isinstance(body.context, CurateContext) else {}
+    
+    # session cookie (functional only)
+    sid, is_new = _get_or_make_sid(arvy_sid)
+    if is_new:
+        secure_cookie = (request.url.scheme == "https") or (os.getenv("ENVIRONMENT","development") == "production")
+        response.set_cookie(
+            "arvy_sid", sid,
+            httponly=True, samesite="Lax", secure=secure_cookie,
+            max_age=SESSION_TTL
+        )
+    # inject rotation memory (do NOT override engine seed/determinism)
+    req_context["recent_ids"] = SESSION_STORE.get_recent_ids(sid)
     req_context["request_id"] = request_id
 
     try:
@@ -373,6 +477,11 @@ async def curate_post(body: CurateRequest, request: Request, response: Response)
                     header_vals.append(f"{top[1][0]}:{s2}")
             response.headers["X-Detected-Emotions"] = ",".join(header_vals)
 
+    # remember shown for this session + resolved anchor
+    resolved_anchor = context.get("resolved_anchor")
+    if resolved_anchor:
+        SESSION_STORE.remember_shown(sid, resolved_anchor, [it["id"] for it in items])
+
     return items
 
 # =========================
@@ -388,6 +497,8 @@ async def _curate_flexible(request: Request) -> JSONResponse:
 
     prompt = sanitize_text(prompt)
     req_context = {"request_id": request_id}
+    # Note: Flexible/legacy routes do not participate in session rotation
+    # as they don't have access to the response object to set cookies.
 
     try:
         # --> This line already gets the meta object correctly
@@ -423,6 +534,7 @@ async def curate_get(request: Request):
         return error_json("EMPTY_PROMPT", "Please write a short line.", 422, request_id)
 
     req_context = {"request_id": request_id}
+    # Note: GET routes do not participate in session rotation.
 
     seed_state = seed_mode_status()
     items = None
@@ -472,11 +584,24 @@ async def curate_alias_post(request: Request): return await _curate_flexible(req
 async def curate_alias_get(request: Request): return await curate_get(request)
 
 @app.post("/api/curate/next", summary="Curate (rotate next)", response_model=List[ItemOut])
-async def curate_post_next(body: CurateRequest, request: Request):
+async def curate_post_next(
+    body: CurateRequest,
+    request: Request,
+    response: Response,
+    arvy_sid: str | None = Cookie(default=None, alias="arvy_sid"),
+):
     """Gets the next set of items, ensuring the response shape is identical to the primary endpoint."""
-    request_id, req_context = str(uuid.uuid4()), body.context.dict() if isinstance(body.context, CurateContext) else {}
-    req_context["run_count"] = int(req_context.get("run_count") or 0) + 1
+    request_id = str(uuid.uuid4())
+    req_context = body.context.dict() if isinstance(body.context, CurateContext) else {}
+    
+    sid, is_new = _get_or_make_sid(arvy_sid)
+    if is_new:
+        secure_cookie = (request.url.scheme == "https") or (os.getenv("ENVIRONMENT","development") == "production")
+        response.set_cookie("arvy_sid", sid, httponly=True, samesite="Lax", secure=secure_cookie, max_age=SESSION_TTL)
+    
     req_context["request_id"] = request_id
+    req_context["recent_ids"] = SESSION_STORE.get_recent_ids(sid)
+    
     try:
         final_triad, context, meta = selection_engine(prompt=body.prompt.strip(), context=req_context)
         items = _transform_for_api(final_triad, context.get("resolved_anchor"))
@@ -484,7 +609,13 @@ async def curate_post_next(body: CurateRequest, request: Request):
     except Exception as e:
         logger.error(f"Engine error for request_id={request_id} (next): {e}", exc_info=True)
         raise HTTPException(status_code=500, detail={"error": {"code": "ENGINE_ERROR", "message": str(e)[:400]}})
+    
     # Note: /next endpoint does not write golden artifacts or standard logs currently
+    # track rotation for session + anchor
+    resolved_anchor = context.get("resolved_anchor")
+    if resolved_anchor:
+        SESSION_STORE.remember_shown(sid, resolved_anchor, [it["id"] for it in items])
+    
     return items
 
 # -------------------------
