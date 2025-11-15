@@ -15,6 +15,15 @@ What's new in Phase 1.6A (PR-1 → PR-8)
 - PR-2R: Rules-first detector (Edges → Exact → Combos → Disambig → Keywords)
 - PR-3R: JSON-driven edge filters restored (edge_registers.json) with gold-neutral nuance for grief/farewell
 - PR-4: Deterministic rotation (prompt-hash seed + tier salts) with recent-ID suppression
+What's new in Phase 1.6B (Session-Based Rotation - Technical Debt Resolution)
+- Session management: In-memory store with TTL (30 min) and LRU eviction (1000 max)
+- Session cookie: arvy_sid (functional, httpOnly, no PII)
+- Recent-IDs suppression: Passes recent_ids to engine for rotation via pool filtering
+- Deterministic rotation preserved: Same prompt → same first triad across users
+- Health endpoint: Added version field (ARVY_VERSION env var, default: v1)
+- Tests: test_session_rotation.py validates rotation, determinism, and expiry reset
+- Bug Fixed: Repeated curates with same prompt now return different SKUs within session
+Constitutional: Phase 1.6 determinism + recent-ID suppression now fully implemented
 - PR-5: Pool sizes surfaced for observability
 - PR-6: Catalog & rulebook touch-ups (e.g., Affection MONOs → roses), docs/tests aligned
 - PR-7: Observability: prompt_hash, pool_sizes, resolved_anchor, edge_type, fallback_reason, final_ids, suppressed_recent_count
@@ -27,6 +36,7 @@ Phase snapshot
 1.5 — Packaging Tiers (internal-only): ✅ complete
 1.6 — Catalog Schema Freeze (JSON Schema + CI check): ✅ complete
 1.6A — Selection Engine Corrections & Observability (PRs 1–8): ✅ complete
+1.6B — Session-Based Rotation (Phase 1 Technical Debt Resolution): ✅ complete
 1.7 - BACKEND API: ✅ complete
 1.8 - Evidence & Observability (Evidence 2.0) frozen : ✅ complete
 Evidence source of truth: stored on device at …/Evidence/ — see Phase-1 §1.8 for structure & manifest rules
@@ -76,6 +86,23 @@ Keys (superset across context+meta):
 - suppressed_recent_count
 - final_ids (the 3 SKU ids returned)
 
+Environment Variables (Phase 1.6B+)
+Session Management:
+- SESSION_TTL_SECONDS (default: 1800) — Session expiry time in seconds (30 minutes)
+- SESSION_MAX (default: 1000) — Maximum sessions in memory (LRU eviction)
+- SESSION_RECENT_PER_ANCHOR (default: 9) — Recent SKUs tracked per emotional anchor
+
+API Configuration:
+- ARVY_VERSION (default: v1) — Version string exposed in /health endpoint
+- PERSONA_NAME (default: ARVY) — Brand persona for logs/UI
+- RATE_LIMIT_PER_MIN (default: 10) — Rate limit per IP address
+- ALLOWED_ORIGINS (default: https://arvyam.com) — CORS allowed origins
+- ENVIRONMENT (default: development) — Deployment environment (development/production)
+
+Cookie Security:
+- secure=True when request.url.scheme == "https" OR ENVIRONMENT == "production"
+- secure=False in local development (HTTP)
+
 Zero-drift acceptance floor
 - Exactly 3 items; never 2 or 4
 - Public fields only
@@ -103,6 +130,7 @@ Repo layout
 │  ├─ test_apology_context.py
 │  ├─ test_apply_enums.py
 │  ├─ test_miner_filter.py
+│  └─ test_session_rotation.py     # Session rotation, determinism, expiry reset (P1.6B)
 │  └─ test_packaging_tiers.py
 ├─ tools/
 │  ├─ mine_unknowns.py         # Feeder: mine unknown phrases from logs (offline)
@@ -176,3 +204,4 @@ Active doc rule: When multiple versions exist in this project thread, the last u
 Release tags
 v1.6 — Catalog Schema Freeze (p1.6-schema-freeze)
 v1.6A — Selection Engine Corrections & Observability (PRs 1–8)
+v1.6B — Session-Based Rotation Fix (p1.6b-session-rotation)
