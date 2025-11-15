@@ -106,6 +106,7 @@ ALLOWED = os.getenv("ALLOWED_ORIGINS", "https://arvyam.com")
 ASSET_BASE = os.getenv("PUBLIC_ASSET_BASE", "https://arvyam.com").rstrip("/")
 RATE_LIMIT_PER_MIN = int(os.getenv("RATE_LIMIT_PER_MIN", "10"))
 PERSONA = os.getenv("PERSONA_NAME", "ARVY")  # for logs/UI
+VERSION = os.getenv("ARVY_VERSION", "v1")    # surfaced via /health for UI/tests
 ERROR_PERSONA = "ARVY"                       # hard-coded in API errors
 ICONIC = {"rose","lily","orchid"}            # for analytics guard
 ANALYTICS_ENABLED = os.getenv("ANALYTICS_ENABLED", "0") == "1"
@@ -401,7 +402,7 @@ class ItemOut(BaseModel):
 # =========================
 @app.get("/health")
 def health():
-    body = {"status": "ok", "persona": PERSONA}
+    body = {"status": "ok", "persona": PERSONA, "version": VERSION}
     try:
         body["session_stats"] = SESSION_STORE.get_session_stats()
     except Exception:
