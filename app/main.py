@@ -263,7 +263,7 @@ def write_golden_artifact(
         # Combine context and meta for richer logging
         artifact = {
             "ts": datetime.utcnow().isoformat(),
-            "prompt": prompt,
+            "prompt_hash": meta.get("prompt_hash") or context.get("prompt_hash"),
             "request_id": request_id,
             "persona": persona,
             "resolved_anchor": context.get("resolved_anchor"),
@@ -272,7 +272,6 @@ def write_golden_artifact(
             "pool_sizes": context.get("pool_sizes") or context.get("pool_size"), # Use the one already exposed in context
             "edge_type": meta.get("edge_type"),
             "relationship_context": context.get("relationship_context"),
-            "prompt_hash": meta.get("prompt_hash"),
             "suppressed_recent_count": int(suppressed_recent_count),
         }
         with open(log_file, "a", encoding="utf-8") as f:
@@ -397,6 +396,18 @@ class ItemOut(BaseModel):
     edge_type: Optional[str] = None
     note: Optional[str] = None
 
+class RefineIntent(BaseModel):
+    relationship: Optional[str] = None
+    occasion: Optional[str] = None
+    budget_tier: Optional[str] = None
+    tone_hint: Optional[str] = None
+    delivery_window: Optional[str] = None
+
+class RefineRequest(BaseModel):
+    original_prompt: str = Field(..., min_length=1, max_length=500)
+    refinement: Optional[str] = Field(None, max_length=100)
+    intent: Optional[RefineIntent] = None
+
 # =========================
 # Routes
 # =========================
@@ -453,9 +464,18 @@ async def curate_post(
         logger.error(f"Engine error for request_id={request_id}: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail={"error": {"code": "ENGINE_ERROR", "message": str(e)[:400]}})
 
+    # Constitutional guard: strict triad (2 MIX + 1 MONO)
+    if not (
+        isinstance(items, list) and len(items) == 3
+        and sum(1 for it in items if it.get("mono")) == 1
+    ):
+        return error_json("TRIAD_INVARIANT",
+                          "We couldn't complete that just now. Please try again.",
+                          503, request_id)
+
     latency_ms = int((time.time() - started) * 1000)
-    logger.info("[%s] CURATE ip=%s emotion=%s latency_ms=%s prompt_len=%s",
-                 PERSONA, get_remote_address(request), items[0].get("emotion",""), latency_ms, len(prompt))
+    logger.info("[%s] CURATE emotion=%s latency_ms=%s prompt_len=%s",
+                 PERSONA, items[0].get("emotion",""), latency_ms, len(prompt))
 
     append_selection_log(items, request_id, latency_ms, len(prompt), path="/api/curate")
     analytics_guard_check()
@@ -510,9 +530,18 @@ async def _curate_flexible(request: Request) -> JSONResponse:
         logger.error(f"Engine error for request_id={request_id} (shim): {e}", exc_info=True)
         return error_json("ENGINE_ERROR", str(e)[:400], 500, request_id)
 
+    # Constitutional guard: strict triad (2 MIX + 1 MONO)
+    if not (
+        isinstance(items, list) and len(items) == 3
+        and sum(1 for it in items if it.get("mono")) == 1
+    ):
+        return error_json("TRIAD_INVARIANT",
+                          "We couldn't complete that just now. Please try again.",
+                          503, request_id)
+
     latency_ms = int((time.time() - started) * 1000)
-    logger.info("[%s] CURATE(SHIM) ip=%s emotion=%s latency_ms=%s prompt_len=%s",
-                 PERSONA, get_remote_address(request), items[0].get("emotion",""), latency_ms, len(prompt))
+    logger.info("[%s] CURATE(SHIM) emotion=%s latency_ms=%s prompt_len=%s",
+                 PERSONA, items[0].get("emotion",""), latency_ms, len(prompt))
     append_selection_log(items, request_id, latency_ms, len(prompt), path="/curate(shim)")
     analytics_guard_check()
     # Pass prompt, context, and the ACTUAL meta object to the artifact writer
@@ -564,9 +593,18 @@ async def curate_get(request: Request):
             logger.error(f"Engine error for request_id={request_id} (GET): {e}", exc_info=True)
             return error_json("ENGINE_ERROR", str(e)[:400], 500, request_id)
 
+    # Constitutional guard: strict triad (2 MIX + 1 MONO)
+    if not (
+        isinstance(items, list) and len(items) == 3
+        and sum(1 for it in items if it.get("mono")) == 1
+    ):
+        return error_json("TRIAD_INVARIANT",
+                          "We couldn't complete that just now. Please try again.",
+                          503, request_id)
+
     latency_ms = int((time.time() - started) * 1000)
-    logger.info("[%s] CURATE(GET) ip=%s emotion=%s latency_ms=%s prompt_len=%s%s",
-                 PERSONA, get_remote_address(request), items[0].get("emotion",""), latency_ms, len(prompt),
+    logger.info("[%s] CURATE(GET) emotion=%s latency_ms=%s prompt_len=%s%s",
+                 PERSONA, items[0].get("emotion",""), latency_ms, len(prompt),
                  " (seed-mode)" if seed_state.get("enabled") and items is not None else "")
 
     append_selection_log(items, request_id, latency_ms, len(prompt), path="/api/curate_get")
@@ -695,13 +733,70 @@ def curate_golden_p1(request: Request):
     """Alias for Phase-1 golden suite."""
     return curate_golden(request)
 
+@app.post("/api/refine", summary="Refine previous curation", response_model=List[ItemOut])
+@limiter.limit(f"{RATE_LIMIT_PER_MIN}/minute")
+async def refine_post(
+    body: RefineRequest,
+    request: Request,
+    response: Response,
+    arvy_sid: str | None = Cookie(default=None, alias="arvy_sid"),
+):
+    started = time.time()
+    request_id = str(uuid.uuid4())
+
+    # Sanitize & combine prompt + refinement
+    base = sanitize_text(body.original_prompt)
+    ref = sanitize_text(body.refinement or "")
+    combined = f"{base} {ref}".strip()
+    if not combined:
+        return error_json("EMPTY_PROMPT", "Please write a short line.", 422, request_id)
+
+    # Functional cookie + rotation memory (same as /api/curate)
+    sid, is_new = _get_or_make_sid(arvy_sid)
+    if is_new:
+        secure_cookie = (request.url.scheme == "https") or (os.getenv("ENVIRONMENT", "development") == "production")
+        response.set_cookie("arvy_sid", sid, httponly=True, samesite="Lax", secure=secure_cookie, max_age=SESSION_TTL)
+
+    ctx = {"request_id": request_id, "recent_ids": SESSION_STORE.get_recent_ids(sid)}
+    if body.intent:
+        ctx["intent"] = body.intent.dict(exclude_none=True)
+
+    try:
+        final_triad, context, meta = selection_engine(prompt=combined, context=ctx)
+        items = _transform_for_api(final_triad, context.get("resolved_anchor"))
+        items = [_sanitize_item(it) for it in items]
+    except Exception as e:
+        logger.error(f"Engine error for request_id={request_id} (refine): {e}", exc_info=True)
+        return error_json("ENGINE_ERROR", str(e)[:400], 500, request_id)
+
+    # Constitutional guard: strict triad (2 MIX + 1 MONO)
+    if not (
+        isinstance(items, list) and len(items) == 3
+        and sum(1 for it in items if it.get("mono")) == 1
+    ):
+        return error_json("TRIAD_INVARIANT",
+                          "We couldn't complete that just now. Please try again.",
+                          503, request_id)
+
+    latency_ms = int((time.time() - started) * 1000)
+    append_selection_log(items, request_id, latency_ms, len(combined), path="/api/refine")
+    analytics_guard_check()
+    write_golden_artifact(request_id, PERSONA, combined, context, meta, items)
+
+    # remember shown for this session + resolved anchor
+    resolved_anchor = context.get("resolved_anchor")
+    if resolved_anchor:
+        SESSION_STORE.remember_shown(sid, resolved_anchor, [it["id"] for it in items])
+
+    return items
+
 @app.post("/api/checkout")
 @limiter.limit(f"{RATE_LIMIT_PER_MIN}/minute")
 def checkout(body: CheckoutIn, request: Request):
     pid = (body.product_id or "").strip()
     if not pid: return error_json("BAD_PRODUCT", "product_id is required.", 422)
     url = f"https://checkout.example/intent?pid={pid}"
-    logger.info(f"[{PERSONA}] CHECKOUT ip={get_remote_address(request)} product={pid}")
+    logger.info(f"[{PERSONA}] CHECKOUT product={pid}")
     return {"checkout_url": url}
 
 # =========================
