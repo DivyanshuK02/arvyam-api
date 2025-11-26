@@ -15,6 +15,87 @@ from collections import defaultdict
 
 __all__ = ["selection_engine", "normalize", "detect_emotion", "_transform_for_api"]
 
+# ============================================================
+# Phase 3.1: Memory Integration (Feature Flag Controlled)
+# ============================================================
+# Memory is applied POST-SELECTION only. It cannot change SKU IDs.
+# Reranking affects order only, with bounded weights (<0.5).
+
+def _is_memory_context_enabled() -> bool:
+    """Check if memory context building is enabled."""
+    try:
+        from app.db import is_memory_context_enabled
+        return is_memory_context_enabled()
+    except ImportError:
+        return False
+
+def _is_memory_rerank_enabled() -> bool:
+    """Check if memory reranking is enabled."""
+    try:
+        from app.db import is_memory_rerank_enabled
+        return is_memory_rerank_enabled()
+    except ImportError:
+        return False
+
+def _apply_memory_rerank(
+    triad: List[Dict[str, Any]],
+    context: Dict[str, Any],
+    meta: Dict[str, Any],
+) -> Tuple[List[Dict[str, Any]], Optional[str]]:
+    """
+    Apply post-selection memory reranking if enabled.
+    
+    Args:
+        triad: 3-item list from selection (2 MIX + 1 MONO)
+        context: Selection context (may contain user_id)
+        meta: Selection metadata
+        
+    Returns:
+        Tuple of (possibly reordered triad, optional nudge_text)
+        
+    Selection Invariance:
+        set(input_ids) == set(output_ids) ALWAYS
+    """
+    user_id = context.get("user_id")
+    if not user_id:
+        return triad, None
+    
+    if not _is_memory_context_enabled():
+        return triad, None
+    
+    try:
+        from app.memory.context import build_context
+        memory_ctx = build_context(str(user_id))
+        
+        if not memory_ctx.get("has_history", False):
+            return triad, None
+        
+        # Store memory context in meta for logging/debugging
+        meta["memory_context"] = {
+            "has_history": True,
+            "recent_emotions_count": len(memory_ctx.get("recent_emotions", [])),
+            "recent_skus_count": len(memory_ctx.get("recent_skus", [])),
+            "recipient_prefs_count": len(memory_ctx.get("recipient_prefs", [])),
+        }
+        
+        if not _is_memory_rerank_enabled():
+            return triad, None
+        
+        from app.memory.rerank import rerank
+        result = rerank(triad, memory_ctx)
+        
+        # Log rerank result
+        meta["memory_rerank"] = {
+            "was_reranked": result.was_reranked,
+            "weights": result.weights,
+        }
+        
+        return result.items, result.nudge_text
+        
+    except Exception as e:
+        log.warning("Memory rerank failed (returning original): %s", str(e)[:100])
+        return triad, None
+
 # ------------------------------------------------------------
 # File helpers
 # ------------------------------------------------------------
@@ -42,7 +123,7 @@ CAT_BY_ID = {item['id']: item for item in CATALOG if 'id' in item}
 
 # ---- P1.5 Packaging rails (internal-only) ----
 PACKAGING_BY_TIER = {"Classic": "Box", "Signature": "Vase", "Luxury": "PremiumBox"}
-# Build a defensive id→LG map once
+# Build a defensive idâ†’LG map once
 LG_INDEX = {row["id"]: bool(row.get("luxury_grand", False))
             for row in CATALOG if isinstance(row, dict) and "id" in row}
 
@@ -85,7 +166,7 @@ def _rel_terms(key: str, fallback: set[str]) -> set[str]:
 ROMANTIC_TOKENS    = _rel_terms("romantic",    {
     "love","romance","romantic","blush","sweetheart","darling","my love","crush",
     "miss you","thinking of you","together","couple","partner","wife","husband",
-    "girlfriend","boyfriend","fiancé","anniversary","hearts","date night","soulmate",
+    "girlfriend","boyfriend","fiancÃ©","anniversary","hearts","date night","soulmate",
     "adoration","forever","valentine","my valentine","sweetheart"
 })
 PROFESSIONAL_TOKENS = _rel_terms("professional", {
@@ -172,7 +253,7 @@ TIER_ORDER = ["Classic", "Signature", "Luxury"]
 TIER_RANK = {t: i for i, t in enumerate(TIER_ORDER)}
 
 # ---- P1.6 START: Updated Constants ----
-FAMILY_SCARCITY_THRESHOLD = 3  # 6 → 3 for MVP variety
+FAMILY_SCARCITY_THRESHOLD = 3  # 6 â†’ 3 for MVP variety
 
 TIER_SALTS = {                 # per-tier variety on same prompt
     "Classic":   0xA11CE,      # Kept original valid hex values
@@ -413,7 +494,7 @@ def _ensure_one_mono_in_triad(triad: list[dict], context: dict) -> list[dict]:
     return triad
     # --- PATCH 2 END ---
 
-# (removed) old _apply_edge_guards implementation – JSON-driven registers are authoritative
+# (removed) old _apply_edge_guards implementation â€“ JSON-driven registers are authoritative
 
 
 def _apply_edge_register_filters(pool: List[Dict[str, Any]], edge_type: str) -> List[Dict[str, Any]]:
@@ -813,7 +894,7 @@ def selection_engine(prompt: str, context: Dict[str, Any]) -> Tuple[List[Dict[st
         else:
             context["sentiment_family"] = "friendship_repair"
             
-        # Honor anchor override for relationship-specific apology subfamilies (rails: romantic → Affection/Support)
+        # Honor anchor override for relationship-specific apology subfamilies (rails: romantic â†’ Affection/Support)
         try:
             overrides = EDGE_REGISTERS.get("apology", {}).get("relationship_overrides", {})
             key = f"{rc}_repair" if rc else None
@@ -966,5 +1047,14 @@ def selection_engine(prompt: str, context: Dict[str, Any]) -> Tuple[List[Dict[st
         "edge_type": context.get("edge_type"),
         "fallback_reason": context.get("fallback_reason"),
     }
+
+    # ============================================================
+    # Phase 3.1: Post-Selection Memory Integration
+    # ============================================================
+    # Memory can ONLY reorder the triad, never change SKU IDs.
+    # This preserves selection invariance while allowing personalization.
+    final_triad, nudge_text = _apply_memory_rerank(final_triad, context, meta)
+    if nudge_text:
+        meta["nudge_text"] = nudge_text
 
     return final_triad, context, meta
