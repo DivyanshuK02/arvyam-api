@@ -19,6 +19,26 @@ from slowapi.errors import RateLimitExceeded
 
 from .selection_engine import selection_engine, normalize, detect_emotion, _transform_for_api
 
+# ============================================================
+# Phase 3.1 Imports (Accounts & Privacy)
+# ============================================================
+# Import conditionally to avoid startup errors if dependencies missing
+try:
+    from .accounts.auth_routes import router as auth_router
+    from .accounts.routes import router as privacy_router
+    from .db import init_db, check_db_health, is_auth_endpoints_enabled, is_memory_endpoints_enabled
+    PHASE_3_1_AVAILABLE = True
+except ImportError as e:
+    PHASE_3_1_AVAILABLE = False
+    auth_router = None
+    privacy_router = None
+    def is_auth_endpoints_enabled(): return False
+    def is_memory_endpoints_enabled(): return False
+    def check_db_health(): return {"status": "unavailable", "reason": "Phase 3.1 not installed"}
+    logging.getLogger("arvyam").warning(
+        "Phase 3.1 modules not available: %s. Account/privacy endpoints disabled.", str(e)[:100]
+    )
+
 # ---------------- Session rotation (bounded, TTL) ----------------
 SESSION_TTL = int(os.getenv("SESSION_TTL_SECONDS", "1800"))                 # 30m default
 MAX_SESSIONS = int(os.getenv("SESSION_MAX", "1000"))                        # LRU cap
@@ -134,6 +154,19 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# ============================================================
+# Phase 3.1: Mount Account & Privacy Routes
+# ============================================================
+# Routes are mounted unconditionally, but each endpoint checks its feature flag.
+# This allows flags to be toggled without restarting the server.
+if PHASE_3_1_AVAILABLE:
+    if auth_router:
+        app.include_router(auth_router)
+        logger.info("[PHASE 3.1] Auth routes mounted at /auth/*")
+    if privacy_router:
+        app.include_router(privacy_router)
+        logger.info("[PHASE 3.1] Privacy routes mounted at /forget-me, /export-data, /profile")
 
 # =========================
 # Data Loaders
@@ -379,6 +412,9 @@ class SeedModeIn(BaseModel):
 
 class CheckoutIn(BaseModel):
     product_id: str
+    # Phase 3.1: Optional fields for order recording
+    email: Optional[str] = None  # For guest order linkage
+    emotion: Optional[str] = None  # Emotion anchor from selection
 
 class ItemOut(BaseModel):
     id: str
@@ -413,11 +449,25 @@ class RefineRequest(BaseModel):
 # =========================
 @app.get("/health")
 def health():
+    """Health check with Phase 3.1 status."""
     body = {"status": "ok", "persona": PERSONA, "version": VERSION}
     try:
         body["session_stats"] = SESSION_STORE.get_session_stats()
     except Exception:
         pass
+    
+    # Phase 3.1 status
+    try:
+        body["phase_3_1"] = {
+            "available": PHASE_3_1_AVAILABLE,
+            "auth_endpoints_enabled": is_auth_endpoints_enabled(),
+            "memory_endpoints_enabled": is_memory_endpoints_enabled(),
+        }
+        if PHASE_3_1_AVAILABLE:
+            body["phase_3_1"]["database"] = check_db_health()
+    except Exception as e:
+        body["phase_3_1"] = {"available": False, "error": str(e)[:50]}
+    
     return body
 
 @app.get("/api/curate/seed_mode")
@@ -671,7 +721,7 @@ GOLDEN_TESTS: List[Dict[str, Any]] = [
     {"name": "friendship_care", "prompt": "for a dear friend"},
     {"name": "encouragement_getwell", "prompt": "get well soon flowers"},
     {"name": "birthday", "prompt": "birthday flowers"},
-    {"name": "sympathy_loss", "prompt": "i’m so sorry for your loss"},
+    {"name": "sympathy_loss", "prompt": "i'm so sorry for your loss"},
     {"name": "apology", "prompt": "i deeply apologize"},
     {"name": "farewell", "prompt": "farewell flowers"},
     {"name": "valentine", "prompt": "valentine surprise"}
@@ -797,7 +847,71 @@ def checkout(body: CheckoutIn, request: Request):
     if not pid: return error_json("BAD_PRODUCT", "product_id is required.", 422)
     url = f"https://checkout.example/intent?pid={pid}"
     logger.info(f"[{PERSONA}] CHECKOUT product={pid}")
-    return {"checkout_url": url}
+    
+    # ============================================================
+    # Phase 3.1: Order Recording (Feature Flag Controlled)
+    # ============================================================
+    # Records order if email provided (guest) or user authenticated.
+    # Order recording is best-effort — checkout succeeds even if recording fails.
+    order_recorded = False
+    if PHASE_3_1_AVAILABLE and body.email:
+        try:
+            from app.db import get_supabase_client, TABLE_ORDERS, is_memory_context_enabled
+            from app.privacy_utils import mask_email
+            from app.accounts.models import validate_emotion_anchor
+            
+            # Only record if memory context is enabled
+            if is_memory_context_enabled():
+                client = get_supabase_client()
+                if client:
+                    # Validate email format
+                    email = (body.email or "").strip().lower()
+                    if email and "@" in email:
+                        # Validate emotion against frozen enum (Issue #1 FIX)
+                        # This ensures only valid anchors reach the database
+                        try:
+                            emotion = validate_emotion_anchor(
+                                (body.emotion or "general").strip(),
+                                strict=True
+                            )
+                        except ValueError as ve:
+                            # Invalid emotion — log and skip recording (don't fail checkout)
+                            logger.warning(f"[PHASE 3.1] Invalid emotion rejected: {str(ve)[:50]}")
+                            emotion = None
+                        
+                        if emotion:
+                            # Check if user exists to get user_id
+                            from app.db import TABLE_USERS
+                            user_result = client.table(TABLE_USERS)\
+                                .select("id")\
+                                .eq("email", email)\
+                                .limit(1)\
+                                .execute()
+                            
+                            user_id = None
+                            if user_result.data:
+                                user_id = user_result.data[0]["id"]
+                            
+                            # Record order with validated emotion
+                            order_data = {
+                                "sku_id": pid,
+                                "emotion": emotion,
+                                "email": email,
+                            }
+                            if user_id:
+                                order_data["user_id"] = user_id
+                            
+                            client.table(TABLE_ORDERS).insert(order_data).execute()
+                            order_recorded = True
+                            logger.info(f"[PHASE 3.1] Order recorded: sku={pid} email={mask_email(email)}")
+        except Exception as e:
+            # Best-effort — don't fail checkout if order recording fails
+            logger.warning(f"[PHASE 3.1] Order recording failed: {str(e)[:100]}")
+    
+    response = {"checkout_url": url}
+    if order_recorded:
+        response["order_recorded"] = True
+    return response
 
 # =========================
 # Error Normalization
@@ -817,3 +931,28 @@ async def validation_exception_handler(request: Request, exc): return error_json
 
 @app.exception_handler(RateLimitExceeded)
 async def ratelimit_handler(request: Request, exc: RateLimitExceeded): return error_json("RATE_LIMITED", "Too many requests. Please try again in a minute.", 429)
+
+
+# ============================================================
+# Phase 3.1: Startup Event (Database Initialization)
+# ============================================================
+@app.on_event("startup")
+async def startup_event():
+    """
+    Initialize Phase 3.1 database connection on startup.
+    
+    This is non-blocking — if database is unavailable, the app continues
+    but Phase 3.1 endpoints will return 503.
+    """
+    if PHASE_3_1_AVAILABLE:
+        try:
+            from .db import init_db
+            db_ok = init_db()
+            if db_ok:
+                logger.info("[PHASE 3.1] Database connection verified on startup")
+            else:
+                logger.warning("[PHASE 3.1] Database initialization incomplete - check credentials")
+        except Exception as e:
+            logger.warning("[PHASE 3.1] Database init failed: %s", str(e)[:100])
+    else:
+        logger.info("[PHASE 3.1] Not available - skipping database initialization")
