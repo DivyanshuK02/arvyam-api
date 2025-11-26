@@ -1,3 +1,26 @@
+# requirements.txt — ARVYAM API
+# Phase 1.x + Phase 3.1 Dependencies
+
+# ============================================================
+# Core Framework (Phase 1.x) — PINNED VERSIONS
+# ============================================================
+# These versions are tested and deployed in production
 fastapi==0.115.0
 uvicorn[standard]==0.30.6
 slowapi==0.1.9
+
+# ============================================================
+# Phase 3.1 — Soft Accounts & Memory
+# ============================================================
+supabase>=2.0.0
+pyjwt>=2.8.0
+pydantic[email]>=2.0.0
+python-dotenv>=1.0.0
+httpx>=0.24.0
+
+# ============================================================
+# Utilities
+# ============================================================
+pydantic>=2.0.0
+python-multipart>=0.0.6
+python-dateutil>=2.8.0
