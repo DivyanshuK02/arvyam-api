@@ -1,4 +1,17 @@
-ARVYAM — API (Beginner-Safe, Zero-Drift Rails) — Phase 1.6 Snapshot
+ARVYAM — API (Beginner-Safe, Zero-Drift Rails) — Phase 3.1 Snapshot
+
+================================================================================
+STATUS: Phase 3.1 Complete
+================================================================================
+Phase 3.1 (User Accounts & Memory) is deployed and fully tested. All new 
+features are feature-flag gated; the default mode behaves as Phase 1.x 
+(guest-first, no accounts required). Public /api/curate remains unchanged.
+
+Key docs for maintainers:
+- PHASE_3_1_CLOSURE_REPORT.txt — Canonical summary, AC verification, evidence
+- PHASE_3_1_HANDOFF_ADDENDUM.txt — Implementation details, flag semantics, ops notes
+- __PHASE_3_HANDOFF_GUIDE_-_ARVYAM.txt — Full Phase 3 context and specifications
+================================================================================
 
 Deterministic curation API that turns a short user prompt into exactly three products (2 MIX + 1 MONO) from the catalog, each mapped to one of 8 emotional anchors with an explicit palette[].
 Stabilized rails (Phase 1.4a + 1.4)
@@ -29,6 +42,20 @@ Constitutional: Phase 1.6 determinism + recent-ID suppression now fully implemen
 - PR-7: Observability: prompt_hash, pool_sizes, resolved_anchor, edge_type, fallback_reason, final_ids, suppressed_recent_count
 - PR-8: Tests & docs refresh (Golden Harness v2, boundary fallback tests, sobriety via single source of truth)
 
+What's new in Phase 3.1 (User Accounts & Memory - Foundations)
+- Soft accounts: Email/phone collected per order; user_id nullable; no signup wall
+- OTP authentication: /auth/request-otp, /auth/verify-otp with 24h signed tokens (PyJWT)
+- OTP security: SHA-256 hashing, 10min TTL, max 5 attempts, 60s cooldown, 20/day per-email cap
+- Privacy endpoints: /forget-me (OTP-verified cascade delete), /export-data (OTP-verified JSON export)
+- Recipient profiles: /profile endpoints for save/edit lightweight preferences (whitelisted keys only)
+- Memory context: Read-only context from last 90 days ({ recent_emotions[], recent_skus[], recipient_prefs[] })
+- Post-selection rerank: Optional reranking with bounded weights (≤0.3); deterministic tie-break
+- Selection invariance: Memory affects ordering/copy only; SKU IDs and 2 MIX + 1 MONO unchanged
+- Feature flags: All memory features OFF by default; surgical rollback via 4 flags
+- Database: Supabase-py direct (no ORM); separate tables (users, orders, recipient_profiles, otp_codes)
+- Constitutional: catalog.json UNCHANGED (Phase 1.6 freeze); guest-first philosophy maintained
+- Tests: test_auth.py, test_privacy.py, test_memory.py, test_invariance.py (71+ tests)
+
 Cross-family fallback (rare): items keep their catalog emotions; we do not forcibly stamp them to the resolved anchor. Tests reflect this contract.
 Phase snapshot
 1.4a — Stabilization: ✅ complete
@@ -39,6 +66,7 @@ Phase snapshot
 1.6B — Session-Based Rotation (Phase 1 Technical Debt Resolution): ✅ complete
 1.7 - BACKEND API: ✅ complete
 1.8 - Evidence & Observability (Evidence 2.0) frozen : ✅ complete
+3.1 - User Accounts & Memory (Foundations): ✅ complete
 Evidence source of truth: stored on device at …/Evidence/ — see Phase-1 §1.8 for structure & manifest rules
 
 Quickstart (local)
@@ -74,6 +102,22 @@ Response (always an array of 3 public items):
 ]
 
 Never returns internal fields (e.g., raw image URLs, packaging, luxury_grand, internal costs).
+
+Auth API (Phase 3.1 — feature-flagged, default OFF)
+POST /auth/request-otp
+{ "email": "user@example.com" }
+→ OTP sent (stub logs to console in dev; real provider in prod)
+
+POST /auth/verify-otp
+{ "email": "user@example.com", "otp": "123456" }
+→ { "token": "eyJ...", "expires_in": 86400 }
+
+Privacy API (Phase 3.1 — feature-flagged, default OFF)
+POST /forget-me — OTP-verified cascade delete (DSAR compliance)
+POST /export-data — OTP-verified JSON export (DSAR compliance)
+GET /profile — List recipient profiles (JWT required)
+POST /profile — Create/update recipient profile (JWT required)
+
 Evidence & Observability (PR-7)
 Each request writes a single JSON-line evidence record.
 Error JSON shape & rate-limit policy: see docs/deploy.md.
@@ -103,6 +147,25 @@ Cookie Security:
 - secure=True when request.url.scheme == "https" OR ENVIRONMENT == "production"
 - secure=False in local development (HTTP)
 
+Environment Variables (Phase 3.1)
+Database:
+- SUPABASE_URL — Supabase project URL (required for Phase 3.1 features)
+- SUPABASE_KEY — Supabase service key (required for Phase 3.1 features)
+
+Auth:
+- JWT_SECRET — Random 32+ character string for token signing (required when auth enabled)
+- JWT_EXPIRY_HOURS (default: 24) — Token validity period in hours
+
+OTP:
+- OTP_PROVIDER (default: stub) — OTP provider: stub (dev), resend, or sendgrid
+- OTP_API_KEY — Provider API key (ignored when OTP_PROVIDER=stub)
+
+Feature Flags (all OFF by default):
+- AUTH_ENDPOINTS_ENABLED (default: off) — Enable /auth/request-otp, /auth/verify-otp
+- MEMORY_ENDPOINTS_ENABLED (default: off) — Enable /forget-me, /export-data, /profile
+- MEMORY_CONTEXT_ENABLED (default: off) — Enable memory context building
+- MEMORY_RERANK_ENABLED (default: off) — Enable post-selection reranking
+
 Zero-drift acceptance floor
 - Exactly 3 items; never 2 or 4
 - Public fields only
@@ -111,17 +174,33 @@ Zero-drift acceptance floor
 - Deterministic rotation per prompt; recent-ID suppression
 - Evidence line stable; CI must be green before merge
 - Catalog validates against docs/catalog.schema.json in CI before tests
+- Selection invariance: memory cannot change SKU IDs or 2 MIX + 1 MONO composition (Phase 3.1)
+- Guest-first: checkout works without signup wall (Phase 3.1)
 
 Repo layout
 .
 ├─ app/
 │  ├─ main.py                # FastAPI routes; public transform; evidence writer
 │  ├─ selection_engine.py    # Pure logic: detector, edges, boundaries, rotation, triad contract
-│  └─ rules/
-│     ├─ emotion_keywords.json
-│     ├─ edge_registers.json
-│     ├─ sentiment_families.json
-│     └─ tier_policy.json
+│  ├─ db.py                  # Supabase client, table constants (Phase 3.1)
+│  ├─ rules/
+│  │  ├─ emotion_keywords.json
+│  │  ├─ edge_registers.json
+│  │  ├─ sentiment_families.json
+│  │  └─ tier_policy.json
+│  ├─ accounts/              # Phase 3.1: Auth & Privacy
+│  │  ├─ __init__.py
+│  │  ├─ otp.py              # OTPManager, stub/real providers, daily cap
+│  │  ├─ auth.py             # JWT create/verify, signed tokens
+│  │  ├─ models.py           # Pydantic schemas, validators, whitelists
+│  │  ├─ routes.py           # Privacy endpoints (/forget-me, /export-data, /profile)
+│  │  └─ auth_routes.py      # Auth endpoints (/auth/request-otp, /auth/verify-otp)
+│  └─ memory/                # Phase 3.1: Memory Context & Rerank
+│     ├─ __init__.py
+│     ├─ context.py          # build_context(), MemoryContext TypedDict, 90-day lookback
+│     └─ rerank.py           # rerank(), RerankedTriad, bounded weights, invariance check
+├─ migrations/               # Phase 3.1: Database migrations
+│  └─ 001_phase_3_1.sql      # users, orders, recipient_profiles, otp_codes tables
 ├─ tests/
 │  ├─ test_api_contract.py         # Public shape + 3-card invariant
 │  ├─ test_golden_harness.py       # v2: anchors/edges, valentine mono-rose, sobriety, artifacts
@@ -130,8 +209,12 @@ Repo layout
 │  ├─ test_apology_context.py
 │  ├─ test_apply_enums.py
 │  ├─ test_miner_filter.py
-│  └─ test_session_rotation.py     # Session rotation, determinism, expiry reset (P1.6B)
-│  └─ test_packaging_tiers.py
+│  ├─ test_session_rotation.py     # Session rotation, determinism, expiry reset (P1.6B)
+│  ├─ test_packaging_tiers.py
+│  ├─ test_auth.py                 # Phase 3.1: OTP, JWT, daily cap, constant-time comparison
+│  ├─ test_privacy.py              # Phase 3.1: /forget-me, /export-data, profile CRUD, masking
+│  ├─ test_memory.py               # Phase 3.1: Memory context, 90-day lookback, opt-in flag
+│  └─ test_invariance.py           # Phase 3.1: Selection invariance (AC3 proof), bounded weights
 ├─ tools/
 │  ├─ mine_unknowns.py         # Feeder: mine unknown phrases from logs (offline)
 │  ├─ make_review_sheet.py     # Feeder: candidates/proposals → review.csv
@@ -161,6 +244,10 @@ CI runs (order):
   • Boundary fallbacks (reasons, pool size monotonicity, 1 MONO invariant)  
   • Palette sobriety using CELEBRATION_BLOCK  
   • Enums & feeder smokes (no runtime LLM)
+  • Phase 3.1: Auth (OTP, JWT, daily cap)
+  • Phase 3.1: Privacy (cascade delete, export, profile CRUD)
+  • Phase 3.1: Memory (context building, opt-in, 90-day lookback)
+  • Phase 3.1: Selection invariance (SKU set unchanged, bounded weights, determinism)
 - Artifacts uploaded: evidence-bundle, review_smoke_csv
 
 Removed legacy test_palette_allowlist.py and redundant sympathy guard file; sobriety is enforced via test_family_boundaries.py and used by Golden Harness v2.
@@ -170,6 +257,8 @@ Behavior notes (for reviewers)
 - Edges (valentine/apology/sympathy/…) read from edge_registers.json (gold-neutral grief/farewell).
 - Rotation is deterministic per prompt (CRC32 prompt hash + tier salts).
 - Cross-family fallback: when anchor pools are exhausted, we prefer anchor-coherent items; if still insufficient, we may loosen—items keep catalog emotions (we don't restamp to the resolved anchor). Tests assert the contract.
+- Memory rerank (Phase 3.1): Post-selection only; bounded weights (≤0.3); deterministic tie-break (weight DESC, original_index ASC, sku_id ASC); SKU IDs unchanged.
+
 Offline feeder (docs + tools)
 Guide: docs/llm_feeder.md (beginner-proof; add-only; no runtime LLM).
 Reproduce CI's smoke locally (sanity-check headers/enums):
@@ -187,10 +276,14 @@ Troubleshooting
 - Import error in tests (cannot find app): run from repo root with an active venv.
 - CI fails on feeder smoke: verify tests/data/review_smoke.csv headers and anchor enums.
 - Engine behavior: confirm edge overrides (e.g., romantic apology → Affection/Support) are honored in selection_engine.py per edge_registers.json.
+- Phase 3.1 test failures: Verify imports match actual exports (e.g., OTP_DAILY_CAP_PER_EMAIL not DAILY_OTP_CAP); mock paths match import locations (e.g., @patch('app.db.get_supabase_client')); test data uses whitelisted values.
+
 Contribution notes
 - Keep changes additive in app/rules/emotion_keywords.json (Phase 1.4 policy).
 - Do not weaken the rails (public schema, 3 cards, boundaries, apology context).
 - If you touch rules or tests, run the feeder smoke command above before pushing.
+- Phase 3.1: catalog.json remains FROZEN; user/memory data in separate tables only.
+- Phase 3.1: Selection invariance must hold (memory affects ordering/copy, not SKU IDs).
 
 Working Rules:
 Active doc rule: When multiple versions exist in this project thread, the last uploaded file with the same base name is the authoritative version unless a different version is explicitly referenced in the task.
@@ -198,10 +291,11 @@ Active doc rule: When multiple versions exist in this project thread, the last u
 - All reviewer feedback must be consolidated into **a single, comprehensive package per revision** (MUST-FIX + Polishes + Nits).
 - Subsequent feedback is allowed **only** for:
   1) P0 correctness/security/privacy issues, or
-  2) Conflicts with constitutional rails (1.6, 1.7, 2.1, 2.3, 2.5).
+  2) Conflicts with constitutional rails (1.6, 1.7, 2.1, 2.3, 2.5, 3.1).
 - Otherwise, the artifact ships and iteration moves to the next version tag.
 
 Release tags
 v1.6 — Catalog Schema Freeze (p1.6-schema-freeze)
 v1.6A — Selection Engine Corrections & Observability (PRs 1–8)
 v1.6B — Session-Based Rotation Fix (p1.6b-session-rotation)
+v3.1 — User Accounts & Memory Foundations (p3.1-user-accounts-memory)
